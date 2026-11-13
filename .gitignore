@@ -1,0 +1,22 @@
+# ===== 보안: API 키는 절대 저장소에 올리지 않는다 =====
+.env
+.env.*
+!.env.example
+
+# ===== 데이터: 원본·대용량 파일은 저장소에서 제외 =====
+data/raw/
+data/processed/*.db
+data/vectordb/
+*.sqlite
+*.db
+
+# ===== Python =====
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# ===== 기타 =====
+.DS_Store
+.streamlit/secrets.toml

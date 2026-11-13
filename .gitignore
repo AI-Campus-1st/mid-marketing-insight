@@ -20,3 +20,8 @@ venv/
 # ===== 기타 =====
 .DS_Store
 .streamlit/secrets.toml
+
+중간프로젝트_가이드_뉴스공시_산업이슈_대시보드.md
+
+# ===== 분석 결과·LLM 캐시 (저장소 제외) =====
+data/processed/

@@ -42,14 +42,18 @@ cp .env.example .env   # .env 에 DART_API_KEY, LLM API 키 입력
 ## 실행 순서
 
 1. DB 생성: `sqlite3 data/processed/project.db < schema.sql`
-2. 뉴스 적재: `python collect/load_news.py` → `python collect/load_news_supplement.py`
+2. 뉴스 적재: `python collect/load_news.py`
+   - 보강 기사: `python collect/supplement_search.py` → `python collect/supplement_fetch.py` → `python collect/load_news_supplement.py`
+   - 기업 뉴스룸: `python collect/newsroom_collect.py`
 3. 공시 수집: `python collect/dart_collect.py` → `python collect/dart_document.py` (재실행 시 이미 받은 파일은 건너뜀)
 4. 전처리·EDA: `python analysis/preprocess.py`, `analysis/eda.ipynb`
 5. 공시 청킹·AI 분류: `python rag/chunk.py` → `python rag/classify_chunks.py`
-6. 뉴스 LLM 분류·앵커 이벤트: `python analysis/classify_news.py` → `python analysis/anchor_events.py`
-7. 반영 시차·지표: `python analysis/lag.py` → `python analysis/metrics.py`
-8. VectorDB 구축: `python rag/build_index.py`
-9. 대시보드 실행: `streamlit run dashboard/app.py`
+6. 앵커 이벤트: `python analysis/event_review_sheet.py` → `python analysis/event_classify.py` → 검토 시트에서 네이버만 있는 묶음 사람 판정 → `python analysis/event_review_sheet.py --export` → `python analysis/anchor_events.py`
+   - 네이버 검색 API 약관상 네이버 기사는 LLM 에 넣지 않고, 원본은 수집 후 21일 안에 정리합니다 ([decisions.md](docs/decisions.md))
+7. 뉴스 LLM 분류: `python analysis/classify_news.py`
+8. 반영 시차·지표: `python analysis/lag.py` → `python analysis/metrics.py`
+9. VectorDB 구축: `python rag/build_index.py`
+10. 대시보드 실행: `streamlit run dashboard/app.py`
 
 > 파일명은 기획안 기준 초안이며 구현하면서 업데이트합니다.
 

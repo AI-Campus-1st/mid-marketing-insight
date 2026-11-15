@@ -1,34 +1,44 @@
-"""
-프로젝트 공통 설정 모듈.
+"""공통 설정: 경로, 수집 기간, DB 위치, 요청 규칙, API 키
 
-모든 수집·분석 스크립트가 이 파일에서 경로와 기간을 가져온다.
-경로를 한 곳에서 관리하면 폴더 구조가 바뀌어도 이 파일만 고치면 된다.
-
-사용처: collect/*.py, analysis/*.py, rag/*.py, dashboard/*.py
+모든 스크립트는 경로·기간을 직접 적지 않고 여기서 가져다 쓴다.
+API 키는 코드에 쓰지 않고 .env 에서 읽는다.
 """
-from pathlib import Path
+
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-# 프로젝트 루트: 이 파일(config/settings.py)의 한 단계 위 폴더
-ROOT = Path(__file__).resolve().parent.parent
+# ── 경로 ──────────────────────────────────────────────
+ROOT = Path(__file__).resolve().parents[1]
+CONFIG_DIR = ROOT / "config"
+DATA_DIR = ROOT / "data"
+RAW_DIR = DATA_DIR / "raw"
 
-# .env 파일에서 API 키를 읽어 환경변수로 등록한다. (키는 코드에 직접 쓰지 않는다)
+RAW_NEWS_DIR = RAW_DIR / "news"                 # 제공 뉴스 CSV
+SUPPLEMENT_DIR = RAW_DIR / "news_supplement"    # 앵커 이벤트 보강 기사
+RAW_DART_DIR = RAW_DIR / "dart"                 # DART 응답 원본
+
+DB_PATH = DATA_DIR / "processed" / "project.db"
+VECTORDB_DIR = DATA_DIR / "vectordb"
+COMPANIES_CSV = CONFIG_DIR / "companies.csv"    # 분석 대상 8개사 (dart_corp_code.py 가 생성)
+
+# ── 수집 기간 (제공 뉴스와 동일, 공시도 같은 기간) ─────────
+PERIOD_START = "2023-10-19"
+PERIOD_END = "2026-10-19"
+
+# ── 분석 공통 ────────────────────────────────────────
+AI_TERM_PATTERN = r"AI|인공지능|생성형|LLM|GPT"
+
+# ── 외부 요청 규칙 ────────────────────────────────────
+USER_AGENT = "Mozilla/5.0 (compatible; mid-marketing-insight/0.1; portfolio research)"
+REQUEST_DELAY_SEC = 1.0   # 같은 사이트 연속 요청 사이 대기
+REQUEST_TIMEOUT_SEC = 15
+
+# ── API 키 (.env 에서 읽음) ───────────────────────────
 load_dotenv(ROOT / ".env")
 DART_API_KEY = os.getenv("DART_API_KEY")
 
-# ----- 경로 -----
-DATA_RAW = ROOT / "data" / "raw"
-DART_RAW = DATA_RAW / "dart"            # DART API 응답 원본 저장 위치
-DATA_PROCESSED = ROOT / "data" / "processed"
-DB_PATH = DATA_PROCESSED / "project.db"
-COMPANIES_CSV = ROOT / "config" / "companies.csv"
-
-# ----- 수집 기간 (뉴스 데이터와 동일하게 맞춘다) -----
-START_DATE = "20231019"
-END_DATE = "20261019"
-
-# ----- DART API -----
+# ── DART API ─────────────────────────────────────────
 DART_BASE_URL = "https://opendart.fss.or.kr/api"
-REQUEST_DELAY_SEC = 0.7                 # 호출 제한을 고려한 요청 간 대기 시간
+DART_RAW = RAW_DART_DIR   # dart_corp_code.py 에서 쓰는 이름

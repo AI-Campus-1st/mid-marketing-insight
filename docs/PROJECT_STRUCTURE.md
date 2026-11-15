@@ -16,11 +16,15 @@ mid-marketing-insight/
 ├── .gitignore                 # [공동·D1] .env, data/raw/, DB 파일 제외
 │
 ├── config/
-│   ├── settings.py            # [공동·D1] 경로, 수집 기간, DB 위치, AI 용어 정규표현식
-│   └── companies.csv          # [B·D1] 대상 5개사 (corp_code, stock_code, parent_group, segment, is_control)
+│   ├── settings.py            # [공동·D1] 경로, 수집 기간, DB 위치, AI 용어 정규표현식, 요청 규칙
+│   ├── companies.csv          # [B·D1] 대상 5개사 (corp_code, stock_code, parent_group, segment, is_control)
+│   └── anchor_queries.csv     # [A·D1] 앵커 이벤트 보강 검색어 (기업, 검색어, 목적)
 │
 ├── collect/                   # ── 수집·적재 계층 ──
 │   ├── load_news.py           # [A·D2] 제공 뉴스 CSV → documents (news_origin='provided'), 중복 표시
+│   ├── supplement_search.py   # [A·D2] 네이버 검색 API → 보강 후보 기사 목록 (원본 JSON 저장)
+│   ├── supplement_fetch.py    # [A·D2] robots.txt 확인 → 언론사 원문에서 전문 추출
+│   ├── newsroom_collect.py    # [A·D2] 기업 뉴스룸 4곳 보도자료 수집 (회사 "주장"의 1차 출처, 공식 발표일)
 │   ├── load_news_supplement.py# [A·D2~4] 보강 기사 CSV → documents (news_origin='supplement')
 │   ├── dart_corp_code.py      # [B·D1] corpCode.xml 내려받기 → 5개사 corp_code 확인
 │   ├── dart_collect.py        # [B·D2] 공시 목록(list.json) 수집, 원본 저장, 재실행 가능
@@ -31,7 +35,9 @@ mid-marketing-insight/
 │   ├── eda.ipynb              # [A·D3] 기사량 추이, 급증 시점, 기업별 언급
 │   ├── disclosure_eda.ipynb   # [B·D3] 공시 건수 추이, 유형 분포, AI 언급 집계
 │   ├── classify_news.py       # [A·D4] LLM 관련도·AI 관련·감성·이슈 키워드 → llm_results
-│   ├── anchor_events.py       # [A·D4] 기업별 앵커 이벤트 → ai_events (event_*, search_terms)
+│   ├── event_review_sheet.py  # [A·D3] 제공·네이버·뉴스룸·웹 기사를 사건 묶음으로 → 검토 시트 (규칙 기반, AI 미사용)
+│   ├── event_classify.py      # [A·D3] 검토 시트 LLM 1차 판정 (네이버 외 출처 본문만 입력)
+│   ├── anchor_events.py       # [A·D4] 확정 이벤트 → ai_events (event_*, search_terms)
 │   ├── prompts/
 │   │   ├── news_classify_v1.txt     # [A·D4] 뉴스 분류 프롬프트 (버전별 보관)
 │   │   └── ai_stage_domain_v1.txt   # [B·D4] 공시 단계·영역 분류 프롬프트
@@ -58,10 +64,18 @@ mid-marketing-insight/
 ├── data/                      # (저장소 제외)
 │   ├── raw/
 │   │   ├── news/              # 제공 뉴스 CSV 원본
-│   │   ├── news_supplement/   # 앵커 이벤트 보강 기사 CSV (웹 검색으로 직접 정리)
+│   │   ├── news_supplement/   # 앵커 이벤트 보강 기사 (네이버 원본은 약관상 2026-12-04 무렵까지 정리)
+│   │   │   ├── naver/         # 검색 API 원본 JSON(raw/), 후보 목록(candidates.csv)
+│   │   │   ├── html/          # 언론사 원문 HTML (재실행 시 재사용)
+│   │   │   ├── review/        # 이벤트 검토 시트(event_review_sheet.csv), 묶음 구성(cluster_members.csv)
+│   │   │   ├── supplement_news.csv   # 전문 추출 결과 (제공 뉴스와 같은 컬럼 + 기업명, fetch_status)
+│   │   │   └── anchor_supplement.csv # 수동 확인한 앵커 기사 7건 (수집 코드 검증용 정답지)
+│   │   ├── newsroom/          # 기업 뉴스룸 보도자료 (newsroom_news.csv, html/)
 │   │   └── dart/              # DART API 응답 원본 (JSON, ZIP)
 │   ├── processed/
-│   │   └── project.db         # SQLite DB
+│   │   ├── project.db         # SQLite DB
+│   │   ├── llm_cache/         # LLM 응답 캐시 (프롬프트 버전별)
+│   │   └── anchor_events_confirmed.csv  # 확정 앵커 이벤트 (네이버 데이터 미포함)
 │   └── vectordb/              # Chroma 파일
 │
 └── docs/
@@ -77,7 +91,9 @@ mid-marketing-insight/
 flowchart LR
     subgraph 수집["collect/"]
         N[제공 뉴스 CSV] --> LN[load_news.py]
-        S[보강 기사 CSV] --> LS[load_news_supplement.py]
+        NAPI[네이버 검색 API] --> SS[supplement_search.py] --> SF[supplement_fetch.py<br/>언론사 원문]
+        SF --> LS[load_news_supplement.py]
+        NR[기업 뉴스룸] --> NC[newsroom_collect.py]
         DART[DART OpenAPI] --> DC[dart_collect.py<br/>dart_document.py]
     end
 
@@ -89,7 +105,11 @@ flowchart LR
     subgraph 뉴스분석["analysis/ (A)"]
         DB --> PP[preprocess.py] --> CL[classify_news.py]
         CL --> LR[(llm_results)]
-        PP --> AE[anchor_events.py]
+        PP --> RS[event_review_sheet.py<br/>사건 묶음]
+        NC --> RS
+        SF --> RS
+        RS --> EC[event_classify.py<br/>LLM: 네이버 외] --> HR{{사람 판정<br/>네이버만 있는 묶음}}
+        HR --> AE[anchor_events.py]
     end
 
     subgraph 공시분석["rag/ (B)"]
@@ -125,6 +145,6 @@ flowchart LR
 
 | 담당 | 주요 파일 |
 |---|---|
-| A (뉴스·이슈 분석) | `load_news.py`, `load_news_supplement.py`, `preprocess.py`, `eda.ipynb`, `classify_news.py`, `anchor_events.py`, `q1_issue_trend.py`, `q2_sentiment.py` |
+| A (뉴스·이슈 분석) | `anchor_queries.csv`, `load_news.py`, `supplement_search.py`, `supplement_fetch.py`, `newsroom_collect.py`, `load_news_supplement.py`, `preprocess.py`, `eda.ipynb`, `event_review_sheet.py`, `event_classify.py`, `classify_news.py`, `anchor_events.py`, `q1_issue_trend.py`, `q2_sentiment.py` |
 | B (공시·RAG) | `companies.csv`, `dart_corp_code.py`, `dart_collect.py`, `dart_document.py`, `disclosure_eda.ipynb`, `chunk.py`, `classify_chunks.py`, `build_index.py`, `qa_chain.py`, `q3_disclosure.py`, `qa.py` |
 | 공동 | `schema.sql`, `settings.py`, `review.py`, `lag.py`, `metrics.py`, `app.py`, `data_loader.py`, `decisions.md` |

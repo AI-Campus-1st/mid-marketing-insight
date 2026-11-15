@@ -71,10 +71,15 @@ mid-marketing-insight/
 │   │   │   ├── supplement_news.csv   # 전문 추출 결과 (제공 뉴스와 같은 컬럼 + 기업명, fetch_status)
 │   │   │   └── anchor_supplement.csv # 수동 확인한 앵커 기사 7건 (수집 코드 검증용 정답지)
 │   │   ├── newsroom/          # 기업 뉴스룸 보도자료 (newsroom_news.csv, html/)
-│   │   └── dart/              # DART API 응답 원본 (JSON, ZIP)
+│   │   └── dart/              # DART API 응답 원본
+│   │       ├── corpCode.zip       # 전체 기업 고유번호 (dart_corp_code.py)
+│   │       ├── list/              # 공시 목록 원본 JSON (기업·유형·페이지별)
+│   │       ├── disclosure_list.csv# 공시 목록 합본 (pblntf_ty, is_correction, dart_url 포함)
+│   │       └── document/          # 정기공시 원문 ZIP ({rcept_no}.zip)
 │   ├── processed/
 │   │   ├── project.db         # SQLite DB
 │   │   ├── llm_cache/         # LLM 응답 캐시 (프롬프트 버전별)
+│   │   ├── dart_text/         # 정기공시 원문 텍스트 ({rcept_no}.txt, 목차 제목은 '## ' 줄)
 │   │   └── anchor_events_confirmed.csv  # 확정 앵커 이벤트 (네이버 데이터 미포함)
 │   └── vectordb/              # Chroma 파일
 │

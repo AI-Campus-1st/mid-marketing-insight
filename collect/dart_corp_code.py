@@ -1,9 +1,9 @@
 """
-[B · Day 1] DART 고유번호(corp_code) 확인 스크립트.
+[B·D1] DART 고유번호(corp_code) 확인 스크립트.
 
 하는 일
     1. DART에서 전체 기업 고유번호 파일(corpCode.xml, ZIP)을 내려받아 원본으로 저장한다.
-    2. 분석 대상 8개사를 '종목코드'로 찾아 corp_code와 DART 등록 회사명을 확인한다.
+    2. 분석 대상 5개사를 '종목코드'로 찾아 corp_code와 DART 등록 회사명을 확인한다.
     3. 결과를 config/companies.csv 로 저장한다. (스키마의 companies 테이블과 같은 컬럼)
 
 왜 종목코드로 찾나
@@ -28,19 +28,19 @@ import pandas as pd
 import requests
 
 # config 폴더를 불러오기 위해 프로젝트 루트를 경로에 추가
-sys.path.append(str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from config.settings import COMPANIES_CSV, DART_API_KEY, DART_BASE_URL, DART_RAW  # noqa: E402
 
-# 분석 대상 8개사: (종목코드, 기획안의 회사명, 유형, 핵심 기업 여부)
+# 분석 대상 5개사: (종목코드, 기획안의 회사명, 모그룹, 유형, 대조군 여부)
+# 유형(segment)은 기획안 4절 비교 프레임 기준: 대형 종합대행 vs 디지털 대행·미디어렙
 TARGETS = [
-    ("030000", "제일기획", "종합대행사", 1),
-    ("214320", "이노션", "종합대행사", 0),
-    ("035000", "HS애드", "종합대행사", 0),
-    ("089600", "KT나스미디어", "미디어렙", 1),
-    ("216050", "인크로스", "미디어렙", 0),
-    ("237820", "플레이디", "퍼포먼스", 0),
-    ("035420", "NAVER", "플랫폼", 1),
-    ("035720", "카카오", "플랫폼", 0),
+    ("030000", "제일기획", "삼성", "종합대행", 0),
+    ("214320", "이노션", "현대차", "종합대행", 0),
+    ("237820", "플레이디", "SOOP", "디지털대행", 0),
+    ("216050", "인크로스", "SK스퀘어", "미디어렙", 0),
+    ("089600", "나스미디어", "KT", "미디어렙", 0),
+    # 대조군(선택): 에코마케팅. 추가하려면 아래 줄의 주석을 푼다.
+    # ("230360", "에코마케팅", None, "디지털대행", 1),
 ]
 
 ZIP_PATH = DART_RAW / "corpCode.zip"
@@ -101,21 +101,19 @@ def parse_corp_code(zip_bytes: bytes) -> pd.DataFrame:
 
 def match_targets(listed: pd.DataFrame) -> pd.DataFrame:
     """
-    분석 대상 8개사를 종목코드로 찾아 companies.csv 형식으로 만든다.
+    분석 대상 5개사를 종목코드로 찾아 companies.csv 형식으로 만든다.
     찾지 못한 회사는 corp_code 를 비워 두고 경고를 출력한다.
     """
     by_code = listed.set_index("stock_code")
     out = []
-    for stock_code, plan_name, ctype, is_core in TARGETS:
-        if stock_code in by_code.index:
-            hit = by_code.loc[stock_code]
-            out.append({"corp_code": hit["corp_code"], "corp_name": hit["corp_name"],
-                        "stock_code": stock_code, "company_type": ctype, "is_core": is_core,
-                        "plan_name": plan_name})
-        else:
+    for stock_code, plan_name, group, segment, is_control in TARGETS:
+        hit = by_code.loc[stock_code] if stock_code in by_code.index else None
+        if hit is None:
             print(f"[확인 필요] {plan_name}({stock_code}) 를 DART 상장사 목록에서 찾지 못했습니다.")
-            out.append({"corp_code": "", "corp_name": "", "stock_code": stock_code,
-                        "company_type": ctype, "is_core": is_core, "plan_name": plan_name})
+        out.append({"corp_code": "" if hit is None else hit["corp_code"],
+                    "corp_name": "" if hit is None else hit["corp_name"],
+                    "stock_code": stock_code, "parent_group": group, "segment": segment,
+                    "is_control": is_control, "plan_name": plan_name})
     return pd.DataFrame(out)
 
 

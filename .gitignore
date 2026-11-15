@@ -6,6 +6,7 @@
 # ===== 데이터: 원본·대용량 파일은 저장소에서 제외 =====
 data/raw/
 data/processed/*.db
+data/processed/dart_text/
 data/vectordb/
 *.sqlite
 *.db

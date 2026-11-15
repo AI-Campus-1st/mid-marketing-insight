@@ -21,7 +21,7 @@ RAW_DART_DIR = RAW_DIR / "dart"                 # DART 응답 원본
 
 DB_PATH = DATA_DIR / "processed" / "project.db"
 VECTORDB_DIR = DATA_DIR / "vectordb"
-COMPANIES_CSV = CONFIG_DIR / "companies.csv"    # 분석 대상 8개사 (dart_corp_code.py 가 생성)
+COMPANIES_CSV = CONFIG_DIR / "companies.csv"    # 분석 대상 5개사 (dart_corp_code.py 가 생성)
 
 # ── 수집 기간 (제공 뉴스와 동일, 공시도 같은 기간) ─────────
 PERIOD_START = "2023-10-19"

@@ -58,10 +58,15 @@ CLEAN_RULES = [
 TAIL_FROM = 0.6   # tail 규칙: 본문 길이의 60% 지점 이후에서 시작하는 매칭만
 
 
+def as_text(x) -> str:
+    """문자열이 아니면 '' (pandas 3 은 빈 문자열 칸을 None 이 아니라 NaN(float)으로 읽어 `x or ''` 로는 못 거름)"""
+    return x if isinstance(x, str) else ""
+
+
 def clean_body(body: str | None) -> tuple[str | None, list[dict]]:
     """정제 본문과 지운 구간 목록 [{rule, start, end, text}] (start·end 는 원문 기준 위치)"""
-    if not body:
-        return body, []
+    if not as_text(body):
+        return None, []
     spans = []
     for name, pat, where in CLEAN_RULES:
         if where == "head":
@@ -106,7 +111,7 @@ CORP_RE = {corp: re.compile("|".join(sorted(aliases, key=len, reverse=True)))
 
 
 def tag(title: str, body_clean: str | None) -> dict:
-    body_clean = body_clean or ""
+    body_clean = as_text(body_clean)
     ai_terms = AI_RE.findall(title) + AI_RE.findall(body_clean)
     corps = {}
     for corp, pat in CORP_RE.items():
@@ -138,7 +143,7 @@ def run(df: pd.DataFrame) -> tuple[pd.DataFrame, list[dict]]:
         rows.append({
             "doc_id": r.doc_id, "published_date": r.published_date, "media": r.media,
             "is_duplicate": r.is_duplicate, "title": r.title, "body_clean": body_clean,
-            "len_raw": len(r.body or ""), "len_clean": len(body_clean or ""),
+            "len_raw": len(as_text(r.body)), "len_clean": len(as_text(body_clean)),
             "removed_rules": "; ".join(sp["rule"] for sp in spans),
             "ai_in_title": t["ai_in_title"], "ai_count": t["ai_count"], "ai_terms": t["ai_terms"],
             "corps": "; ".join(t["corps"]),

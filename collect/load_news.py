@@ -10,7 +10,8 @@
 - 문서종류는 전부 'news' 라 저장하지 않는다.
 - category: 가이드 2-3절의 키워드 → 카테고리 표 (수집키워드가 여럿이면 카테고리도 '; ' 로 합침)
 - 중복 (가장 이른 기사만 is_duplicate = 0, 원문URL 은 기준으로 쓰지 않음 — 서로 다른 기사에 같은 URL 사례 있음):
-  ① 같은 정규화 제목 + 같은 본문 해시  ② 같은 매체 + 같은 정규화 제목 + 7일 이내 (수정·재송고)
+  ① 같은 정규화 제목 + 같은 본문 해시  ② 같은 매체 + 같은 정규화 제목 + 24시간 이내 (수정·재송고)
+  ② 는 처음 7일 → 사람 검수(규칙 ② 12쌍, X 4 = 모두 다른 날 다시 실은 기사) 반영해 24시간 (decisions.md)
   다른 매체가 같은 보도자료를 실은 기사는 별개 기사로 센다 (decisions.md)
 - 본문 결측: 행은 적재하고 body = NULL. 기사량 집계(Q1)에는 포함, 본문이 필요한 LLM 분석(Q2)에서는 제외.
 - 재실행 가능: doc_id 기준 upsert. 공시 행(source_type = 'disclosure')은 건드리지 않는다.
@@ -58,6 +59,9 @@ def to_category(keyword: str) -> str | None:
     return "; ".join(cats) or None
 
 
+SAME_MEDIA_WINDOW = pd.Timedelta(hours=24)   # 규칙 ② 기간
+
+
 def body_hash(body) -> str | None:
     if not isinstance(body, str) or not body.strip():
         return None
@@ -83,7 +87,8 @@ def build_rows(raw: pd.DataFrame) -> pd.DataFrame:
 
     # 중복 규칙 (가장 이른 기사만 남김)
     #  ① 같은 정규화 제목 + 같은 본문 → 같은 기사가 두 번 수집된 것
-    #  ② 같은 매체 + 같은 정규화 제목 + 7일 이내 → 같은 매체의 수정·재송고 기사 (본문이 조금 다름)
+    #  ② 같은 매체 + 같은 정규화 제목 + 24시간 이내 → 같은 매체의 수정·재송고 기사 (본문이 조금 다름)
+    #     다른 날 다시 실은 기사는 별도 노출로 센다 (사람 검수: 39시간·5일·7일 재게재를 '다른 기사'로 판정)
     #  다른 매체가 같은 보도자료를 실은 기사는 별개 기사로 본다 (기사량에 포함)
     df["is_duplicate"] = 0
     has_body = df["body_hash"].notna()
@@ -95,7 +100,7 @@ def build_rows(raw: pd.DataFrame) -> pd.DataFrame:
         if len(g) < 2:
             continue
         first = ts[g.index[0]]  # 이미 날짜순 정렬
-        later = [i for i in g.index[1:] if (ts[i] - first).days <= 7]
+        later = [i for i in g.index[1:] if ts[i] - first <= SAME_MEDIA_WINDOW]
         df.loc[later, "is_duplicate"] = 1
     return df
 

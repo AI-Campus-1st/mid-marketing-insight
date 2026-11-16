@@ -18,13 +18,14 @@ mid-marketing-insight/
 ├── config/
 │   ├── settings.py            # [공동·D1] 경로, 수집 기간, DB 위치, AI 용어 정규표현식, 요청 규칙
 │   ├── companies.csv          # [B·D1] 대상 5개사 (corp_code, stock_code, parent_group, segment, is_control)
-│   └── anchor_queries.csv     # [A·D1] 앵커 이벤트 보강 검색어 (기업, 검색어, 목적)
+│   ├── anchor_queries.csv     # [A·D1] 앵커 이벤트 보강 검색어 (기업, 검색어, 목적)
+│   └── ai_levels.py           # [공동·D2] AI 단계 L0~L3 정의·경계 규칙 (뉴스·공시 공통, 프롬프트에 그대로 사용)
 │
 ├── collect/                   # ── 수집·적재 계층 ──
 │   ├── load_news.py           # [A·D2] 제공 뉴스 CSV → documents (news_origin='provided'), 중복 표시
 │   ├── supplement_search.py   # [A·D2] 네이버 검색 API → 보강 후보 기사 목록 (원본 JSON 저장)
 │   ├── supplement_fetch.py    # [A·D2] robots.txt 확인 → 언론사 원문에서 전문 추출
-│   ├── newsroom_collect.py    # [A·D2] 기업 뉴스룸 4곳 보도자료 수집 (회사 "주장"의 1차 출처, 공식 발표일)
+│   ├── newsroom_collect.py    # [A·D2] 기업 뉴스룸 보도자료 수집 — 미사용 (Day 3 A·B 합의, decisions.md)
 │   ├── load_news_supplement.py# [A·D2~4] 보강 기사 CSV → documents (news_origin='supplement')
 │   ├── dart_corp_code.py      # [B·D1] corpCode.xml 내려받기 → 5개사 corp_code 확인
 │   ├── dart_collect.py        # [B·D2] 공시 목록(list.json) 수집, 원본 저장 → companies·documents(메타데이터) 적재, 재실행 가능
@@ -35,12 +36,12 @@ mid-marketing-insight/
 │   ├── eda.ipynb              # [A·D3] 기사량 추이, 급증 시점, 기업별 언급
 │   ├── disclosure_eda.ipynb   # [B·D3] 공시 건수 추이, 유형 분포, AI 언급 집계
 │   ├── classify_news.py       # [A·D4] LLM 관련도·AI 관련·감성·이슈 키워드 → llm_results
-│   ├── event_review_sheet.py  # [A·D3] 제공·네이버·뉴스룸·웹 기사를 사건 묶음으로 → 검토 시트 (규칙 기반, AI 미사용)
+│   ├── event_review_sheet.py  # [A·D3] 제공·네이버·웹 기사를 사건 묶음으로 → 검토 시트 (규칙 기반, AI 미사용)
 │   ├── event_classify.py      # [A·D3] 검토 시트 LLM 1차 판정 (네이버 외 출처 본문만 입력)
 │   ├── anchor_events.py       # [A·D4] 확정 이벤트 → ai_events (event_*, search_terms)
 │   ├── prompts/
 │   │   ├── news_classify_v1.txt     # [A·D4] 뉴스 분류 프롬프트 (버전별 보관)
-│   │   └── ai_stage_domain_v1.txt   # [B·D4] 공시 단계·영역 분류 프롬프트
+│   │   └── ai_level_domain_v1.txt   # [B·D4] 공시 단계(L0~L3, config/ai_levels.py)·영역 분류 프롬프트
 │   ├── review.py              # [공동·D4] 표본 추출, 검수 결과 → review_samples, 정확도 계산
 │   ├── lag.py                 # [공동·D5] 첫 공시 반영 → ai_events.first_*, lag_days
 │   └── metrics.py             # [공동·D5] AI 언급 밀도, AI 실행률, 평균 반영 시차
@@ -64,13 +65,10 @@ mid-marketing-insight/
 ├── data/                      # (저장소 제외)
 │   ├── raw/
 │   │   ├── news/              # 제공 뉴스 CSV 원본
-│   │   ├── news_supplement/   # 앵커 이벤트 보강 기사 (네이버 원본은 약관상 2026-12-04 무렵까지 정리)
-│   │   │   ├── naver/         # 검색 API 원본 JSON(raw/), 후보 목록(candidates.csv)
-│   │   │   ├── html/          # 언론사 원문 HTML (재실행 시 재사용)
-│   │   │   ├── review/        # 이벤트 검토 시트(event_review_sheet.csv), 묶음 구성(cluster_members.csv)
-│   │   │   ├── supplement_news.csv   # 전문 추출 결과 (제공 뉴스와 같은 컬럼 + 기업명, fetch_status)
+│   │   ├── news_supplement/   # 앵커 이벤트 보강 기사
 │   │   │   └── anchor_supplement.csv # 수동 확인한 앵커 기사 7건 (수집 코드 검증용 정답지)
-│   │   ├── newsroom/          # 기업 뉴스룸 보도자료 (newsroom_news.csv, html/)
+│   │   │   ※ 네이버 검색 원본(naver/, html/, review/, supplement_news.csv)은 약관에 따라 2026-11-16 삭제.
+│   │   │     수집 스크립트를 다시 돌리면 같은 위치에 생기고, 확정 후 다시 정리한다 (decisions.md)
 │   │   └── dart/              # DART API 응답 원본
 │   │       ├── corpCode.zip       # 전체 기업 고유번호 (dart_corp_code.py)
 │   │       ├── list/              # 공시 목록 원본 JSON (기업·유형·페이지별)
@@ -78,15 +76,20 @@ mid-marketing-insight/
 │   │       └── document/          # 정기공시 원문 ZIP ({rcept_no}.zip)
 │   ├── processed/
 │   │   ├── project.db         # SQLite DB
-│   │   ├── llm_cache/         # LLM 응답 캐시 (프롬프트 버전별)
+│   │   ├── llm_cache/         # LLM 응답 캐시 (프롬프트·입력 버전별)
 │   │   ├── dart_text/         # 정기공시 원문 텍스트 ({rcept_no}.txt, 목차 제목은 '## ' 줄)
 │   │   ├── disclosure_counts_quarterly.csv  # 기업별·분기별 공시 건수 (disclosure_eda → A 탭 1 차트)
-│   │   └── anchor_events_confirmed.csv  # 확정 앵커 이벤트 (네이버 데이터 미포함)
+│   │   ├── anchor_events.csv            # ★ 고유 앵커 이벤트 30개 (B 에게 넘기는 목록)
+│   │   ├── anchor_events_confirmed.csv  # 확정 판정 95행 + event_id (어느 행이 어느 이벤트로 묶였는지)
+│   │   └── review_logs/       # 판정 기록(제목·URL 제외), LLM 판정 AI 2차 검토 표본
 │   └── vectordb/              # Chroma 파일
 │
 └── docs/
     ├── AI 마케팅 이슈 × 공시 분석 대시보드 기획안.md
     ├── decisions.md           # [공동·매일] 설계 결정 기록
+    ├── ai_level_guide.md      # [공동·D2] AI 단계 L0~L3 설명·예시·검수 방법
+    ├── dart_ai_check.md       # [B·D2] 확인 지점 ①: 사업보고서 AI 문장 점검
+    ├── 실행 설계서 - 뉴스 보강·이벤트 매칭.md  # [A·D2] 수집·이벤트·매칭 설계와 상의 안건
     ├── PROJECT_STRUCTURE.md   # [공동] 이 문서
     └── report/                # [공동·D7] 리포트, 발표 자료
 ```
@@ -99,7 +102,6 @@ flowchart LR
         N[제공 뉴스 CSV] --> LN[load_news.py]
         NAPI[네이버 검색 API] --> SS[supplement_search.py] --> SF[supplement_fetch.py<br/>언론사 원문]
         SF --> LS[load_news_supplement.py]
-        NR[기업 뉴스룸] --> NC[newsroom_collect.py]
         DART[DART OpenAPI] --> DC[dart_collect.py<br/>dart_document.py]
     end
 
@@ -112,7 +114,7 @@ flowchart LR
         DB --> PP[preprocess.py] --> CL[classify_news.py]
         CL --> LR[(llm_results)]
         PP --> RS[event_review_sheet.py<br/>사건 묶음]
-        NC --> RS
+
         SF --> RS
         RS --> EC[event_classify.py<br/>LLM: 네이버 외] --> HR{{사람 판정<br/>네이버만 있는 묶음}}
         HR --> AE[anchor_events.py]
@@ -151,6 +153,6 @@ flowchart LR
 
 | 담당 | 주요 파일 |
 |---|---|
-| A (뉴스·이슈 분석) | `anchor_queries.csv`, `load_news.py`, `supplement_search.py`, `supplement_fetch.py`, `newsroom_collect.py`, `load_news_supplement.py`, `preprocess.py`, `eda.ipynb`, `event_review_sheet.py`, `event_classify.py`, `classify_news.py`, `anchor_events.py`, `q1_issue_trend.py`, `q2_sentiment.py` |
+| A (뉴스·이슈 분석) | `anchor_queries.csv`, `load_news.py`, `supplement_search.py`, `supplement_fetch.py`, `load_news_supplement.py`, `preprocess.py`, `eda.ipynb`, `event_review_sheet.py`, `event_classify.py`, `classify_news.py`, `anchor_events.py`, `q1_issue_trend.py`, `q2_sentiment.py` |
 | B (공시·RAG) | `companies.csv`, `dart_corp_code.py`, `dart_collect.py`, `dart_document.py`, `disclosure_eda.ipynb`, `chunk.py`, `classify_chunks.py`, `build_index.py`, `qa_chain.py`, `q3_disclosure.py`, `qa.py` |
 | 공동 | `schema.sql`, `settings.py`, `review.py`, `lag.py`, `metrics.py`, `app.py`, `data_loader.py`, `decisions.md` |

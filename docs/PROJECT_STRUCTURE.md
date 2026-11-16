@@ -33,7 +33,9 @@ mid-marketing-insight/
 │   └── dart_document.py       # [B·D2] 정기공시 원문 내려받기 → 텍스트 추출(data/processed/dart_text/) → documents.body
 │
 ├── analysis/                  # ── 분석 계층 ──
-│   ├── preprocess.py          # [A·D3] 정규표현식 정제, 무관 기사 1차 규칙 필터, news_company 매칭
+│   ├── preprocess.py          # [A·D3] 정규표현식 정제, AI 용어·기업 태깅, news_company 매칭 (무관 기사 필터 예정)
+│   ├── preprocess_review.py   # [A·D3] 정제·태깅·중복 사람 검수 엑셀 생성 / 판정 집계(--score)
+│   ├── trend.py               # [A·D3] 월별 기사량·급증 판정 함수 (eda.ipynb·Q1 화면 공용)
 │   ├── eda.ipynb              # [A·D3] 기사량 추이, 급증 시점, 기업별 언급
 │   ├── disclosure_eda.ipynb   # [B·D3] 공시 건수 추이, 유형 분포, AI 언급 집계
 │   ├── classify_news.py       # [A·D4] LLM 관련도·AI 관련·감성·이슈 키워드 → llm_results

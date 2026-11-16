@@ -32,7 +32,15 @@ PERIOD_END = "2026-10-19"
 REFLECTION_CUTOFF = "2026-06-30"
 
 # ── 분석 공통 ────────────────────────────────────────
-AI_TERM_PATTERN = r"AI|인공지능|생성형|LLM|GPT"
+# AI 용어 정규표현식 (Day 3 확정, A·B 합의 — decisions.md)
+# - AI·LLM 과 AI 복합어는 앞뒤가 영문자가 아닐 때만 인정 → KAIST·KAI·HYUNDAI·THAILAND 같은 영문 단어 속 글자 오탐 제거
+# - AI 복합어(GenAI, OpenAI, AICC 등)는 목록으로 살림 → 경계 규칙 때문에 진짜 AI 용어를 버리지 않도록
+# - GPT 는 경계 없음 (ChatGPT 포함). 그룹은 비캡처(?:) → pandas str.contains 경고 없음
+AI_COMPOUND_TERMS = ["AI", "LLM", "sLLM", "GenAI", "OpenAI", "xAI", "AIoT", "AIGC", "AICC", "AIDC", "CAIO"]
+AI_TERM_PATTERN = (
+    r"(?<![A-Za-z])(?:" + "|".join(AI_COMPOUND_TERMS) + r")(?![A-Za-z])"
+    r"|GPT|인공지능|생성형"
+)
 
 # ── 외부 요청 규칙 ────────────────────────────────────
 USER_AGENT = "Mozilla/5.0 (compatible; mid-marketing-insight/0.1; portfolio research)"

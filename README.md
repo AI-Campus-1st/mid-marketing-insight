@@ -3,7 +3,7 @@
 생성형 AI가 광고대행 산업을 어떻게 바꾸고 있는지, 뉴스 이슈와 DART 공시를 비교해
 **"말뿐인 AI인가, 실행하는 AI인가"** 를 판단하는 Streamlit 대시보드입니다.
 
-- **대상:** 제일기획 · 이노션 · 플레이디 · 인크로스 · 나스미디어 (5개사)
+- **대상:** 제일기획 · 이노션 · 플레이디 · 인크로스 · KT나스미디어 (5개사)
 - **사용자:** 디지털 광고대행사 신사업기획팀장 (메인), 광고주 마케팅 담당자 (서브, 대행사 1차 스크리닝)
 - **핵심 질문:** AI 마케팅 이슈는 언제 급증했고, 기업들은 공시에서 AI를 얼마나, 얼마나 구체적으로 언급하는가?
 
@@ -44,11 +44,10 @@ cp .env.example .env   # .env 에 DART_API_KEY, LLM API 키 입력
 1. DB 생성: `sqlite3 data/processed/project.db < schema.sql`
 2. 뉴스 적재: `python collect/load_news.py`
    - 보강 기사: `python collect/supplement_search.py` → `python collect/supplement_fetch.py` → `python collect/load_news_supplement.py`
-   - 기업 뉴스룸: `python collect/newsroom_collect.py`
 3. 공시 수집: `python collect/dart_collect.py` → `python collect/dart_document.py` (재실행 시 이미 받은 파일은 건너뜀)
 4. 전처리·EDA: `python analysis/preprocess.py`, `analysis/eda.ipynb`
 5. 공시 청킹·AI 분류: `python rag/chunk.py` → `python rag/classify_chunks.py`
-6. 앵커 이벤트: `python analysis/event_review_sheet.py` → `python analysis/event_classify.py` → 검토 시트에서 네이버만 있는 묶음 사람 판정 → `python analysis/event_review_sheet.py --export` → `python analysis/anchor_events.py`
+6. 앵커 이벤트: `python analysis/event_review_sheet.py` → `python analysis/event_classify.py` → `python analysis/event_review_sheet.py --make-review` → to_review.csv 사람 확인 → `--merge-review` → `--export` → `python analysis/anchor_events.py`
    - 네이버 검색 API 약관상 네이버 기사는 LLM 에 넣지 않고, 원본은 수집 후 21일 안에 정리합니다 ([decisions.md](docs/decisions.md))
 7. 뉴스 LLM 분류: `python analysis/classify_news.py`
 8. 반영 시차·지표: `python analysis/lag.py` → `python analysis/metrics.py`

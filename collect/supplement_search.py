@@ -88,7 +88,9 @@ def search(query: str, url: str, headers: dict, start_date: pd.Timestamp) -> lis
     return items
 
 
-def to_rows(items: list[dict], corp: str, query: str) -> list[dict]:
+def to_rows(items: list[dict], corp: str, query: str, title_keyword: str | None = None) -> list[dict]:
+    """title_keyword: 제목에 기업명이 있는지 볼 때 쓸 이름 (예: 표기는 KT나스미디어, 옛 기사 제목은 '나스미디어')"""
+    keyword = title_keyword if isinstance(title_keyword, str) and title_keyword else corp
     rows = []
     for it in items:
         title = clean(it.get("title"))
@@ -101,7 +103,7 @@ def to_rows(items: list[dict], corp: str, query: str) -> list[dict]:
                 "pub_date": parsedate_to_datetime(it["pubDate"]).replace(tzinfo=None),
                 "url": it.get("originallink") or it.get("link"),  # 원문(언론사) 링크 우선
                 "naver_link": it.get("link"),
-                "in_title": int(corp in title),
+                "in_title": int(keyword in title),
                 "title_norm": normalize_title(title),
                 "source": SOURCE,
             }
@@ -133,7 +135,8 @@ def main() -> None:
             raw_path.write_text(json.dumps(items, ensure_ascii=False, indent=1), encoding="utf-8")
             time.sleep(settings.REQUEST_DELAY_SEC)
 
-        rows = [r for r in to_rows(items, q.corp_name, q.query) if start_date <= r["pub_date"] < end_date]
+        rows = [r for r in to_rows(items, q.corp_name, q.query, getattr(q, "title_keyword", None))
+                if start_date <= r["pub_date"] < end_date]
         oldest = min((r["pub_date"] for r in rows), default=None)
         # 1,000건 한도에 걸려 수집 시작일까지 못 내려간 검색어 표시 (기간 편향 → 건수 비교에 쓰지 않음)
         capped = int(len(items) >= MAX_START and (oldest is None or oldest > start_date + pd.Timedelta(days=30)))

@@ -46,7 +46,7 @@ mid-marketing-insight/
 │   └── metrics.py             # [공동·D5] AI 언급 밀도, AI 실행률, 평균 반영 시차
 │
 ├── rag/                       # ── 공시 검색·질의응답 계층 ──
-│   ├── chunk.py               # [B·D3] 섹션 청킹, AI 용어 집계 → disclosure_chunks
+│   ├── chunk.py               # [B·D3] 화이트리스트 섹션(II 전체·I-2 연혁·I-5 정관)만 청킹, AI 용어 집계 → disclosure_chunks
 │   ├── classify_chunks.py     # [B·D4] AI 언급 청크만 LLM 단계·영역 분류
 │   ├── build_index.py         # [B·D5] 임베딩 → Chroma (메타데이터: chunk_id·공시명·제출일·링크)
 │   ├── qa_chain.py            # [B·D5] LangChain 질의응답, 출처 표시, 근거 없으면 거절

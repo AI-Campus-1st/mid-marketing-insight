@@ -5,6 +5,7 @@
     1. documents 에서 본문이 있는 정기공시를 고른다.
        같은 보고서(회사 + 보고서명)에 정정 공시가 있으면 가장 마지막에 접수된 것 하나만 쓴다.
        (정정본은 보고서 전체를 다시 낸 것이라 원본과 함께 쓰면 AI 언급이 두 번 세어진다)
+       날짜(report_date)는 원본 접수일을 쓴다. (반영 시차가 정정 날짜만큼 늘어나지 않게)
     2. 본문 파일(첨부 제외)에서 화이트리스트 섹션만 남긴다. (docs/decisions.md 참고)
          - II. 사업의 내용 (전체)
          - I. 회사의 개요 > 2. 회사의 연혁, 5. 정관에 관한 사항
@@ -46,17 +47,27 @@ CHAPTER = re.compile(r"^## ([IVX]+)\. (.+)")
 
 
 def pick_reports(con: sqlite3.Connection) -> list[tuple]:
-    """정기공시 중 보고서마다 가장 마지막에 접수된 판(정정본 포함) 하나씩 고른다."""
+    """
+    정기공시 중 보고서마다 가장 마지막에 접수된 판(정정본 포함) 하나씩 고른다.
+    내용은 최신 판을 쓰고, 날짜는 그 보고서가 처음 접수된 날(원본 접수일)을 함께 돌려준다.
+      예) KT나스미디어 분기보고서 (2025.03): 원본 2025-05-14, 정정본 2025-07-25
+          → 정정본 본문 + report_date '2025-05-14'
+      정정본 날짜를 쓰면 반영 시차가 실제보다 길게 계산된다. (docs/decisions.md)
+
+    Returns:
+        (doc_id, corp_code, rcept_no, title, body, report_date) 목록
+    """
     rows = con.execute(
-        """SELECT doc_id, corp_code, rcept_no, title, body FROM documents
+        """SELECT doc_id, corp_code, rcept_no, title, body, substr(published_date, 1, 10) FROM documents
            WHERE report_type = '정기공시' AND body IS NOT NULL
            ORDER BY corp_code, rcept_no"""
     ).fetchall()
-    latest = {}
+    latest, first_date = {}, {}
     for row in rows:
-        base = re.sub(r"^\[[^\]]*\]", "", row[3]).strip()  # '[기재정정]사업보고서 (2024.12)' → '사업보고서 (2024.12)'
-        latest[(row[1], base)] = row                         # rcept_no 오름차순이라 마지막 것이 남는다
-    return list(latest.values())
+        key = (row[1], re.sub(r"^\[[^\]]*\]", "", row[3]).strip())  # '[기재정정]사업보고서 (2024.12)' → '사업보고서 (2024.12)'
+        latest[key] = row                       # rcept_no 오름차순이라 마지막 것(최신 판)이 남는다
+        first_date.setdefault(key, row[5])      # 처음 나온 것(원본)의 접수일만 남긴다
+    return [(*latest[k][:5], first_date[k]) for k in latest]
 
 
 def split_sections(body: str):
@@ -135,16 +146,17 @@ def chunk_report(body: str):
     return chunks, excluded_ai
 
 
-def save(con: sqlite3.Connection, doc_id: str, corp_code: str, rcept_no: str, chunks: list) -> None:
-    rows = [(f"{rcept_no}_{i:04d}", doc_id, corp_code, rcept_no, section, i, text,
+def save(con: sqlite3.Connection, doc_id: str, corp_code: str, rcept_no: str, report_date: str,
+         chunks: list) -> None:
+    rows = [(f"{rcept_no}_{i:04d}", doc_id, corp_code, rcept_no, report_date, section, i, text,
              len(AI_PATTERN.findall(text)))
             for i, (section, text) in enumerate(chunks)]
     con.executemany(
         """INSERT INTO disclosure_chunks
-             (chunk_id, doc_id, corp_code, rcept_no, section, chunk_index, text, ai_term_count)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+             (chunk_id, doc_id, corp_code, rcept_no, report_date, section, chunk_index, text, ai_term_count)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(chunk_id) DO UPDATE SET
-             section = excluded.section, text = excluded.text, ai_term_count = excluded.ai_term_count,
+             report_date = excluded.report_date, section = excluded.section, text = excluded.text, ai_term_count = excluded.ai_term_count,
              ai_stage       = CASE WHEN disclosure_chunks.text = excluded.text THEN ai_stage END,
              ai_domain      = CASE WHEN disclosure_chunks.text = excluded.text THEN ai_domain END,
              reason         = CASE WHEN disclosure_chunks.text = excluded.text THEN reason END,
@@ -161,6 +173,10 @@ def main():
         sys.exit("[오류] project.db 가 없습니다. collect/dart_collect.py → dart_document.py 를 먼저 실행하세요.")
     con = sqlite3.connect(settings.DB_PATH)
     con.executescript((settings.ROOT / "schema.sql").read_text(encoding="utf-8"))  # 테이블이 없으면 생성
+    # 예전 스키마로 만든 DB 에는 report_date 컬럼이 없으므로 추가한다.
+    cols = {r[1] for r in con.execute("PRAGMA table_info(disclosure_chunks)")}
+    if "report_date" not in cols:
+        con.execute("ALTER TABLE disclosure_chunks ADD COLUMN report_date TEXT")
 
     reports = pick_reports(con)
     used = {r[2] for r in reports}
@@ -170,9 +186,9 @@ def main():
 
     names = dict(con.execute("SELECT corp_code, corp_name FROM companies"))
     total, ai_in, ai_out = Counter(), Counter(), Counter()
-    for doc_id, corp_code, rcept_no, title, body in reports:
+    for doc_id, corp_code, rcept_no, title, body, report_date in reports:
         chunks, excluded_ai = chunk_report(body)
-        save(con, doc_id, corp_code, rcept_no, chunks)
+        save(con, doc_id, corp_code, rcept_no, report_date, chunks)
         name = names.get(corp_code, corp_code)
         total[name] += len(chunks)
         ai_in[name] += sum(len(AI_PATTERN.findall(t)) for _, t in chunks)

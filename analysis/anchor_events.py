@@ -58,6 +58,22 @@ def main() -> None:
             {", ".join(f"{c} = excluded.{c}" for c in EVENT_COLS[1:])}""",
         rows(events, EVENT_COLS),
     )
+    # 파일에서 빠진 이벤트는 DB 에서도 지운다 (예: 원문 확인 후 제외한 E013). 공시 매칭 결과가 붙은 건 지우지 않는다.
+    keep = list(events["event_id"])
+    stale = con.execute(
+        f"SELECT event_id FROM ai_events WHERE event_id NOT IN ({', '.join('?' * len(keep))})", keep
+    ).fetchall()
+    for (eid,) in stale:
+        has_result = con.execute("SELECT first_rcept_no IS NOT NULL FROM ai_events WHERE event_id = ?", (eid,)).fetchone()[0]
+        if has_result:
+            print(f"⚠ {eid}: 파일에는 없지만 공시 매칭 결과가 있어 지우지 않았습니다")
+        else:
+            con.execute("DELETE FROM ai_events WHERE event_id = ?", (eid,))
+            print(f"삭제: {eid} (이벤트 파일에서 제외됨)")
+    # 원문 확인 기록은 note 칸에 남긴다
+    if "verification" in events:
+        con.executemany("UPDATE ai_events SET note = ? WHERE event_id = ?",
+                        events[["verification", "event_id"]].values.tolist())
     con.commit()
     summary = pd.read_sql(
         """SELECT c.corp_name, e.analysis_scope, COUNT(*) AS n

@@ -57,7 +57,7 @@
 |---|---|---|---|
 | | 관련도 필터 기준 | | |
 | | 급증 기준 | | 전체 평균 + 1.5×표준편차 / 직전 6개월 기준 |
-| | AI 용어 정규표현식 범위 (제안: `AI`·`LLM` 앞뒤 영문자 제외, `GPT` 는 ChatGPT 포함 위해 경계 없음 — 확정 필요) | 공시에서 HYUNDAI·PENGTAI·THAILAND 등 영문 법인명 속 'AI' 오탐 다수. 제일기획 2023 사업보고서 66건 중 실제 3건 ([dart_ai_check.md](dart_ai_check.md) 3절) | `AI\|인공지능\|생성형\|LLM\|GPT` (기획안 초안) |
+| Day 3 | **AI 용어 정규표현식 확정** (`settings.AI_TERM_PATTERN`, A·B 합의): `AI`·`LLM` 과 AI 복합어 목록(`sLLM, GenAI, OpenAI, xAI, AIoT, AIGC, AICC, AIDC, CAIO`)은 앞뒤가 영문자가 아닐 때만 인정 + `GPT`(경계 없음, ChatGPT 포함) + `인공지능`·`생성형`. 뉴스·공시 공통 | 공시: HYUNDAI·PENGTAI·THAILAND 등 영문 법인명 속 'AI' 오탐 다수, 제일기획 2023 사업보고서 66건 중 실제 3건 ([dart_ai_check.md](dart_ai_check.md) 3절). **뉴스 검수: 제공 뉴스 6,445건 중 옛 패턴만 잡은 7건 전수 확인 → 7건 모두 오탐**(KAIST·KAI·FAIR·AIGLE·IWOAI), 새 패턴이 놓친 기사 0건(AI 언급 기사 5,408 → 5,401). 경계 규칙만 쓰면 진짜 AI 복합어가 언급 횟수에서 빠짐(뉴스 기준 AICC 186·GenAI 58·CAIO 55·AIDC 42·xAI 21·sLLM 21·OpenAI 16·AIoT 15·AIGC 14회) → 복합어 목록으로 살림. AIX 는 IBM 운영체제 이름과 겹쳐 보류 | `AI\|인공지능\|생성형\|LLM\|GPT` (기획안 초안) / B 제안 패턴(복합어 목록 없음) |
 | Day 2 | **AI 단계 = 4단계 L0~L3** (언급 / 계획 / 도입·적용 / 자체 개발·상용화, 해당 없음 = NULL). 뉴스·공시 같은 기준·같은 경계 규칙, 공시 추가 규칙(광고주 상품명·오탐 = NULL, 시장 전망 = L0). `schema.sql`: `disclosure_chunks.ai_stage` → `ai_level`(+ `has_outcome_figure`), `ai_events.first_stage` → `first_level`(+ `ai_level_claimed`). 정의 원본 `config/ai_levels.py`, 설명 `docs/ai_level_guide.md`. 검수: 공시 청크 표본 50개(기업당 10) A·B 독립 판정 → 일치율 기록 | 3단계는 '실행'에 외부 AI 사용(L2)과 자체 개발(L3)이 섞여 대행사 차이가 안 보임. 뉴스 이벤트 30개가 이미 L0~L3 → 같은 자로 말-실행 격차 계산. 3단계로 합치기는 가능(반대는 재판정). 5단계안의 '출시 vs 운영'은 `has_outcome_figure` 로 대신 | 3단계(기획안) / 5단계(선언·구축·출시·운영·성과, 외부 검수 제안) |
 | | 첫 공시 반영 기준 (처음 언급 vs 처음 '실행' 단계) | | |
 | | 프롬프트 버전별 변경 내용 | | |

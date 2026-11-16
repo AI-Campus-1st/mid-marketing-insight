@@ -4,7 +4,10 @@
 하는 일
     make  : LLM 이 분류한 청크에서 기업당 10개씩 50개를 뽑아 A·B 각자 판정할 CSV 를 만든다.
             - 프롬프트를 고칠 때 본 시험 20개(--exclude-pilot 캐시)는 빼서 과적합 여부를 확인한다.
-            - 기업마다 LLM 단계(무관·L0~L3)가 고르게 섞이도록 단계별로 먼저 하나씩 뽑고 나머지를 무작위로 채운다.
+            - 기업마다 LLM 단계(무관·L0~L3)가 고르게 섞이도록 단계별로 먼저 하나씩 뽑고 나머지를 무작위로 채운다 (층화 표본).
+              LLM 이 AI 문장을 하나도 못 찾은 청크('무관(항목 없음)')는 전부 넣는다.
+            - 층화 표본이라 드문 단계가 많이 들어간다 → score 는 표본 정확도와 함께
+              전체 459개의 LLM 단계 비중으로 가중한 정확도를 같이 낸다 (리포트에는 가중값 + '층화 표본' 표기).
             - 판정 시트에는 LLM 결과를 넣지 않는다 (서로의 판정·LLM 값을 보지 않고 판정). 정답 대조용 key 파일은 따로.
     score : 두 사람이 채운 시트를 읽어 일치율(A·B 사이, 각자와 LLM)을 출력하고 review_samples 에 저장한다.
 
@@ -74,7 +77,8 @@ def make() -> None:
     picks = []
     for corp, g in df.groupby("corp_name"):
         g = g.sample(frac=1, random_state=SEED)
-        first = g.groupby("llm_level").head(1)  # 단계마다 하나씩 먼저
+        no_mention = g[g.reason.str.startswith("무관(항목 없음)", na=False)]  # LLM 이 AI 문장을 못 찾은 청크는 모두 넣음
+        first = pd.concat([no_mention, g.drop(no_mention.index).groupby("llm_level").head(1)])  # 단계마다 하나씩 먼저
         rest = g.drop(first.index)
         picks.append(pd.concat([first, rest]).head(PER_CORP))
     s = pd.concat(picks).sample(frac=1, random_state=SEED).reset_index(drop=True)  # 기업·단계 순서를 섞음
@@ -124,6 +128,17 @@ def score() -> None:
             [(cid, x.prompt_version, x.llm, x[r], int(x[r] == x.llm), r,
               None if pd.isna(notes.get(cid)) else notes.get(cid)) for cid, x in done.iterrows()])
     con.commit()
+
+    # 층화 표본 보정: LLM 단계별 정확도 × 전체 분류 결과에서 그 단계의 비중
+    full = pd.read_sql("SELECT ai_level FROM disclosure_chunks WHERE model IS NOT NULL", con).ai_level.map(
+        lambda x: "무관" if pd.isna(x) else str(int(x))).value_counts(normalize=True)
+    for r in sheets:
+        done = m[m[r] != ""]
+        by_level = (done[r] == done.llm).groupby(done.llm).mean()
+        w = full.reindex(by_level.index).fillna(0)
+        if w.sum():
+            print(f"{r}: 전체 단계 비중으로 가중한 LLM 정확도 {(by_level * w).sum() / w.sum():.0%} "
+                  f"(단계별 {by_level.round(2).to_dict()})")
 
     if all(r in sheets for r in REVIEWERS):
         both = m[(m.A != "") & (m.B != "")]

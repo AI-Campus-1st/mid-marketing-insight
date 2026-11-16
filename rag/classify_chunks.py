@@ -60,6 +60,7 @@ DEFAULT_MODEL = "gpt-4.1-mini"
 CACHE = settings.DATA_DIR / "processed" / "llm_cache" / f"chunk_classify_{PROMPT_VERSION}.jsonl"
 DOMAINS = ("creative", "operation", "analytics", "new_biz")
 AI_RE = re.compile(settings.AI_TERM_PATTERN)
+NO_MENTION = "무관(항목 없음): LLM 이 AI 문장을 찾지 못함 — 진짜 무관과 구분, 지표에서 따로 봄"
 
 SYSTEM = f"""당신은 광고대행사 정기공시(사업·반기·분기보고서)의 AI 관련 문장을 분류하는 분석가입니다.
 공시 청크 하나를 읽고, AI 가 나오는 문장(또는 연혁·표의 항목)마다 단계를 매겨 JSON 으로만 답하세요.
@@ -139,7 +140,9 @@ def clean(out: dict) -> dict:
             ms.append({**m, "level": lv})
     own = [m for m in ms if m["level"] is not None]
     if not own:
-        why = ms[0] if ms else {}
+        if not ms:  # LLM 이 AI 문장을 하나도 적지 않음 → 진짜 무관과 구분되게 표시 (검수 표본에 넣음)
+            return {"ai_level": None, "ai_domain": None, "has_outcome_figure": 0, "reason": NO_MENTION}
+        why = ms[0]
         return {"ai_level": None, "ai_domain": None, "has_outcome_figure": 0,
                 "reason": f"무관: '{why.get('quote', '')}' {why.get('why', '')}"[:200]}
     top = max(own, key=lambda m: m["level"])  # 같은 단계면 먼저 나온 항목
@@ -173,7 +176,7 @@ def main() -> None:
     load_dotenv(settings.ROOT / ".env")
     if not os.getenv("OPENAI_API_KEY"):
         sys.exit(".env 에 OPENAI_API_KEY 가 없습니다")
-    from openai import APIConnectionError, APITimeoutError, OpenAI, RateLimitError
+    from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI, RateLimitError
     # A 의 event_classify.py 와 같은 이유로 gzip 만 받는다 (httpx 압축 패키지 버전 충돌)
     client = OpenAI(default_headers={"Accept-Encoding": "gzip, deflate"})
     model = os.getenv("OPENAI_MODEL", DEFAULT_MODEL)
@@ -182,7 +185,9 @@ def main() -> None:
     CACHE.parent.mkdir(parents=True, exist_ok=True)
     n_call = n_fail = 0
     with CACHE.open("a", encoding="utf-8") as cache_file:
-        for r in todo.itertuples():
+        for i, r in enumerate(todo.itertuples(), 1):
+            if i % 20 == 0:  # 중간에 멈춰도 그때까지의 결과가 DB 에 남도록 (캐시는 매번 기록)
+                con.commit()
             key = f"{r.chunk_id}:{text_hash(r.text)}"
             if key not in cache:
                 out = None
@@ -194,7 +199,7 @@ def main() -> None:
                                       {"role": "user", "content": build_prompt(r)}])
                         out = json.loads(res.choices[0].message.content)
                         break
-                    except (APIConnectionError, APITimeoutError, RateLimitError, json.JSONDecodeError) as e:
+                    except (APIConnectionError, APIStatusError, APITimeoutError, RateLimitError, json.JSONDecodeError) as e:
                         print(f"  재시도 {attempt + 1}/3 ({type(e).__name__}): {r.chunk_id}")
                         time.sleep(5 * (attempt + 1))
                 if out is None:

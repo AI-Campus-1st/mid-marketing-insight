@@ -128,26 +128,28 @@ CREATE INDEX IF NOT EXISTS idx_chunks_corp ON disclosure_chunks(corp_code, rcept
 CREATE INDEX IF NOT EXISTS idx_chunks_ai   ON disclosure_chunks(ai_term_count);
 
 -- ---------------------------------------------------------------------
--- 6. ai_events: 기업별 AI 앵커 이벤트와 공시 반영 시차 (Day 4~5)
---    A: 뉴스에서 이벤트를 뽑아 event_name·event_date·doc_id·search_terms 를 채운다.
---    B: search_terms 로 공시에서 처음 등장한 보고서를 찾아 first_* 를 채운다.
---    공동: lag_days = first_rcept_date - event_date (일수)
---    끝내 반영되지 않은 이벤트는 first_* 와 lag_days 를 NULL 로 둔다. (그 자체가 인사이트)
+-- 6. ai_events: 확정 앵커 이벤트 (Day 2 확정 30개, 담당 A)
+--    data/processed/anchor_events.csv 와 같은 형식 (A·B 합의, Day 2). 적재: analysis/anchor_events.py
+--    analysis_scope = 'judge' 만 반영 판정·기업 비교에 쓰고, 'reference'(REFLECTION_CUTOFF 이후)는 타임라인 표시만.
+--    공시 반영 결과(first_*·lag_days)는 공시 매칭 방식이 정해지면 다시 정리한다 (실행 설계서 4·6장).
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS ai_events (
-    event_id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    corp_code         TEXT NOT NULL REFERENCES companies(corp_code),
-    event_name        TEXT NOT NULL,         -- 예: '스텔라이즈 출시'
-    event_type        TEXT,                  -- 출시 / 조직 / 도입 / 캠페인 / 수상
-    event_date        TEXT NOT NULL,         -- 'YYYY-MM-DD' (첫 보도일 기준)
-    ai_level_claimed  INTEGER CHECK (ai_level_claimed BETWEEN 0 AND 3),  -- 뉴스가 주장한 단계 (L0~L3)
-    doc_id            TEXT REFERENCES documents(doc_id),  -- 근거 기사 (제공 또는 보강)
-    search_terms      TEXT,                  -- 공시 검색용 키워드 (JSON 배열, 예: '["스텔라이즈"]')
-    first_rcept_no    TEXT,                  -- 처음 반영된 공시 접수번호
-    first_rcept_date  TEXT,                  -- 처음 반영된 공시 접수일
-    first_level       INTEGER CHECK (first_level BETWEEN 0 AND 3),  -- 첫 반영 공시 청크의 단계
-    lag_days          INTEGER,               -- 반영 시차 (일)
-    note              TEXT
+    event_id           TEXT PRIMARY KEY,      -- 'E001' … (이벤트 파일과 동일)
+    corp_code          TEXT NOT NULL REFERENCES companies(corp_code),
+    event_name         TEXT NOT NULL,         -- 예: '스텔라이즈 정식 출시'
+    event_type         TEXT CHECK (event_type IN ('launch', 'organization', 'adoption', 'investment',
+                                                  'partnership', 'patent', 'campaign', 'award')),
+    official_date      TEXT NOT NULL,         -- 'YYYY-MM-DD' 사람이 확인한 발표일 (첫 보도 기준)
+    ai_level_claimed   INTEGER CHECK (ai_level_claimed BETWEEN 0 AND 3),  -- 뉴스가 주장한 단계 (L0~L3)
+    analysis_scope     TEXT NOT NULL CHECK (analysis_scope IN ('judge', 'reference')),
+    primary_source_url TEXT,                  -- 1차 출처 (언론사 원문 URL)
+    search_terms       TEXT,                  -- 공시 매칭용 키워드 (JSON 배열, 예: '["스텔라이즈"]'), Day 3~4 에 채움
+    -- 공시 반영 결과 (매칭 방식 확정 전 임시 칸)
+    first_rcept_no     TEXT,                  -- 처음 반영된 공시 접수번호
+    first_rcept_date   TEXT,                  -- 처음 반영된 공시 접수일
+    first_level        INTEGER CHECK (first_level BETWEEN 0 AND 3),  -- 첫 반영 공시 청크의 단계
+    lag_days           INTEGER,               -- 보조 지표: 첫 반영 공시 접수일 - official_date (일)
+    note               TEXT
 );
 
 -- ---------------------------------------------------------------------

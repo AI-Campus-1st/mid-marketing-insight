@@ -38,7 +38,7 @@ mid-marketing-insight/
 │   ├── classify_news.py       # [A·D4] LLM 관련도·AI 관련·감성·이슈 키워드 → llm_results
 │   ├── event_review_sheet.py  # [A·D3] 제공·네이버·웹 기사를 사건 묶음으로 → 검토 시트 (규칙 기반, AI 미사용)
 │   ├── event_classify.py      # [A·D3] 검토 시트 LLM 1차 판정 (네이버 외 출처 본문만 입력)
-│   ├── anchor_events.py       # [A·D4] 확정 이벤트 → ai_events (event_*, search_terms)
+│   ├── anchor_events.py       # [A·D2] 확정 이벤트 30개(anchor_events.csv) → ai_events (+ companies)
 │   ├── prompts/
 │   │   ├── news_classify_v1.txt     # [A·D4] 뉴스 분류 프롬프트 (버전별 보관)
 │   │   └── ai_level_domain_v1.txt   # [B·D4] 공시 단계(L0~L3, config/ai_levels.py)·영역 분류 프롬프트

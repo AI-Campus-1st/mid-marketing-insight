@@ -99,8 +99,11 @@ CREATE TABLE IF NOT EXISTS llm_results (
 -- 5. disclosure_chunks: 공시 청크 + AI 워싱 분류 (Day 3~4, 담당 B)
 --    RAG 검색 근거이면서 AI 언급 밀도·실행률 계산의 기준 단위다.
 --    ai_term_count 는 정규표현식(AI|인공지능|생성형|LLM|GPT)이 채우고,
---    ai_term_count > 0 인 청크에만 LLM 이 ai_stage·ai_domain 을 채운다.
---      ai_stage : declare = 선언 / plan = 계획 / execute = 실행
+--    ai_term_count > 0 인 청크에만 LLM 이 ai_level·ai_domain 을 채운다.
+--      ai_level : 0 언급 / 1 계획 / 2 도입·적용 / 3 자체 개발·상용화, NULL = 회사 AI 와 무관
+--                 (광고주 상품명·정규표현식 오탐). 정의·경계 규칙은 config/ai_levels.py, docs/ai_level_guide.md
+--                 뉴스 이벤트의 ai_level_claimed 와 같은 자 → 말-실행 격차 = 주장 수준 − 공시 최고 수준
+--                 (Day 2 결정: 기획안의 ai_stage 3단계 declare/plan/execute 에서 변경)
 --      ai_domain: creative = 제작 / operation = 운영 / analytics = 분석·타겟팅 / new_biz = 신사업·기타
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS disclosure_chunks (
@@ -112,7 +115,8 @@ CREATE TABLE IF NOT EXISTS disclosure_chunks (
     chunk_index     INTEGER NOT NULL,        -- 보고서 안에서의 순번
     text            TEXT NOT NULL,
     ai_term_count   INTEGER NOT NULL DEFAULT 0,
-    ai_stage        TEXT CHECK (ai_stage IN ('declare', 'plan', 'execute')),
+    ai_level        INTEGER CHECK (ai_level BETWEEN 0 AND 3),
+    has_outcome_figure INTEGER,              -- 1 = 매출·고객 수 등 운영 성과 숫자가 있음 (단계와 별도)
     ai_domain       TEXT CHECK (ai_domain IN ('creative', 'operation', 'analytics', 'new_biz')),
     reason          TEXT,                    -- LLM이 밝힌 분류 근거
     model           TEXT,
@@ -136,11 +140,12 @@ CREATE TABLE IF NOT EXISTS ai_events (
     event_name        TEXT NOT NULL,         -- 예: '스텔라이즈 출시'
     event_type        TEXT,                  -- 출시 / 조직 / 도입 / 캠페인 / 수상
     event_date        TEXT NOT NULL,         -- 'YYYY-MM-DD' (첫 보도일 기준)
+    ai_level_claimed  INTEGER CHECK (ai_level_claimed BETWEEN 0 AND 3),  -- 뉴스가 주장한 단계 (L0~L3)
     doc_id            TEXT REFERENCES documents(doc_id),  -- 근거 기사 (제공 또는 보강)
     search_terms      TEXT,                  -- 공시 검색용 키워드 (JSON 배열, 예: '["스텔라이즈"]')
     first_rcept_no    TEXT,                  -- 처음 반영된 공시 접수번호
     first_rcept_date  TEXT,                  -- 처음 반영된 공시 접수일
-    first_stage       TEXT CHECK (first_stage IN ('declare', 'plan', 'execute')),  -- 첫 반영 시 단계
+    first_level       INTEGER CHECK (first_level BETWEEN 0 AND 3),  -- 첫 반영 공시 청크의 단계
     lag_days          INTEGER,               -- 반영 시차 (일)
     note              TEXT
 );
@@ -153,7 +158,7 @@ CREATE TABLE IF NOT EXISTS review_samples (
     review_id       INTEGER PRIMARY KEY AUTOINCREMENT,
     doc_id          TEXT,                    -- 뉴스 검수일 때
     chunk_id        TEXT,                    -- 공시 청크 검수일 때
-    target          TEXT NOT NULL CHECK (target IN ('relevance', 'ai_related', 'sentiment', 'ai_stage', 'ai_domain')),
+    target          TEXT NOT NULL CHECK (target IN ('relevance', 'ai_related', 'sentiment', 'ai_level', 'ai_domain', 'event')),
     prompt_version  TEXT,                    -- 어떤 프롬프트 결과를 검수했는지
     llm_label       TEXT,                    -- LLM이 붙인 값
     human_label     TEXT,                    -- 사람이 판단한 값

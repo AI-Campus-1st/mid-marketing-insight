@@ -18,7 +18,8 @@ mid-marketing-insight/
 ├── config/
 │   ├── settings.py            # [공동·D1] 경로, 수집 기간, DB 위치, AI 용어 정규표현식, 요청 규칙
 │   ├── companies.csv          # [B·D1] 대상 5개사 (corp_code, stock_code, parent_group, segment, is_control)
-│   └── anchor_queries.csv     # [A·D1] 앵커 이벤트 보강 검색어 (기업, 검색어, 목적)
+│   ├── anchor_queries.csv     # [A·D1] 앵커 이벤트 보강 검색어 (기업, 검색어, 목적)
+│   └── ai_levels.py           # [공동·D2] AI 단계 L0~L3 정의·경계 규칙 (뉴스·공시 공통, 프롬프트에 그대로 사용)
 │
 ├── collect/                   # ── 수집·적재 계층 ──
 │   ├── load_news.py           # [A·D2] 제공 뉴스 CSV → documents (news_origin='provided'), 중복 표시
@@ -40,7 +41,7 @@ mid-marketing-insight/
 │   ├── anchor_events.py       # [A·D4] 확정 이벤트 → ai_events (event_*, search_terms)
 │   ├── prompts/
 │   │   ├── news_classify_v1.txt     # [A·D4] 뉴스 분류 프롬프트 (버전별 보관)
-│   │   └── ai_stage_domain_v1.txt   # [B·D4] 공시 단계·영역 분류 프롬프트
+│   │   └── ai_level_domain_v1.txt   # [B·D4] 공시 단계(L0~L3, config/ai_levels.py)·영역 분류 프롬프트
 │   ├── review.py              # [공동·D4] 표본 추출, 검수 결과 → review_samples, 정확도 계산
 │   ├── lag.py                 # [공동·D5] 첫 공시 반영 → ai_events.first_*, lag_days
 │   └── metrics.py             # [공동·D5] AI 언급 밀도, AI 실행률, 평균 반영 시차
@@ -85,6 +86,9 @@ mid-marketing-insight/
 └── docs/
     ├── AI 마케팅 이슈 × 공시 분석 대시보드 기획안.md
     ├── decisions.md           # [공동·매일] 설계 결정 기록
+    ├── ai_level_guide.md      # [공동·D2] AI 단계 L0~L3 설명·예시·검수 방법
+    ├── dart_ai_check.md       # [B·D2] 확인 지점 ①: 사업보고서 AI 문장 점검
+    ├── 실행 설계서 - 뉴스 보강·이벤트 매칭.md  # [A·D2] 수집·이벤트·매칭 설계와 상의 안건
     ├── PROJECT_STRUCTURE.md   # [공동] 이 문서
     └── report/                # [공동·D7] 리포트, 발표 자료
 ```

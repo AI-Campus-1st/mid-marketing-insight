@@ -27,8 +27,8 @@ mid-marketing-insight/
 │   ├── newsroom_collect.py    # [A·D2] 기업 뉴스룸 4곳 보도자료 수집 (회사 "주장"의 1차 출처, 공식 발표일)
 │   ├── load_news_supplement.py# [A·D2~4] 보강 기사 CSV → documents (news_origin='supplement')
 │   ├── dart_corp_code.py      # [B·D1] corpCode.xml 내려받기 → 5개사 corp_code 확인
-│   ├── dart_collect.py        # [B·D2] 공시 목록(list.json) 수집, 원본 저장, 재실행 가능
-│   └── dart_document.py       # [B·D2] 정기공시 원문 내려받기 → 텍스트 추출
+│   ├── dart_collect.py        # [B·D2] 공시 목록(list.json) 수집, 원본 저장 → companies·documents(메타데이터) 적재, 재실행 가능
+│   └── dart_document.py       # [B·D2] 정기공시 원문 내려받기 → 텍스트 추출(data/processed/dart_text/) → documents.body
 │
 ├── analysis/                  # ── 분석 계층 ──
 │   ├── preprocess.py          # [A·D3] 정규표현식 정제, 무관 기사 1차 규칙 필터, news_company 매칭
@@ -46,7 +46,7 @@ mid-marketing-insight/
 │   └── metrics.py             # [공동·D5] AI 언급 밀도, AI 실행률, 평균 반영 시차
 │
 ├── rag/                       # ── 공시 검색·질의응답 계층 ──
-│   ├── chunk.py               # [B·D3] 섹션 청킹, AI 용어 집계 → disclosure_chunks
+│   ├── chunk.py               # [B·D3] 화이트리스트 섹션(II 전체·I-2 연혁·I-5 정관)만 청킹, AI 용어 집계 → disclosure_chunks
 │   ├── classify_chunks.py     # [B·D4] AI 언급 청크만 LLM 단계·영역 분류
 │   ├── build_index.py         # [B·D5] 임베딩 → Chroma (메타데이터: chunk_id·공시명·제출일·링크)
 │   ├── qa_chain.py            # [B·D5] LangChain 질의응답, 출처 표시, 근거 없으면 거절

@@ -8,6 +8,8 @@
        - 목차 제목(TITLE 태그)은 '## 제목' 줄로 남긴다. rag/chunk.py 가 섹션을 나누는 기준.
        - 표(TABLE)의 칸은 ' | ' 로 이어 한 줄로 만든다.
        - ZIP 안에 파일이 여러 개면(본문 + 감사보고서 등 첨부) '# 파일명' 줄로 구분해 이어 붙인다.
+    4. 추출한 텍스트를 DB documents.body 에, ZIP 경로를 documents.raw_path 에 넣는다.
+       (공시 행은 collect/dart_collect.py 가 먼저 만들어 둔다)
 
 실행
     python collect/dart_document.py                 # 받지 않은 원문만 받기
@@ -21,6 +23,7 @@ import argparse
 import html
 import io
 import re
+import sqlite3
 import sys
 import time
 import zipfile
@@ -111,6 +114,10 @@ def main():
         targets = targets[targets["rcept_no"].isin(args.rcept)]
     print(f"[정보] 정기공시 {len(targets)}건 처리")
 
+    if not settings.DB_PATH.exists():
+        sys.exit("[오류] project.db 가 없습니다. collect/dart_collect.py 를 먼저 실행하세요.")
+    con = sqlite3.connect(settings.DB_PATH)
+
     TEXT_DIR.mkdir(parents=True, exist_ok=True)
     failed = []
     for i, r in enumerate(targets.itertuples(), 1):
@@ -119,10 +126,20 @@ def main():
             zip_path = download(r.rcept_no)
             if args.retext or not txt_path.exists():
                 txt_path.write_text(extract(zip_path), encoding="utf-8")
-            print(f"  [{i}/{len(targets)}] {r.corp_name} {r.report_nm} → {txt_path.stat().st_size:,} bytes")
+            body = txt_path.read_text(encoding="utf-8")
+            # raw_path 는 프로젝트 루트 기준 상대경로 (다른 컴퓨터에서도 같은 값)
+            updated = con.execute(
+                "UPDATE documents SET body = ?, raw_path = ? WHERE doc_id = ?",
+                (body, str(zip_path.relative_to(settings.ROOT)), "D" + r.rcept_no),
+            ).rowcount
+            if updated == 0:
+                raise RuntimeError("DB 에 공시 행이 없습니다. dart_collect.py 를 다시 실행하세요.")
+            con.commit()
+            print(f"  [{i}/{len(targets)}] {r.corp_name} {r.report_nm} → {len(body):,}자")
         except Exception as e:  # 한 건 실패로 전체가 멈추지 않게 기록만 하고 넘어간다
             failed.append(r.rcept_no)
             print(f"  [{i}/{len(targets)}] [실패] {r.corp_name} {r.report_nm} ({r.rcept_no}): {e}")
+    con.close()
 
     print(f"[완료] 성공 {len(targets) - len(failed)}건, 실패 {len(failed)}건")
     if failed:

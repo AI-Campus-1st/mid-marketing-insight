@@ -15,7 +15,7 @@
 
 재실행
     - chunk_id = rcept_no + '_' + 순번 이라 다시 돌려도 같은 청크는 같은 id 를 갖는다.
-    - 텍스트가 그대로인 청크는 LLM 분류 결과(ai_stage 등)를 유지하고,
+    - 텍스트가 그대로인 청크는 LLM 분류 결과(ai_level 등)를 유지하고,
       텍스트가 바뀐 청크만 분류 결과를 비운다.
 
 실행: python rag/chunk.py
@@ -146,22 +146,40 @@ def chunk_report(body: str):
     return chunks, excluded_ai
 
 
-def save(con: sqlite3.Connection, doc_id: str, corp_code: str, rcept_no: str, report_date: str,
-         chunks: list) -> None:
+# chunk.py 가 채우는 컬럼. 나머지 컬럼(ai_level, ai_domain, reason, model 등)은 LLM 분류 결과로 본다.
+CHUNK_COLS = ["chunk_id", "doc_id", "corp_code", "rcept_no", "report_date", "section",
+              "chunk_index", "text", "ai_term_count"]
+
+
+def sync_columns(con: sqlite3.Connection) -> list[str]:
+    """
+    schema.sql 의 disclosure_chunks 컬럼 중 DB 에 없는 것을 추가하고, 분류 결과 컬럼 이름을 돌려준다.
+    예전 스키마로 만든 DB 도 그대로 쓸 수 있게 하고, 분류 컬럼 이름이 바뀌어도 이 파일을 고칠 필요가 없게 한다.
+    """
+    ref = sqlite3.connect(":memory:")
+    ref.executescript((settings.ROOT / "schema.sql").read_text(encoding="utf-8"))
+    want = [(r[1], r[2]) for r in ref.execute("PRAGMA table_info(disclosure_chunks)")]
+    have = {r[1] for r in con.execute("PRAGMA table_info(disclosure_chunks)")}
+    for name, ctype in want:
+        if name not in have:
+            con.execute(f"ALTER TABLE disclosure_chunks ADD COLUMN {name} {ctype}")
+    return [name for name, _ in want if name not in CHUNK_COLS and name != "created_at"]
+
+
+def save(con: sqlite3.Connection, label_cols: list[str], doc_id: str, corp_code: str, rcept_no: str,
+         report_date: str, chunks: list) -> None:
     rows = [(f"{rcept_no}_{i:04d}", doc_id, corp_code, rcept_no, report_date, section, i, text,
              len(AI_PATTERN.findall(text)))
             for i, (section, text) in enumerate(chunks)]
+    # 텍스트가 그대로면 분류 결과를 유지하고, 바뀌었으면 비운다. (다시 분류해야 하므로)
+    keep_labels = ",\n".join(
+        f"{c} = CASE WHEN disclosure_chunks.text = excluded.text THEN disclosure_chunks.{c} END" for c in label_cols)
+    updates = ", ".join(f"{c} = excluded.{c}" for c in CHUNK_COLS[4:])
     con.executemany(
-        """INSERT INTO disclosure_chunks
-             (chunk_id, doc_id, corp_code, rcept_no, report_date, section, chunk_index, text, ai_term_count)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(chunk_id) DO UPDATE SET
-             report_date = excluded.report_date, section = excluded.section, text = excluded.text, ai_term_count = excluded.ai_term_count,
-             ai_stage       = CASE WHEN disclosure_chunks.text = excluded.text THEN ai_stage END,
-             ai_domain      = CASE WHEN disclosure_chunks.text = excluded.text THEN ai_domain END,
-             reason         = CASE WHEN disclosure_chunks.text = excluded.text THEN reason END,
-             model          = CASE WHEN disclosure_chunks.text = excluded.text THEN model END,
-             prompt_version = CASE WHEN disclosure_chunks.text = excluded.text THEN prompt_version END""",
+        f"""INSERT INTO disclosure_chunks ({", ".join(CHUNK_COLS)})
+            VALUES ({", ".join("?" * len(CHUNK_COLS))})
+            ON CONFLICT(chunk_id) DO UPDATE SET {updates}{"," if label_cols else ""}
+            {keep_labels}""",
         rows,
     )
     # 이전 실행보다 청크 수가 줄었으면 남는 청크를 지운다.
@@ -173,10 +191,7 @@ def main():
         sys.exit("[오류] project.db 가 없습니다. collect/dart_collect.py → dart_document.py 를 먼저 실행하세요.")
     con = sqlite3.connect(settings.DB_PATH)
     con.executescript((settings.ROOT / "schema.sql").read_text(encoding="utf-8"))  # 테이블이 없으면 생성
-    # 예전 스키마로 만든 DB 에는 report_date 컬럼이 없으므로 추가한다.
-    cols = {r[1] for r in con.execute("PRAGMA table_info(disclosure_chunks)")}
-    if "report_date" not in cols:
-        con.execute("ALTER TABLE disclosure_chunks ADD COLUMN report_date TEXT")
+    label_cols = sync_columns(con)  # 예전 스키마 DB 에 새 컬럼 추가
 
     reports = pick_reports(con)
     used = {r[2] for r in reports}
@@ -188,7 +203,7 @@ def main():
     total, ai_in, ai_out = Counter(), Counter(), Counter()
     for doc_id, corp_code, rcept_no, title, body, report_date in reports:
         chunks, excluded_ai = chunk_report(body)
-        save(con, doc_id, corp_code, rcept_no, report_date, chunks)
+        save(con, label_cols, doc_id, corp_code, rcept_no, report_date, chunks)
         name = names.get(corp_code, corp_code)
         total[name] += len(chunks)
         ai_in[name] += sum(len(AI_PATTERN.findall(t)) for _, t in chunks)

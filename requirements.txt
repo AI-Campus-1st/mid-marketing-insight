@@ -5,3 +5,4 @@ trafilatura
 openai
 matplotlib
 jupyter
+openpyxl

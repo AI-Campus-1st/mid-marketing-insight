@@ -80,6 +80,7 @@ mid-marketing-insight/
 │   │   ├── project.db         # SQLite DB
 │   │   ├── llm_cache/         # LLM 응답 캐시 (프롬프트 버전별)
 │   │   ├── dart_text/         # 정기공시 원문 텍스트 ({rcept_no}.txt, 목차 제목은 '## ' 줄)
+│   │   ├── disclosure_counts_quarterly.csv  # 기업별·분기별 공시 건수 (disclosure_eda → A 탭 1 차트)
 │   │   └── anchor_events_confirmed.csv  # 확정 앵커 이벤트 (네이버 데이터 미포함)
 │   └── vectordb/              # Chroma 파일
 │

@@ -3,3 +3,5 @@ requests
 python-dotenv
 trafilatura
 openai
+matplotlib
+jupyter

@@ -5,6 +5,11 @@
     1. config/companies.csv 의 기업별로 수집 기간(settings.PERIOD_START ~ PERIOD_END)의 공시 목록을 받는다.
     2. API 응답 원본(JSON)을 data/raw/dart/list/ 에 그대로 저장한다. (재실행 시 저장된 원본 재사용)
     3. 전체 목록을 data/raw/dart/disclosure_list.csv 로 합친다.
+    4. DB(project.db)에 적재한다.
+       - companies: config/companies.csv (documents.corp_code 외래키 때문에 먼저 넣는다)
+       - documents: 공시 메타데이터 (doc_id = 'D' + rcept_no, source_type = 'disclosure')
+         본문(body)은 비워 두고 collect/dart_document.py 가 채운다.
+       DB 파일이 없으면 schema.sql 로 만든다. (테이블은 IF NOT EXISTS 라 기존 데이터는 그대로)
 
 왜 공시 유형별로 따로 부르나
     list.json 응답에는 공시 유형(pblntf_ty) 컬럼이 없다.
@@ -19,6 +24,7 @@
 """
 import argparse
 import json
+import sqlite3
 import sys
 import time
 from pathlib import Path
@@ -87,6 +93,53 @@ def collect_company(corp_code: str, refresh: bool) -> list[dict]:
     return rows
 
 
+def load_to_db(df: pd.DataFrame) -> None:
+    """
+    companies 와 공시 메타데이터를 DB 에 넣는다. 재실행해도 중복되지 않는다.
+    이미 있는 공시는 메타데이터만 갱신하고, dart_document.py 가 채운 body·raw_path 는 건드리지 않는다.
+    """
+    settings.DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    con = sqlite3.connect(settings.DB_PATH)
+    con.execute("PRAGMA foreign_keys = ON")
+    con.executescript((settings.ROOT / "schema.sql").read_text(encoding="utf-8"))
+
+    companies = pd.read_csv(settings.COMPANIES_CSV, dtype=str)
+    con.executemany(
+        """INSERT INTO companies (corp_code, corp_name, stock_code, parent_group, segment, is_control)
+           VALUES (?, ?, ?, ?, ?, ?)
+           ON CONFLICT(corp_code) DO UPDATE SET
+             corp_name = excluded.corp_name, stock_code = excluded.stock_code,
+             parent_group = excluded.parent_group, segment = excluded.segment,
+             is_control = excluded.is_control""",
+        companies[["corp_code", "corp_name", "stock_code", "parent_group", "segment", "is_control"]]
+        .astype(object).where(companies.notna(), None).values.tolist(),
+    )
+
+    rows = [(
+        "D" + r.rcept_no,
+        r.report_nm.strip(),                                            # 공시명
+        f"{r.rcept_dt[:4]}-{r.rcept_dt[4:6]}-{r.rcept_dt[6:]} 00:00:00",  # 접수일 (시각 정보 없음)
+        r.dart_url,
+        r.corp_code,
+        r.rcept_no,
+        r.pblntf_ty_nm,                                                 # 공시 유형 (정기공시 등)
+    ) for r in df.itertuples()]
+    con.executemany(
+        """INSERT INTO documents (doc_id, source_type, title, published_date, url,
+                                  corp_code, rcept_no, report_type)
+           VALUES (?, 'disclosure', ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(doc_id) DO UPDATE SET
+             title = excluded.title, published_date = excluded.published_date, url = excluded.url,
+             corp_code = excluded.corp_code, rcept_no = excluded.rcept_no,
+             report_type = excluded.report_type""",
+        rows,
+    )
+    con.commit()
+    n = con.execute("SELECT COUNT(*) FROM documents WHERE source_type = 'disclosure'").fetchone()[0]
+    con.close()
+    print(f"[DB] {settings.DB_PATH.name}: companies {len(companies)}개사, 공시 {n}건")
+
+
 def main():
     parser = argparse.ArgumentParser(description="DART 공시 목록 수집")
     parser.add_argument("--refresh", action="store_true", help="저장된 원본을 무시하고 새로 받기")
@@ -113,6 +166,8 @@ def main():
 
     print(f"[저장] {OUT_CSV} ({len(df)}건)")
     print(df.groupby(["corp_name", "pblntf_ty_nm"]).size().unstack(fill_value=0).to_string())
+
+    load_to_db(df)
 
 
 if __name__ == "__main__":

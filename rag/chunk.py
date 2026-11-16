@@ -32,10 +32,9 @@ from config import settings  # noqa: E402
 
 MAX_CHARS = 1000  # 청크 최대 길이 (한국어 공시 문단 2~4개 분량)
 
-# AI 용어 패턴. 'AI'·'LLM' 은 앞뒤가 영문자가 아닐 때만 센다. (HYUNDAI, PENGTAI 등 오탐 방지)
-# 'GPT' 는 'ChatGPT' 를 살리기 위해 경계를 두지 않는다. 근거: docs/dart_ai_check.md 3절
-# TODO: 팀 합의 후 settings.AI_TERM_PATTERN 을 이 패턴으로 바꾸고 여기서는 그것을 쓴다.
-AI_PATTERN = re.compile(r"(?<![A-Za-z])(?:AI|LLM)(?![A-Za-z])|GPT|인공지능|생성형")
+# AI 용어 패턴: 뉴스·공시 공통 settings.AI_TERM_PATTERN (A·B 합의, decisions.md).
+# 'AI'·'LLM'·AI 복합어는 앞뒤가 영문자가 아닐 때만 센다 (HYUNDAI, PENGTAI 등 오탐 방지, docs/dart_ai_check.md 3절)
+AI_PATTERN = re.compile(settings.AI_TERM_PATTERN)
 
 # 화이트리스트: (장 번호, 포함할 소제목 패턴). 소제목 패턴이 None 이면 장 전체.
 WHITELIST = {

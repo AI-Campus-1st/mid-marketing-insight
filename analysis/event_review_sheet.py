@@ -41,7 +41,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from config import settings  # noqa: E402
 from collect.supplement_search import normalize_title  # noqa: E402
 
-CORPS = ["제일기획", "이노션", "플레이디", "인크로스", "나스미디어", "에코마케팅"]
+# 기업 표기는 config/companies.csv 의 corp_name 과 같게 (Day 2: 나스미디어 → KT나스미디어 통일, 에코마케팅 제외)
+# 기사 제목에는 옛 이름("나스미디어")만 나오는 경우가 있어 매칭할 때는 별칭도 함께 쓴다
+CORP_ALIASES = {
+    "제일기획": ["제일기획"],
+    "이노션": ["이노션"],
+    "플레이디": ["플레이디"],
+    "인크로스": ["인크로스"],
+    "KT나스미디어": ["KT나스미디어", "나스미디어"],
+}
+CORPS = list(CORP_ALIASES)
+ALIAS_NAMES = [a for names in CORP_ALIASES.values() for a in names]  # 이벤트명 유사도에서 뺄 이름들
 SHEET = settings.SUPPLEMENT_DIR / "review" / "event_review_sheet.csv"
 MEMBERS = settings.SUPPLEMENT_DIR / "review" / "cluster_members.csv"  # 묶음별 기사 목록 (event_classify.py 입력)
 TO_REVIEW = settings.SUPPLEMENT_DIR / "review" / "to_review.csv"      # 사람이 확인할 행만
@@ -102,8 +112,8 @@ def load_provided() -> pd.DataFrame:
         if "묶음" in unicodedata.normalize("NFC", f.name):
             df = pd.read_csv(f, usecols=["제목", "원문URL", "발행일", "매체명"])
             rows = []
-            for corp in CORPS:
-                hit = df[df["제목"].str.contains(corp, na=False)]
+            for corp, aliases in CORP_ALIASES.items():
+                hit = df[df["제목"].str.contains("|".join(aliases), na=False)]
                 rows.append(pd.DataFrame({
                     "corp": corp, "title": hit["제목"], "url": hit["원문URL"],
                     "date": pd.to_datetime(hit["발행일"]), "media": hit["매체명"],
@@ -309,6 +319,8 @@ def export_confirmed() -> None:
             "primary_source_url", "reviewer", "judged_by", "note", "n_articles", "n_media"]
     CONFIRMED.parent.mkdir(parents=True, exist_ok=True)
     done = done.assign(event_id=assign_event_ids(done))
+    done = done.assign(corp_code=done["corp"].map(corp_code_map()))  # 공시와 연결하는 키
+    cols = ["corp_code"] + cols
     done[["event_id"] + cols].sort_values(["event_id", "official_date"]).to_csv(
         CONFIRMED, index=False, encoding="utf-8-sig")
     n_ref = int((done["analysis_scope"] == "reference").sum())
@@ -326,10 +338,16 @@ EVENT_DAYS = 3
 NAME_SIM = 0.3
 
 
+def corp_code_map() -> dict[str, str]:
+    """기업 표기 → corp_code (config/companies.csv). 이벤트와 공시는 이 코드로만 연결한다."""
+    c = pd.read_csv(settings.COMPANIES_CSV, dtype=str)
+    return dict(zip(c["corp_name"], c["corp_code"]))
+
+
 def _name_grams(name: str) -> set[str]:
     s = re.sub(r"[^0-9A-Za-z가-힣]", "", str(name)).lower()
-    for corp in CORPS:  # 기업명은 유사도에서 뺀다
-        s = s.replace(corp, "")
+    for name in sorted(ALIAS_NAMES, key=len, reverse=True):  # 기업명(별칭 포함)은 유사도에서 뺀다
+        s = s.replace(name, "")
     return {s[i: i + 2] for i in range(max(len(s) - 1, 1))}
 
 
@@ -372,6 +390,7 @@ def summarize_events(done: pd.DataFrame) -> pd.DataFrame:
         names = g["event_name"].dropna()
         out.append({
             "event_id": eid,
+            "corp_code": g["corp_code"].iloc[0],
             "corp": g["corp"].iloc[0],
             "event_name": names.loc[names.str.len().idxmin()] if len(names) else None,  # 가장 짧은 이름
             "event_type": g["event_type"].mode().iloc[0] if g["event_type"].notna().any() else None,

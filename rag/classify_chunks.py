@@ -30,6 +30,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sqlite3
 import sys
 import time
@@ -42,7 +43,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from config import settings  # noqa: E402
 from config.ai_levels import prompt_block  # noqa: E402
 
-PROMPT_VERSION = "chunk_v3"
+PROMPT_VERSION = "chunk_v6"
+# v5 → v6: AI 용어가 없는 문장을 항목으로 넣어 판정(2건: 이노션 L0→L1, 인크로스 무관 솔루션→L3)
+#   → quote 에 AI 용어를 반드시 넣게 하고, 코드가 AI 용어(settings.AI_TERM_PATTERN) 없는 항목을 버린다.
+# v4 → v5: v4 에서 '최고 단계 고르기'를 LLM 에 맡기자 연혁 청크에서 낮은 항목(T deal L2)을 고르고(2건),
+#   같은 문장이 L0/null 로 갈림. → LLM 은 AI 항목마다 단계만 매기고(mentions), 최고 단계는 코드(clean)가 고른다.
+# v3 → v4: 기준 미정 3종 결정 (B 제안, A 확인 요청 중). L2/L3 = 'AI 가 들어간 결과물이 누구의 제품인가'.
+#   자사 제품에 외부 모델 탑재해 출시 = 3 (뉴스 E022 올잇 AI 광고소재 생성 = L3 와 같은 자), 외부 완성 솔루션 사용·타사 AI 운영 대행 = 2
 # v2 → v3: 같은 20개에서 '당사의 AI 자동화 운영 솔루션인 센스엔을 기반으로 영업' 을 자체로 알아보고도 L2 → 운영·판매 중인 자체 솔루션 = 3, 2 는 외부 AI 만
 # v1 → v2 (시험 20개 사람 검토: 단계 오류 5, 영역 오류 1, 기준 미정 3)
 #   L3 를 너무 아낌: 회사 고유 솔루션('당사의 AI 자동화 운영 솔루션인 센스엔')을 외부 도입(L2)으로,
@@ -52,15 +59,17 @@ PROMPT_VERSION = "chunk_v3"
 DEFAULT_MODEL = "gpt-4.1-mini"
 CACHE = settings.DATA_DIR / "processed" / "llm_cache" / f"chunk_classify_{PROMPT_VERSION}.jsonl"
 DOMAINS = ("creative", "operation", "analytics", "new_biz")
+AI_RE = re.compile(settings.AI_TERM_PATTERN)
 
 SYSTEM = f"""당신은 광고대행사 정기공시(사업·반기·분기보고서)의 AI 관련 문장을 분류하는 분석가입니다.
-공시 청크 하나를 읽고, '대상 기업 자신의 AI'가 어느 단계까지 확인되는지 판정해 JSON 으로만 답하세요.
+공시 청크 하나를 읽고, AI 가 나오는 문장(또는 연혁·표의 항목)마다 단계를 매겨 JSON 으로만 답하세요.
 
 [판정 순서]
-1. 청크에서 AI 가 나오는 문장을 모두 찾는다.
-2. 각 문장이 '대상 기업 자신의 AI'인지 본다. 광고주 상품명·캠페인명·수상작 이름 속 AI, 영문 단어 속 글자는 회사의 AI 가 아니다.
-3. 회사의 AI 문장마다 아래 단계를 매기고, 그중 가장 높은 단계를 ai_level 로 답한다.
-   연혁처럼 항목이 나열된 청크는 항목을 하나씩 모두 보고 가장 높은 항목을 고른다.
+1. 청크에서 AI 용어(AI·인공지능·생성형·LLM·GPT 등)가 직접 나오는 문장·항목만 빠짐없이 찾는다.
+   AI 용어가 없는 문장은 적지 않는다. 연혁·표처럼 나열된 청크는 항목 하나하나가 따로다.
+2. 각각을 mentions 에 하나씩 적는다: 근거 구절(quote), 단계(level), 영역(domain).
+   같은 청크 안의 항목끼리 단계가 달라도 된다. 서로 영향을 주지 말고 항목마다 따로 판정한다.
+3. 회사 AI 가 아닌 것(광고주 상품명·캠페인명 속 AI, 영문 단어 속 글자)은 level 을 null 로 적는다.
 
 {prompt_block("disclosure")}
 
@@ -68,27 +77,30 @@ SYSTEM = f"""당신은 광고대행사 정기공시(사업·반기·분기보고
   - 3 의 조건은 하나만 맞아도 3 이다. 자체 개발, AI 서비스·기능 출시, 전담 조직, 특허 중 하나가 있으면 숫자가 없어도 3.
   - '당사의 ○○ 솔루션', 회사(또는 연결 자회사)가 이름을 붙인 서비스·플랫폼은 자체 솔루션이다. 외부 도입(2)으로 보지 않는다.
     자체 AI 솔루션을 운영·판매·영업에 쓰고 있다는 문장은 이미 상용화된 것이므로 3 이다.
-  - 2 는 회사 밖에서 만든 AI(ChatGPT, 구글·어도비 등 외부 솔루션)를 쓰는 경우에만 준다.
+  - 2 와 3 은 'AI 가 들어간 결과물이 누구의 제품인가'로 가른다 (기반 기술이 누구 것인지는 따지지 않는다).
+      3: 외부 모델·기술(ChatGPT, 모회사·협력사 기술 등)을 썼더라도 회사의 제품·서비스·플랫폼에 넣어 출시·제공하고 있다.
+         예) 'ChatGPT 를 활용한 광고소재 생성 기능 오픈'(자사 솔루션의 기능), 'KT 와 협업해 AI 기술을 접목한 당사 플랫폼을 고도화하여 제공'
+      2: 외부에서 완성된 AI 솔루션·서비스를 회사 업무·캠페인에 쓰기만 한다.
+         다른 회사(모회사·고객사 포함)의 AI 서비스를 운영 대행하는 것도 2 이다. 예) 'SK텔레콤의 AI 기반 커머스 T deal 운영 대행'
+      제공 중인지 불분명하고 '추진', '적용할 예정'이면 1 이다.
   - 연구개발활동 표의 '○○ 개발', '○○ 기술 개발'(진행중 포함)은 회사가 직접 하는 개발이므로 3.
   - 시장·업계 전망, 광고비 전망, 다른 산업의 AI 성장 이야기는 null 이 아니라 0 이다.
   - null 은 세 경우뿐이다: 광고주 상품·캠페인·수상작 이름 속 AI / 영문 단어 속 글자 오탐 / 청크에 AI 가 실제로 없음.
 
-[AI 영역 ai_domain] ai_level 이 1 이상일 때만, 가장 높은 단계 문장의 영역 하나. 0 이거나 null 이면 null.
+[AI 영역 domain] level 이 1 이상인 항목만, 그 항목의 영역 하나. level 이 0 이거나 null 이면 null.
   creative  : 광고 소재·영상·이미지·카피 제작
   operation : 캠페인 운영·집행 자동화, 업무 자동화 플랫폼
   analytics : 데이터 분석·타겟팅·매칭·추천·성과 측정
   new_biz   : 위 셋에 들지 않는 새 서비스·사업 (브랜드 세이프티·유해 영상 차단, 검색 최적화(GEO),
               설문·커머스 같은 광고 외 서비스, AI 조직 신설·투자·제휴)
 
-[운영 성과 숫자 has_outcome_figure]
+[운영 성과 숫자 has_outcome_figure] 청크 전체 기준
   1 = 회사 AI 서비스의 매출·고객 수·이용 건수·처리량 등 운영 성과 숫자가 있다.
   0 = 없다. (연도·날짜·특허 번호·연구 인원·일반 시장 규모는 성과 숫자가 아니다)
 
-[reason] 근거가 된 구절을 따옴표로 짧게 인용하고 판단을 덧붙인다. 80자 이내.
-
-응답 형식:
-{{"ai_level": 0|1|2|3|null, "ai_domain": "creative"|"operation"|"analytics"|"new_biz"|null,
- "has_outcome_figure": 0|1, "reason": str}}"""
+응답 형식 (quote 는 AI 용어를 포함한 청크의 구절을 그대로 40자 이내, why 는 판단 이유 30자 이내):
+{{"mentions": [{{"quote": str, "level": 0|1|2|3|null, "domain": "creative"|"operation"|"analytics"|"new_biz"|null, "why": str}}],
+ "has_outcome_figure": 0|1}}"""
 
 
 def text_hash(text: str) -> str:
@@ -117,17 +129,24 @@ def load_cache() -> dict[str, dict]:
 
 
 def clean(out: dict) -> dict:
-    """LLM 응답을 스키마 CHECK 에 맞게 정리 (규칙을 코드로 한 번 더 강제)"""
-    level = out.get("ai_level")
-    level = int(level) if str(level) in ("0", "1", "2", "3") else None
-    domain = out.get("ai_domain") if out.get("ai_domain") in DOMAINS else None
-    if level is None or level == 0:  # 영역은 회사 AI 가 1단계 이상일 때만
-        domain = None
+    """LLM 의 항목별 판정(mentions)에서 청크 값을 코드로 정한다.
+    ai_level = 회사 AI 항목 중 최고 단계, ai_domain = 그 항목의 영역, reason = 그 항목의 인용 + 이유"""
+    ms = []
+    for m in out.get("mentions") or []:
+        lv = m.get("level")
+        lv = int(lv) if str(lv) in ("0", "1", "2", "3") else None
+        if AI_RE.search(str(m.get("quote", ""))):  # AI 용어가 없는 구절은 버린다 (v6)
+            ms.append({**m, "level": lv})
+    own = [m for m in ms if m["level"] is not None]
+    if not own:
+        why = ms[0] if ms else {}
+        return {"ai_level": None, "ai_domain": None, "has_outcome_figure": 0,
+                "reason": f"무관: '{why.get('quote', '')}' {why.get('why', '')}"[:200]}
+    top = max(own, key=lambda m: m["level"])  # 같은 단계면 먼저 나온 항목
+    domain = top.get("domain") if top["level"] >= 1 and top.get("domain") in DOMAINS else None
     figure = 1 if str(out.get("has_outcome_figure")) == "1" else 0
-    if level is None:
-        figure = 0
-    return {"ai_level": level, "ai_domain": domain, "has_outcome_figure": figure,
-            "reason": str(out.get("reason") or "")[:200]}
+    return {"ai_level": top["level"], "ai_domain": domain, "has_outcome_figure": figure,
+            "reason": f"L{top['level']}: '{top.get('quote', '')}' {top.get('why', '')} (AI 항목 {len(ms)}개)"[:200]}
 
 
 def main() -> None:

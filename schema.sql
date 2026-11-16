@@ -111,6 +111,7 @@ CREATE TABLE IF NOT EXISTS disclosure_chunks (
     doc_id          TEXT NOT NULL REFERENCES documents(doc_id),
     corp_code       TEXT NOT NULL REFERENCES companies(corp_code),
     rcept_no        TEXT NOT NULL,
+    report_date     TEXT,                    -- 'YYYY-MM-DD' 원본 접수일. 정정본만 청킹해도 처음 공개된 날을 둔다 (반영 시차 계산용)
     section         TEXT,                    -- 공시 목차 섹션명 (예: 'II. 사업의 내용')
     chunk_index     INTEGER NOT NULL,        -- 보고서 안에서의 순번
     text            TEXT NOT NULL,

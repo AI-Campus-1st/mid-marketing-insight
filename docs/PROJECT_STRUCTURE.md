@@ -18,6 +18,7 @@ mid-marketing-insight/
 ├── config/
 │   ├── settings.py            # [공동·D1] 경로, 수집 기간, DB 위치, AI 용어 정규표현식, 요청 규칙
 │   ├── companies.csv          # [B·D1] 대상 5개사 (corp_code, stock_code, parent_group, segment, is_control)
+│   ├── event_search_terms.csv # [B·D3] 이벤트별 공시 매칭 검색어 (search_terms), rag/check_search_terms.py 로 점검
 │   ├── anchor_queries.csv     # [A·D1] 앵커 이벤트 보강 검색어 (기업, 검색어, 목적)
 │   └── ai_levels.py           # [공동·D2] AI 단계 L0~L3 정의·경계 규칙 (뉴스·공시 공통, 프롬프트에 그대로 사용)
 │
@@ -48,6 +49,7 @@ mid-marketing-insight/
 │
 ├── rag/                       # ── 공시 검색·질의응답 계층 ──
 │   ├── chunk.py               # [B·D3] 화이트리스트 섹션(II 전체·I-2 연혁·I-5 정관)만 청킹, AI 용어 집계 → disclosure_chunks
+│   ├── check_search_terms.py  # [B·D3] 이벤트 검색어를 공시 청크에 대 보고 후보 수·이벤트 전 출현·0건 점검
 │   ├── classify_chunks.py     # [B·D4] AI 언급 청크만 LLM 단계·영역 분류
 │   ├── build_index.py         # [B·D5] 임베딩 → Chroma (메타데이터: chunk_id·공시명·제출일·링크)
 │   ├── qa_chain.py            # [B·D5] LangChain 질의응답, 출처 표시, 근거 없으면 거절
@@ -78,6 +80,7 @@ mid-marketing-insight/
 │   │   ├── project.db         # SQLite DB
 │   │   ├── llm_cache/         # LLM 응답 캐시 (프롬프트·입력 버전별)
 │   │   ├── dart_text/         # 정기공시 원문 텍스트 ({rcept_no}.txt, 목차 제목은 '## ' 줄)
+│   │   ├── disclosure_counts_quarterly.csv  # 기업별·분기별 공시 건수 (disclosure_eda → A 탭 1 차트)
 │   │   ├── anchor_events.csv            # ★ 고유 앵커 이벤트 30개 (B 에게 넘기는 목록)
 │   │   ├── anchor_events_confirmed.csv  # 확정 판정 95행 + event_id (어느 행이 어느 이벤트로 묶였는지)
 │   │   └── review_logs/       # 판정 기록(제목·URL 제외), LLM 판정 AI 2차 검토 표본

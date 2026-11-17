@@ -20,6 +20,7 @@
     python rag/level_review_sheet.py make
     python rag/level_review_sheet.py score
 출력: data/processed/review/ai_level_review_{A,B}.xlsx (판정용), ai_level_review_key.csv (LLM 정답, 판정자에게 보내지 않음)
+      판정이 끝나면 LLM 정답을 판정 시트의 숨김 시트 'LLM 정답'으로 옮기고 CSV 는 지운다 (score 는 둘 다 읽음)
 """
 import argparse
 import json
@@ -174,8 +175,22 @@ def make() -> None:
     print(pd.crosstab(s.corp_name, s.llm_level).to_string())
 
 
+KEY_SHEET = "LLM 정답"
+
+
+def load_key() -> pd.DataFrame:
+    """LLM 정답: 판정 시트 안의 숨김 시트가 있으면 그것, 없으면 CSV"""
+    for r in REVIEWERS:
+        f = OUT / f"ai_level_review_{r}.xlsx"
+        if f.exists():
+            xl = pd.ExcelFile(f)
+            if KEY_SHEET in xl.sheet_names:
+                return pd.read_excel(xl, sheet_name=KEY_SHEET, dtype=str)
+    return pd.read_csv(OUT / "ai_level_review_key.csv", dtype=str)
+
+
 def score() -> None:
-    key = pd.read_csv(OUT / "ai_level_review_key.csv", dtype=str)
+    key = load_key()
     key["llm"] = key.llm_level.map(label)
     sheets = {}
     for r in REVIEWERS:

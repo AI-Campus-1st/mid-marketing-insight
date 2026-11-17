@@ -55,4 +55,5 @@ def style(fig, height: int = 360):
     )
     fig.update_xaxes(gridcolor=c["grid"], zerolinecolor=c["grid"], linecolor=c["grid"], tickfont=dict(color=c["text2"]), automargin=True)
     fig.update_yaxes(gridcolor=c["grid"], zerolinecolor=c["grid"], linecolor=c["grid"], tickfont=dict(color=c["text2"]), automargin=True)
+    fig.update_traces(textangle=0, selector=dict(type="bar"))   # 막대 안 숫자가 세로로 눕지 않게 (design_test)
     return fig

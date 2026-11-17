@@ -10,7 +10,8 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from analysis import trend
-from dashboard.theme import colors, style
+from dashboard import style as ui
+from dashboard.theme import colors, mode, style
 
 MIN_MONTHLY_AI = 30   # 필터로 월평균 AI 기사가 이보다 적으면 급증 판정이 흔들려서 표시하지 않는다
 
@@ -29,35 +30,52 @@ def _monthly(df: pd.DataFrame) -> pd.DataFrame:
     return m.join(sp[["baseline", "ratio", "spike"]]) if len(sp) else m
 
 
+LIGHT_BAR = {"light": "#d6e2f3", "dark": "#2b3a52"}   # 급증이 아닌 달 (레퍼런스: 강조만 진한 파랑, 나머지 옅게)
+
+
 def _chart(m: pd.DataFrame, show_spikes: bool):
+    """AI 기사 월별 막대 — 급증 월만 진한 파랑, 미완 월은 빗금. 전체 기사는 옅은 선, 급증 기준선은 점선"""
     c = colors()
-    blue, orange = c["verdict"]["제때"], c["verdict"]["늦게"]
+    blue = c["verdict"]["제때"]
     x = pd.to_datetime(m.index)
+    spike = m["spike"] if (show_spikes and "spike" in m) else pd.Series(False, index=m.index)
+    colors_ = [blue if sp else LIGHT_BAR[mode()] for sp in spike]
     fig = go.Figure()
-    fig.add_scatter(x=x, y=m["total"], name="전체 기사", mode="lines", line=dict(color=c["muted"], width=2),
+    fig.add_bar(x=x, y=m["ai"], name="AI 기사", marker=dict(color=colors_, cornerradius=6,
+                pattern=dict(shape=["/" if p else "" for p in m["partial"]], fgcolor=blue, solidity=.25)),
+                customdata=(m["ai_share"] * 100).round(0), hovertemplate="%{x|%Y-%m} AI 기사 %{y}건 (전체의 %{customdata:.0f}%)<extra></extra>")
+    fig.add_scatter(x=x, y=m["total"], name="전체 기사", mode="lines", line=dict(color=c["muted"], width=1.5),
                     hovertemplate="%{x|%Y-%m} 전체 %{y}건<extra></extra>")
-    fig.add_scatter(x=x, y=m["ai"], name="AI 기사", mode="lines", line=dict(color=blue, width=2),
-                    customdata=(m["ai_share"] * 100).round(0), hovertemplate="%{x|%Y-%m} AI %{y}건 (%{customdata:.0f}%)<extra></extra>")
-    part = m[m["partial"]]
-    if len(part):
-        fig.add_scatter(x=pd.to_datetime(part.index), y=part["ai"], name="미완 월", mode="markers",
-                        marker=dict(size=10, color="rgba(0,0,0,0)", line=dict(color=blue, width=2)),
-                        hovertemplate="%{x|%Y-%m} 미완 월<extra></extra>")
     if show_spikes and "spike" in m:
-        fig.add_scatter(x=x, y=m["baseline"] * trend.SPIKE_RATIO, name="급증 기준선 (직전 6개월 평균 × 1.5)", mode="lines",
-                        line=dict(color=c["muted"], width=1.5, dash="dash"), hovertemplate="%{x|%Y-%m} 기준선 %{y:.0f}건<extra></extra>")
+        fig.add_scatter(x=x, y=m["baseline"] * trend.SPIKE_RATIO, name="급증 기준선", mode="lines",
+                        line=dict(color=c["text2"], width=1.2, dash="dot"), hovertemplate="%{x|%Y-%m} 기준선 %{y:.0f}건<extra></extra>")
         s = m[m["spike"]]
-        fig.add_scatter(x=pd.to_datetime(s.index), y=s["ai"], name="급증", mode="markers+text",
-                        marker=dict(size=13, color=orange, line=dict(color=c["surface"], width=2)),
-                        text=[f"{i} ×{r:.1f}" for i, r in zip(s.index, s["ratio"])], textposition="top center",
-                        textfont=dict(color=c["text"], size=12), hovertemplate="%{x|%Y-%m} 급증 %{y}건<extra></extra>")
-    fig.update_yaxes(title=None, rangemode="tozero")
-    fig.update_xaxes(title=None, dtick="M3", tickformat="%Y-%m")
-    return style(fig, height=380)
+        fig.add_scatter(x=pd.to_datetime(s.index), y=s["ai"], mode="text", showlegend=False, hoverinfo="skip",
+                        text=[f"×{r:.1f}" for r in s["ratio"]], textposition="top center", textfont=dict(color=blue, size=13))
+    fig.update_yaxes(title=None, rangemode="tozero", showgrid=True)
+    fig = style(fig, height=360)
+    # 날짜를 기울이면 Plotly automargin 이 왼쪽 여백을 크게 잡아 차트가 오른쪽으로 밀림 → 6개월 간격·수평 라벨
+    fig.update_xaxes(title=None, dtick="M6", tickformat="%Y-%m", tickangle=0, showgrid=False, automargin=False)
+    fig.update_layout(bargap=.28, legend=dict(x=1, xanchor="right"), margin=dict(l=10, r=10, t=40, b=30))
+    return fig
+
+
+def _spike_timeline(df: pd.DataFrame, m: pd.DataFrame, spikes: list[str]) -> None:
+    steps = []
+    for mo in spikes:
+        terms = trend.spike_terms(df, mo, k=3)
+        words = " · ".join(terms["term"]) if len(terms) else ""
+        steps.append(("done", f"{mo}  ×{m.loc[mo, 'ratio']:.1f}", f"AI 기사 {int(m.loc[mo, 'ai'])}건" + (f" · {words}" if words else "")))
+    full = m[~m["partial"]]
+    if len(full):
+        last = full.index[-1]
+        base = m.loc[last, "baseline"] * trend.SPIKE_RATIO if "baseline" in m and pd.notna(m.loc[last, "baseline"]) else None
+        steps.append(("now", f"최근 {last}", f"AI 기사 {int(full.loc[last, 'ai'])}건" + (f" · 기준선 {base:.0f}건" if base else "")))
+    ui.timeline(steps)
 
 
 def render(df: pd.DataFrame, period) -> None:
-    st.markdown("### Q1. AI 마케팅 기사는 언제 급증했나")
+    ui.page_title("Q1. AI 마케팅 기사는 언제 급증했나", "제공 뉴스(키워드 수집, 중복 제외)의 월별 기사량과 급증 시점")
     m_all = _monthly(df)   # 전체 기간으로 기준선·급증 계산
     lo, hi = period[0].strftime("%Y-%m"), period[1].strftime("%Y-%m")
     m = m_all.loc[(m_all.index >= lo) & (m_all.index <= hi)]
@@ -73,21 +91,29 @@ def render(df: pd.DataFrame, period) -> None:
     if spikes:
         first = spikes[0]
         after = full.loc[first:]
-        st.markdown(f"#### **{first}** 에 AI 기사가 직전 6개월 평균의 **{m.loc[first, 'ratio']:.1f}배**로 급증했고, "
-                    f"이후 월 {int(after['ai'].min())}건 아래로 내려가지 않았다")
+        ui.lead(f"<b>{first}</b> 에 AI 기사가 직전 6개월 평균의 <b>{m.loc[first, 'ratio']:.1f}배</b>로 급증했고, "
+                f"이후 월 {int(after['ai'].min())}건 아래로 내려가지 않았다")
     elif not show_spikes:
-        st.markdown("#### 선택한 필터에서는 기사 수가 적어 급증 시점을 판정하지 않아요")
+        ui.lead("선택한 필터에서는 기사 수가 적어 급증 시점을 판정하지 않아요")
     else:
-        st.markdown("#### 선택한 기간에는 급증한 달이 없어요")
+        ui.lead("선택한 기간에는 급증한 달이 없어요")
 
-    a, b, c_, d = st.columns(4)
-    a.metric("기사", f"{len(df):,}건")
-    b.metric(f"AI 기사 (전체의 {df['is_ai'].mean():.0%})", f"{int(df['is_ai'].sum()):,}건")
-    c_.metric("급증한 달", f"{len(spikes)}개" if show_spikes else "판정 안 함")
-    d.metric("기간", f"{len(m)}개월", help=f"{m.index.min()} – {m.index.max()}")
+    ui.kpis([("기사", f"{len(df):,}건", f"{m.index.min()} – {m.index.max()}"),
+             ("AI 기사", f"{int(df['is_ai'].sum()):,}건", f"전체의 {df['is_ai'].mean():.0%}"),
+             ("급증한 달", f"{len(spikes)}개" if show_spikes else "판정 안 함", "직전 6개월 평균 × 1.5 초과"),
+             ("기간", f"{len(m)}개월", "미완 월 2개 포함" if m["partial"].any() else "")], key="q1")
 
-    st.plotly_chart(_chart(m, show_spikes), width="stretch", config={"displayModeBar": False})
-    st.caption("제공 뉴스(키워드 수집, 중복 제외) 기준 · 빈 점 = 미완 월 · 점선 = 급증 기준선")
+    left, right = st.columns([5, 2], gap="medium")
+    with left, st.container(border=True, key="card_q1_chart"):
+        ui.section("월별 AI 기사", "▮", badge="급증 월만 진하게", badge_kind="blue")
+        st.plotly_chart(_chart(m, show_spikes), width="stretch", config={"displayModeBar": False})
+        st.caption("빗금 = 미완 월(2023-10·2026-10, 19일 기준) · 점선 = 급증 기준선 · 선 = 전체 기사")
+    with right, st.container(border=True, key="card_q1_timeline"):
+        ui.section("급증 타임라인", "⏱")
+        if spikes or show_spikes:
+            _spike_timeline(df, m, spikes)
+        else:
+            st.caption("판정하지 않음")
 
     if spikes:
         with st.expander("급증한 달에 무엇이 늘었나 (제목 단어)"):

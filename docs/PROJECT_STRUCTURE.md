@@ -69,6 +69,7 @@ mid-marketing-insight/
 │   ├── app.py                 # [공동·D6] 진입점: 상단 결론 카드(초안), 사이드바 공통 필터(기간·기업·카테고리) → Q1·Q2·Q3, 공시 챗봇 (A 작성)
 │   ├── data_loader.py         # [공동·D6] DB 조회 함수 (st.cache_data). B: reflection(), chunk_levels() / A: news(), concern_articles(), filter_news()
 │   ├── theme.py               # [B·D6] 차트 색(판정·AI 단계, 라이트·다크 검증)·공통 스타일
+│   ├── style.py               # [공동·D6] 화면 공통 CSS·카드형 부품(KPI·섹션 제목·배지·타임라인·작은 카드), 레퍼런스: docs/design/references
 │   ├── preview_b.py           # [B·D6] app.py 전에 Q3·공시 Q&A 탭만 띄워 보는 미리보기
 │   └── tabs/
 │       ├── q1_issue_trend.py  # [A·D6] Q1 월별 기사량 + 급증 시점(기준선은 전체 기간으로 계산) — render(df, period)
@@ -108,6 +109,7 @@ mid-marketing-insight/
     ├── dart_ai_check.md       # [B·D2] 확인 지점 ①: 사업보고서 AI 문장 점검
     ├── 실행 설계서 - 뉴스 보강·이벤트 매칭.md  # [A·D2] 수집·이벤트·매칭 설계와 상의 안건
     ├── PROJECT_STRUCTURE.md   # [공동] 이 문서
+    ├── design/references/     # [공동·D6] 대시보드 디자인 레퍼런스 (이미지는 저장소 제외, README 의 목록만)
     └── report/                # [공동·D7] 리포트, 발표 자료
 ```
 

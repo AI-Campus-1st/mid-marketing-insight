@@ -7,7 +7,7 @@ make  : 이벤트마다 후보를 뽑아 event_dart_mapping 에 넣고, 검증�
         - 임베딩 후보: 키워드에 안 걸린 청크 중 이벤트 설명과 코사인 유사도 상위 5개 (rag/embeddings.py)
         - 실행할 때 쓴 검색어를 ai_events.search_terms 에 기록 (원본은 CSV 하나)
         - 이미 사람이 검증한 행(verified)은 그대로 둔다
-        - 시트: A = 이노션·KT나스미디어 / B = 인크로스·플레이디·제일기획. 이벤트별로 보고서 날짜순.
+        - 시트: 공시 담당 B 가 5개사 전부 검증 (preceded·not_found 만 A 교차 확인). 이벤트별로 보고서 날짜순.
           같은 이벤트 안에서 앞 후보와 같은 문장이면 '반복' 표시 → 첫 매칭 확인 뒤 한 번에 처리
 apply : 채운 시트의 판정(같음 / 다름 / 반복)을 event_dart_mapping.verified 에 반영한다.
         같음·반복 = 1, 다름 = 0. 판정 기준(실행 설계서 4장): 같은 기업 / 같은 대상(이름이 같거나 기능·대상이 같음) /
@@ -16,7 +16,7 @@ apply : 채운 시트의 판정(같음 / 다름 / 반복)을 event_dart_mapping.
 실행
     python rag/match_candidates.py make
     python rag/match_candidates.py apply
-출력: data/processed/review/event_match_{A,B}.xlsx
+출력: data/processed/review/event_match_B.xlsx
 """
 import argparse
 import json
@@ -37,7 +37,8 @@ TERMS_CSV = settings.CONFIG_DIR / "event_search_terms.csv"
 ANCHOR_CSV = settings.DATA_DIR / "processed" / "anchor_events.csv"
 OUT = settings.DATA_DIR / "processed" / "review"
 TOP_K = 5
-REVIEWER = {"이노션": "A", "KT나스미디어": "A", "인크로스": "B", "플레이디": "B", "제일기획": "B"}
+# 검증은 공시 담당 B 가 전부 (Day 4 변경, decisions.md). preceded·not_found 판정만 A 가 교차 확인
+REVIEWER = {"이노션": "B", "KT나스미디어": "B", "인크로스": "B", "플레이디": "B", "제일기획": "B"}
 TYPE_KO = {"launch": "출시·공개", "organization": "조직 신설", "adoption": "도입", "investment": "투자",
            "partnership": "제휴·협약", "patent": "특허", "campaign": "캠페인", "award": "수상"}
 CHOICES = ["같음", "다름", "반복"]
@@ -166,7 +167,7 @@ def write_sheets(con, ev: pd.DataFrame, ch: pd.DataFrame) -> None:
              ["교차 확인", "'발표 전'에 같음(공시가 먼저)이 나왔거나, 한 이벤트의 후보가 모두 '다름'(공시에서 미확인)이면 상대가 한 번 더 본다."],
              ["범위", "'참고용'은 2026-06-30 이후 이벤트라 타임라인 표시용. 시간이 없으면 뒤로 미룬다."]]
     OUT.mkdir(parents=True, exist_ok=True)
-    for who in ("A", "B"):
+    for who in sorted(set(REVIEWER.values())):
         path = OUT / f"event_match_{who}.xlsx"
         if path.exists():
             old = pd.read_excel(path, sheet_name="매칭", dtype=str)

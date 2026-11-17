@@ -43,7 +43,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from config import settings  # noqa: E402
 from config.ai_levels import prompt_block  # noqa: E402
 
-PROMPT_VERSION = "chunk_v6"
+PROMPT_VERSION = "chunk_v7"
+# v6 → v7 (A·B 합의 판정 50개 검수: LLM 일치 76%, L2 정확도 17%, 전체 L2 86개 점검)
+#   업계 동향('생성형 AI 기술이 광고 최적화 분야에 본격 도입')을 회사의 도입(L2)으로 봄 → 주어가 회사가 아니면 0
+#   'AI 및 머신러닝 기술을 각 광고 플랫폼에 접목'(자사 플랫폼 운영)을 L2 로 → 자사 플랫폼에 넣어 운영·제공하면 3
+#   T deal '공동 개발' 기준(합의), 특허 출원을 L1 로 낮춤, '역량 확보 중' 같은 막연한 방향, '○○에 생성형 AI 기술 도입'(사내 도구) = 2
+#   AI 용어가 있는데 AI 문장을 하나도 못 찾은 청크는 한 번 더 묻는다
 # v5 → v6: AI 용어가 없는 문장을 항목으로 넣어 판정(2건: 이노션 L0→L1, 인크로스 무관 솔루션→L3)
 #   → quote 에 AI 용어를 반드시 넣게 하고, 코드가 AI 용어(settings.AI_TERM_PATTERN) 없는 항목을 버린다.
 # v4 → v5: v4 에서 '최고 단계 고르기'를 LLM 에 맡기자 연혁 청크에서 낮은 항목(T deal L2)을 고르고(2건),
@@ -83,9 +88,21 @@ SYSTEM = f"""당신은 광고대행사 정기공시(사업·반기·분기보고
          예) 'ChatGPT 를 활용한 광고소재 생성 기능 오픈'(자사 솔루션의 기능), 'KT 와 협업해 AI 기술을 접목한 당사 플랫폼을 고도화하여 제공'
       2: 외부에서 완성된 AI 솔루션·서비스를 회사 업무·캠페인에 쓰기만 한다.
          다른 회사(모회사·고객사 포함)의 AI 서비스를 운영 대행하는 것도 2 이다. 예) 'SK텔레콤의 AI 기반 커머스 T deal 운영 대행'
+         단 문장의 중심이 'SK텔레콤과 공동 개발한 AI 기술 기반 서비스'처럼 회사가 함께 개발했다는 것이면 3.
+         시장 규모·업황 문장 속에 수식어로만 나오면 2.
+      '○○ 솔루션에 생성형 AI 기술 도입', '업무를 AI 기술로 대체'처럼 외부 AI 를 '도입'했다고 적힌 업무 개선은 2.
       제공 중인지 불분명하고 '추진', '적용할 예정'이면 1 이다.
+  - 회사가 자사 광고 플랫폼·솔루션에 AI(머신러닝 포함)를 접목해 운영·제공하고 있다고 적혀 있으면 (모회사·협력사의 데이터나
+    기술을 함께 썼더라도) 3. 예) '모회사와 협력해 … AI 및 머신러닝 기술을 각 광고 플랫폼에 접목하여 광고 트래픽을 실시간 제어'
+  - 특허 출원·등록 문장은 '등록 진행 중', '~할 것으로 기대'가 붙어도 3.
   - 연구개발활동 표의 '○○ 개발', '○○ 기술 개발'(진행중 포함)은 회사가 직접 하는 개발이므로 3.
   - 시장·업계 전망, 광고비 전망, 다른 산업의 AI 성장 이야기는 null 이 아니라 0 이다.
+    주어가 회사가 아닌 업계 동향은 '도입', '활용', '적용'이라는 말이 있어도 0 이다.
+    예) '생성형 AI 기술의 발전이 광고 최적화 및 콘텐츠 제작 분야에 본격 도입되고 있다', '업계에서는 AI 활용 사례가 증가하고 있다',
+        'AI 기술을 활용해 플랫폼을 고도화하는 역량이 사업의 필수 요소다'(사업에 필요한 요소에 대한 일반론)
+  - 구체적인 서비스·기능 없이 회사의 방향만 말하면 1 이다. 예) 'AI 기반의 타기팅 역량을 확보 중', 'AI 기반 솔루션 고도화 등으로 대응',
+    'AI 전문기업들과 MOU 를 맺고 AI 업무 고도화 추진'
+  - 청크에 AI 용어가 있으면 mentions 를 비우지 않는다. 업계 이야기면 0, 광고주 상품명이면 null 로라도 적는다.
   - null 은 세 경우뿐이다: 광고주 상품·캠페인·수상작 이름 속 AI / 영문 단어 속 글자 오탐 / 청크에 AI 가 실제로 없음.
 
 [AI 영역 domain] level 이 1 이상인 항목만, 그 항목의 영역 하나. level 이 0 이거나 null 이면 null.
@@ -202,6 +219,19 @@ def main() -> None:
                     except (APIConnectionError, APIStatusError, APITimeoutError, RateLimitError, json.JSONDecodeError) as e:
                         print(f"  재시도 {attempt + 1}/3 ({type(e).__name__}): {r.chunk_id}")
                         time.sleep(5 * (attempt + 1))
+                if out is not None and clean(out)["reason"] == NO_MENTION and AI_RE.search(r.text):
+                    # AI 용어가 있는데 AI 문장을 하나도 적지 않음 → 그 부분을 짚어 주고 한 번 더 묻는다 (v7)
+                    parts = " / ".join(r.text[max(0, m.start() - 60):m.end() + 60].replace("\n", " ")
+                                       for m in list(AI_RE.finditer(r.text))[:5])
+                    try:
+                        res = client.chat.completions.create(
+                            model=model, temperature=0, response_format={"type": "json_object"},
+                            messages=[{"role": "system", "content": SYSTEM},
+                                      {"role": "user", "content": build_prompt(r) + f"\n\n[AI 용어가 나오는 부분]\n{parts}\n"
+                                       "위 부분을 빠짐없이 mentions 에 적으세요."}])
+                        out = json.loads(res.choices[0].message.content)
+                    except (APIConnectionError, APIStatusError, APITimeoutError, RateLimitError, json.JSONDecodeError):
+                        pass
                 if out is None:
                     n_fail += 1
                     continue

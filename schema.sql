@@ -181,7 +181,7 @@ CREATE TABLE IF NOT EXISTS event_dart_mapping (
 --    첫 매칭 = event_dart_mapping.verified = 1 중 원본 접수일(report_date)이 가장 이른 청크.
 --      reference  : analysis_scope = 'reference' (REFLECTION_CUTOFF 이후 이벤트, 타임라인 표시만)
 --      not_found  : 검증된 매칭 없음 → 화면 표기 '공시에서 미확인' ('미반영' 금지)
---      preceded   : 첫 매칭 접수일 < d (공시가 먼저 말함)
+--      preceded   : 첫 매칭 접수일 < d 이고 그 청크가 L1 이상 (공시가 먼저 말함). 발표 전 매칭이 단계 없음·L0 이면 후보에서 뺀다
 --      on_time    : 첫 매칭 보고 기간 ≤ 기대 보고 기간 (예: 1월 발표가 직전 사업보고서(3월 접수)에 실림 포함)
 --                   분기보고서에는 연혁이 없으므로(34건 중 33건 생략), 첫 매칭이 '회사의 연혁'이고 기대 보고서가
 --                   1·3분기 보고서면 다음 반기·사업보고서를 기대 보고서로 본다 (실행 설계서 4장)
@@ -201,9 +201,12 @@ WITH matched AS (
     WHERE m.verified = 1
 ),
 first_match AS (
+    -- 발표일 이전 매칭은 L1 이상일 때만 후보 (합의: preceded = 발표 전 공시에 L1 이상 매칭).
+    -- 단계가 없거나(AI 용어 없는 연혁·수상표) L0 인 발표 전 매칭이 발표 뒤의 제대로 된 매칭을 가리지 않게 (A 리뷰, PR #16)
     SELECT * FROM (
-        SELECT matched.*, ROW_NUMBER() OVER (PARTITION BY event_id ORDER BY report_date, period_end, chunk_id) AS rn
-        FROM matched
+        SELECT matched.*, ROW_NUMBER() OVER (PARTITION BY matched.event_id ORDER BY matched.report_date, period_end, chunk_id) AS rn
+        FROM matched JOIN ai_events e ON e.event_id = matched.event_id
+        WHERE matched.report_date >= e.official_date OR matched.ai_level >= 1
     ) WHERE rn = 1
 ),
 levels AS (

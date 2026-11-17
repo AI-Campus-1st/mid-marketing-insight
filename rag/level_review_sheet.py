@@ -19,6 +19,7 @@
 실행
     python rag/level_review_sheet.py make
     python rag/level_review_sheet.py score
+    python rag/level_review_sheet.py make2 / score2   # 2차 검수 (프롬프트 v7 확인용 새 표본 30개)
 출력: data/processed/review/ai_level_review_{A,B}.xlsx (판정용), ai_level_review_key.csv (LLM 정답, 판정자에게 보내지 않음)
       판정이 끝나면 LLM 정답을 판정 시트의 숨김 시트 'LLM 정답'으로 옮기고 CSV 는 지운다 (score 는 둘 다 읽음)
 """
@@ -56,7 +57,14 @@ SUPPLEMENT = [
     "외부 완성 솔루션을 쓰기만 하거나 다른 회사(모회사 포함) AI 서비스를 운영 대행하면 2.",
     "'당사의 ○○ 솔루션'처럼 회사(또는 연결 자회사)가 이름 붙인 솔루션은 자체 솔루션이다.",
     "시장·업계 전망은 0. 무관은 광고주 상품·캠페인·수상작 이름 속 AI / 영문 단어 속 글자 / AI 가 실제로 없음, 세 경우뿐.",
+    "주어가 회사가 아닌 업계 동향은 '도입·활용·적용'이라는 말이 있어도 0 ('생성형 AI 기술이 광고 최적화 분야에 본격 도입').",
+    "자사 광고 플랫폼·솔루션에 AI(머신러닝 포함)를 접목해 운영·제공하면 협력사 기술을 썼어도 3. 특허 출원·등록은 진행 중이어도 3.",
+    "T deal 같은 다른 회사 AI 서비스 운영 대행은 2, 문장의 중심이 '공동 개발한'이면 3. '○○에 생성형 AI 기술 도입'(업무 개선)은 2.",
+    "구체 서비스·기능 없이 방향만('역량 확보 중', '고도화 추진', 'MOU 를 맺고 추진') 말하면 1.",
+    "청크에 적힌 내용만 본다 (다른 공시·뉴스에서 아는 사실은 반영하지 않는다).",
 ]
+R2_FILE = "ai_level_review_r2_B.xlsx"   # 2차 검수 (프롬프트 v7 확인용 새 표본, A·B 합의 판정)
+R2_PER_CORP = 6
 
 
 def guide_rows() -> list[list[str]]:
@@ -178,10 +186,49 @@ def make() -> None:
 KEY_SHEET = "LLM 정답"
 
 
-def load_key() -> pd.DataFrame:
+def make_round2() -> None:
+    """2차 검수: 프롬프트를 고칠 때 본 표본(시험 20개 + 1차 50개)을 빼고 기업당 R2_PER_CORP 개 새 표본.
+    시트는 하나(A·B 합의 판정), LLM 정답은 같은 파일의 숨김 시트로."""
+    from openpyxl import load_workbook
+    path = OUT / R2_FILE
+    if path.exists():
+        sys.exit(f"{path} 가 이미 있습니다 (판정 보호).")
+    con = sqlite3.connect(settings.DB_PATH)
+    df = pd.read_sql(
+        """SELECT k.chunk_id, c.corp_name, d.title AS report_name, k.report_date, k.section, k.text,
+                  k.ai_level, k.ai_domain, k.reason, k.prompt_version
+           FROM disclosure_chunks k JOIN companies c ON c.corp_code = k.corp_code JOIN documents d ON d.doc_id = k.doc_id
+           WHERE k.model IS NOT NULL""", con)
+    used = set(read_sheet(OUT / "ai_level_review_B.xlsx").chunk_id)
+    if PILOT_CACHE.exists():
+        used |= {json.loads(line)["key"].split(":")[0] for line in PILOT_CACHE.read_text(encoding="utf-8").splitlines()}
+    df = df[~df.chunk_id.isin(used)]
+    df["llm_level"] = df.ai_level.map(lambda x: "무관" if pd.isna(x) else str(int(x)))
+    picks = []
+    for corp, g in df.groupby("corp_name"):
+        g = g.sample(frac=1, random_state=SEED + 1)
+        first = g.groupby("llm_level").head(1)
+        picks.append(pd.concat([first, g.drop(first.index)]).head(R2_PER_CORP))
+    s = pd.concat(picks).sample(frac=1, random_state=SEED + 1).reset_index(drop=True)
+    s.insert(0, "sample_no", range(1, len(s) + 1))
+    s["ai_parts"] = s.text.map(ai_parts)
+    write_sheet(path, s[["sample_no", "corp_name", "report_name", "report_date", "section", "ai_parts", "text"]].assign(
+        human_level="", note="", chunk_id=s.chunk_id))
+    wb = load_workbook(path)
+    ws = wb.create_sheet(KEY_SHEET)
+    key = s[["sample_no", "chunk_id", "corp_name", "llm_level", "ai_domain", "reason", "prompt_version"]]
+    ws.append(list(key.columns))
+    for row in key.itertuples(index=False):
+        ws.append(["" if pd.isna(v) else v for v in row])
+    ws.sheet_state = "hidden"
+    wb.save(path)
+    print(f"2차 표본 {len(s)}개 (시험 20개·1차 50개 제외) → {path}")
+    print(pd.crosstab(s.corp_name, s.llm_level).to_string())
+
+
+def load_key(files: dict | None = None) -> pd.DataFrame:
     """LLM 정답: 판정 시트 안의 숨김 시트가 있으면 그것, 없으면 CSV"""
-    for r in REVIEWERS:
-        f = OUT / f"ai_level_review_{r}.xlsx"
+    for f in (files or {r: OUT / f"ai_level_review_{r}.xlsx" for r in REVIEWERS}).values():
         if f.exists():
             xl = pd.ExcelFile(f)
             if KEY_SHEET in xl.sheet_names:
@@ -189,12 +236,12 @@ def load_key() -> pd.DataFrame:
     return pd.read_csv(OUT / "ai_level_review_key.csv", dtype=str)
 
 
-def score() -> None:
-    key = load_key()
+def score(round_no: int = 1) -> None:
+    files = {r: OUT / f"ai_level_review_{r}.xlsx" for r in REVIEWERS} if round_no == 1 else {"B": OUT / R2_FILE}
+    key = load_key(files)
     key["llm"] = key.llm_level.map(label)
     sheets = {}
-    for r in REVIEWERS:
-        f = OUT / f"ai_level_review_{r}.xlsx"
+    for r, f in files.items():
         if f.exists():
             d = read_sheet(f)
             sheets[r] = d.set_index("chunk_id").human_level.map(label)
@@ -213,7 +260,7 @@ def score() -> None:
         done = m[m[r] != ""]
         acc = (done[r] == done.llm).mean() if len(done) else float("nan")
         print(f"{'A·B 합의' if consensus else r}: 판정 {len(done)}/{len(m)}, LLM 과 일치 {acc:.0%}")
-        notes = read_sheet(OUT / f"ai_level_review_{r}.xlsx").set_index("chunk_id").note
+        notes = read_sheet(files[r]).set_index("chunk_id").note
         con.executemany(
             """INSERT INTO review_samples (chunk_id, target, prompt_version, llm_label, human_label, is_correct, reviewer, note)
                VALUES (?, 'ai_level', ?, ?, ?, ?, ?, ?)""",
@@ -246,5 +293,6 @@ def score() -> None:
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description="공시 청크 AI 단계 검수 표본")
-    p.add_argument("action", choices=["make", "score"])
-    {"make": make, "score": score}[p.parse_args().action]()
+    p.add_argument("action", choices=["make", "score", "make2", "score2"])
+    a = p.parse_args().action
+    {"make": make, "score": score, "make2": make_round2, "score2": lambda: score(2)}[a]()

@@ -11,7 +11,7 @@ import streamlit as st
 
 from dashboard import data_loader as dl
 from dashboard import style as ui
-from dashboard.theme import colors, mode, style
+from dashboard.theme import FONT, colors, mode, style
 
 # 내용 이슈 (형식 이슈 '제휴·협력'·'실적·투자·상장'·'행사·시상'·'기타'는 추이 차트에서 뺌). 색은 이슈에 고정 (순위가 아니라)
 TREND_ISSUES = ["생성형 AI 콘텐츠 제작", "AI 개인화·타겟팅", "마케팅 자동화·애드테크", "AI 에이전트", "AI 검색·GEO"]
@@ -76,13 +76,13 @@ def _trend_html(share: pd.DataFrame, n: pd.Series, height: int = 430) -> str:
         tr.opacity = DIM
         groups[iss].append(i)
     fig.update_layout(showlegend=False, height=height - 40, margin=dict(l=10, r=10, t=10, b=10),
-                      font=dict(family="Pretendard, Apple SD Gothic Neo, Malgun Gothic, sans-serif"))
+                      font=dict(family=FONT))
     plot = fig.to_html(full_html=False, include_plotlyjs="cdn", div_id="q2trend",
                        config={"displayModeBar": False, "responsive": True}, default_width="100%")
     chips = "".join(f'<span class="chip" data-i="{k}"><i style="background:{ic[iss]}"></i>{iss}</span>'
                     for k, iss in enumerate(TREND_ISSUES))
     return f"""
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <style>
   body {{ margin: 0; font-family: Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background: transparent; }}
   .legend {{ display: flex; flex-wrap: wrap; gap: .4rem; margin: 0 0 4px 4px; }}

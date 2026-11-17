@@ -19,16 +19,15 @@ st.set_page_config(page_title="공시 반영·Q&A", layout="wide")
 
 with st.sidebar:
     st.markdown("### 말뿐인 AI인가, 실행하는 AI인가")
-    page = st.radio("화면", ["Q3 공시 반영", "공시 Q&A"], label_visibility="collapsed")
+    page = st.radio("화면", ["공시 Q&A", "Q3 공시 반영"], label_visibility="collapsed")
     st.divider()
-    corps = st.multiselect("기업", CORPS, default=CORPS)
-    period = st.date_input("이벤트 발표일", value=(date(2023, 10, 19), date(2026, 10, 19)),
-                           min_value=date(2023, 10, 19), max_value=date(2026, 10, 19))
+    if page == "Q3 공시 반영":  # 필터는 Q3 화면에서만 쓴다
+        corps = st.multiselect("기업", CORPS, default=CORPS)
+        period = st.date_input("이벤트 발표일", value=(date(2023, 10, 19), date(2026, 10, 19)),
+                               min_value=date(2023, 10, 19), max_value=date(2026, 10, 19))
     st.caption("데이터: DART 정기공시 5개사 · 뉴스 이벤트 28개 (2023-10-19 ~ 2026-10-19)")
 
-if not isinstance(period, tuple) or len(period) != 2:
-    st.stop()
-if page == "Q3 공시 반영":
-    q3_disclosure.render(corps or CORPS, period)
-else:
+if page == "공시 Q&A":
     qa.render()
+elif isinstance(period, tuple) and len(period) == 2:
+    q3_disclosure.render(corps or CORPS, period)

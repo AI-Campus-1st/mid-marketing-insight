@@ -26,7 +26,10 @@ def render() -> None:
     for col, q in zip(cols, EXAMPLES):
         if col.button(q, width="stretch"):
             st.session_state.qa_q = q
-    q = st.text_input("질문", key="qa_q", placeholder="예: 인크로스 스텔라이즈는 언제 출시됐나요?")
+    st.caption("예시를 누르거나, 아래 칸에 직접 질문을 쓰고 Enter 또는 '질문하기'를 누르세요.")
+    left, right = st.columns([6, 1], vertical_alignment="bottom")
+    q = left.text_input("질문", key="qa_q", placeholder="예: 인크로스 스텔라이즈는 언제 출시됐나요?")
+    right.button("질문하기", type="primary", width="stretch")
     if not q:
         return
     with st.spinner("공시를 찾고 답을 쓰는 중…"):

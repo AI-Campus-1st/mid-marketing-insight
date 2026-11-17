@@ -53,6 +53,8 @@ cp .env.example .env   # .env 에 DART_API_KEY, LLM API 키 입력
 8. 반영 시차·지표: `python analysis/lag.py` → `python analysis/metrics.py`
 9. VectorDB 구축: `python rag/build_index.py`
 10. 대시보드 실행: `streamlit run dashboard/app.py`
+   - B 화면(Q3 공시 반영·공시 Q&A)만 미리 보기: `streamlit run dashboard/preview_b.py` → 브라우저에서 http://localhost:8501
+   - 공시 Q&A 는 `.env` 의 `OPENAI_API_KEY` 가 있어야 답합니다 (질문 1개당 검색 + LLM 1회)
 
 > 파일명은 기획안 기준 초안이며 구현하면서 업데이트합니다.
 

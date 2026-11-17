@@ -39,6 +39,7 @@ mid-marketing-insight/
 │   ├── eda.ipynb              # [A·D3] 기사량 추이, 급증 시점, 기업별 언급
 │   ├── disclosure_eda.ipynb   # [B·D3] 공시 건수 추이, 유형 분포, AI 언급 집계
 │   ├── classify_news.py       # [A·D4] LLM 관련도·AI 관련·감성·이슈 키워드 → llm_results
+│   ├── llm_review.py          # [A·D4] 뉴스 LLM 분류 사람 검수 엑셀(LLM 값 분리) / 정확도 집계 → review_samples
 │   ├── event_review_sheet.py  # [A·D3] 제공·네이버·웹 기사를 사건 묶음으로 → 검토 시트 (규칙 기반, AI 미사용)
 │   ├── event_classify.py      # [A·D3] 검토 시트 LLM 1차 판정 (네이버 외 출처 본문만 입력)
 │   ├── anchor_events.py       # [A·D2] 확정 이벤트 30개(anchor_events.csv) → ai_events (+ companies)

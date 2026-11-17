@@ -11,8 +11,8 @@
 | 단계 | 건수 |
 |---|---|
 | 입력 (묶음 CSV) | 6,469 |
-| 중복 표시 (`is_duplicate = 1`) | **24** (규칙 ① 13 + 규칙 ② 11) |
-| **집계 대상 (`is_duplicate = 0`)** | **6,445** |
+| 중복 표시 (`is_duplicate = 1`) | **19** (규칙 ① 13 + 규칙 ② 6) |
+| **집계 대상 (`is_duplicate = 0`)** | **6,450** |
 | 그중 본문 없음 (`body IS NULL`) | 2 (Q1 기사량에는 포함, Q2 LLM 분석에서는 제외) |
 
 **행을 지우지 않는다.** 6,469건이 모두 `documents` 에 있고 `is_duplicate` 로만 표시한다. 가장 이른 기사 하나가 `0`, 나머지가 `1`.
@@ -27,7 +27,7 @@
 | 규칙 | 조건 | 의미 | 건수 |
 |---|---|---|---|
 | ① | 같은 `title_norm` **+ 같은 `body_hash`** | 글자 하나 다르지 않은 같은 기사. **매체가 달라도** 본문이 똑같으면 중복 (보도자료를 그대로 붙여 넣은 경우) | 13 |
-| ② | 같은 **매체** + 같은 `title_norm` + **7일 이내** | 같은 매체의 수정·재송고 기사 (본문이 조금 다름) | 11 |
+| ② | 같은 **매체** + 같은 `title_norm` + **24시간 이내** | 같은 매체의 수정·재송고 기사 (본문이 조금 다름). 처음엔 7일이었으나 사람 검수(24쌍) 후 24시간으로 줄임 (`decisions.md` 중복 규칙 행) | 6 |
 
 **예시**
 ```
@@ -45,7 +45,7 @@
 |---|---|
 | **다른 매체가 같은 보도자료를 조금씩 고쳐 실은 기사** (본문이 다름) | 매체별 보도는 언론 노출량이라 기사량에 포함. 같은 정규화 제목 474건(197그룹) 중 대부분이 여기에 해당 |
 | 원문 URL 이 같은 기사 | 제공 데이터에서 **서로 다른 기사에 같은 URL** 이 들어간 사례 23개가 있어 URL 은 기준으로 쓰지 않음 |
-| 같은 매체·같은 제목이지만 7일 넘게 떨어진 기사 | 다른 시기의 별개 기사(예: 매월 나오는 순위 기사)일 수 있음 |
+| 같은 매체·같은 제목이지만 24시간 넘게 떨어진 기사 | 다른 날 다시 실은 기사는 별도 노출로 셈 (사람 검수에서 39시간·5일·7일 뒤 재게재를 '다른 기사'로 판정) |
 
 ```
 다른 매체 재배포 (모두 is_duplicate = 0)
@@ -59,7 +59,7 @@
 
 ### 확인 방법 (SQL)
 ```sql
--- 중복으로 표시된 24건과 같은 제목의 남긴 기사를 함께 보기
+-- 중복으로 표시된 19건과 같은 제목의 남긴 기사를 함께 보기
 SELECT d.title_norm, d.doc_id, d.is_duplicate, d.published_date, d.media, d.title
 FROM documents d
 WHERE d.source_type = 'news'
@@ -67,9 +67,9 @@ WHERE d.source_type = 'news'
 ORDER BY d.title_norm, d.published_date;
 
 -- 집계 대상 건수
-SELECT COUNT(*) FROM documents WHERE source_type = 'news' AND news_origin = 'provided' AND is_duplicate = 0;  -- 6445
+SELECT COUNT(*) FROM documents WHERE source_type = 'news' AND news_origin = 'provided' AND is_duplicate = 0;  -- 6450
 ```
-CSV 로 보려면 `data/processed/news_provided_loaded.csv` (집계 대상 6,445건, A 로컬) 를 쓰면 된다.
+CSV 로 보려면 `data/processed/news_provided_loaded.csv` (집계 대상 6,450건, A 로컬) 를 쓰면 된다.
 
 ---
 

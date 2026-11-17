@@ -53,7 +53,8 @@ mid-marketing-insight/
 ├── rag/                       # ── 공시 검색·질의응답 계층 ──
 │   ├── chunk.py               # [B·D3] 화이트리스트 섹션(II 전체·I-2 연혁·I-5 정관)만 청킹, AI 용어 집계 → disclosure_chunks
 │   ├── check_search_terms.py  # [B·D3] 이벤트 검색어를 공시 청크에 대 보고 후보 수·이벤트 전 출현·0건 점검
-│   ├── classify_chunks.py     # [B·D4] AI 언급 청크만 LLM 단계·영역 분류
+│   ├── classify_chunks.py     # [B·D3] AI 언급 청크만 LLM 단계(L0~L3)·영역·성과 숫자 분류 (프롬프트 chunk_v6)
+│   ├── level_review_sheet.py  # [B·D4] 단계 분류 검수 표본 50개 시트 / LLM 일치율 집계 → review_samples
 │   ├── embeddings.py          # [B·D4] 공시 청크 임베딩 캐시 (text-embedding-3-small, 매칭 후보·RAG 공용)
 │   ├── match_candidates.py    # [B·D4] 이벤트 ↔ 공시 매칭 후보(키워드 전부 + 임베딩 top-5) → event_dart_mapping, 검증 시트 / 판정 반영(apply)
 │   ├── build_index.py         # [B·D5] 임베딩 → Chroma (메타데이터: chunk_id·공시명·제출일·링크)
@@ -164,5 +165,5 @@ flowchart LR
 | 담당 | 주요 파일 |
 |---|---|
 | A (뉴스·이슈 분석) | `anchor_queries.csv`, `load_news.py`, `supplement_search.py`, `supplement_fetch.py`, `load_news_supplement.py`, `preprocess.py`, `eda.ipynb`, `event_review_sheet.py`, `event_classify.py`, `classify_news.py`, `anchor_events.py`, `q1_issue_trend.py`, `q2_sentiment.py` |
-| B (공시·RAG) | `companies.csv`, `dart_corp_code.py`, `dart_collect.py`, `dart_document.py`, `disclosure_eda.ipynb`, `chunk.py`, `classify_chunks.py`, `embeddings.py`, `match_candidates.py`, `build_index.py`, `qa_chain.py`, `q3_disclosure.py`, `qa.py` |
+| B (공시·RAG) | `companies.csv`, `dart_corp_code.py`, `dart_collect.py`, `dart_document.py`, `disclosure_eda.ipynb`, `chunk.py`, `classify_chunks.py`, `level_review_sheet.py`, `embeddings.py`, `match_candidates.py`, `build_index.py`, `qa_chain.py`, `q3_disclosure.py`, `qa.py` |
 | 공동 | `schema.sql`, `settings.py`, `review.py`, `lag.py`, `metrics.py`, `app.py`, `data_loader.py`, `decisions.md` |

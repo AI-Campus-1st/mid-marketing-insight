@@ -65,10 +65,10 @@ def norm(s: str) -> str:
 
 def load(con) -> tuple[pd.DataFrame, pd.DataFrame]:
     ev = pd.read_sql("""SELECT e.event_id, e.corp_code, c.corp_name, e.event_name, e.event_type,
-                               e.official_date, e.analysis_scope
+                               e.official_date, e.analysis_scope, e.ai_level_claimed, e.primary_source_url
                         FROM ai_events e JOIN companies c USING(corp_code) ORDER BY e.event_id""", con)
-    terms = pd.read_csv(TERMS_CSV, dtype=str)[["event_id", "search_terms"]]
-    names = pd.read_csv(ANCHOR_CSV, dtype=str)[["event_id", "all_names"]]
+    terms = pd.read_csv(TERMS_CSV, dtype=str)[["event_id", "search_terms", "note"]].rename(columns={"note": "term_note"})
+    names = pd.read_csv(ANCHOR_CSV, dtype=str)[["event_id", "all_names", "verification"]]
     ev = ev.merge(terms, on="event_id", how="left").merge(names, on="event_id", how="left")
     missing = ev[ev.search_terms.isna()].event_id.tolist()
     if missing:
@@ -77,6 +77,13 @@ def load(con) -> tuple[pd.DataFrame, pd.DataFrame]:
     ch = pd.read_sql("""SELECT k.chunk_id, k.corp_code, k.rcept_no, k.report_date, k.section, k.text, d.title
                         FROM disclosure_chunks k JOIN documents d USING(doc_id)""", con)
     return ev, ch
+
+
+def event_desc(e) -> str:
+    """유형 · 뉴스가 주장한 단계 · 다른 이름 (검증할 때 이벤트가 무엇인지 한 줄로)"""
+    lv = "" if pd.isna(e.ai_level_claimed) else f" · 뉴스 주장 L{int(float(e.ai_level_claimed))}"
+    names = "" if pd.isna(e.all_names) or e.all_names == e.event_name else f" · 다른 이름: {e.all_names}"
+    return f"{TYPE_KO.get(e.event_type, e.event_type)}{lv}{names}"
 
 
 def query_text(e) -> str:
@@ -149,6 +156,7 @@ def write_sheets(con, ev: pd.DataFrame, ch: pd.DataFrame) -> None:
             seen.setdefault(key, n)
             out.append({
                 "검증": REVIEWER[r.corp_name], "이벤트": eid, "기업": r.corp_name, "이벤트명": r.event_name,
+                "이벤트 설명": event_desc(r),
                 "발표일": r.official_date, "범위": "판정" if r.analysis_scope == "judge" else "참고용",
                 "후보": n, "보고서": r.title, "접수일": r.report_date,
                 "시점": "발표 전" if r.report_date < r.official_date else "발표 후",
@@ -159,6 +167,7 @@ def write_sheets(con, ev: pd.DataFrame, ch: pd.DataFrame) -> None:
     df = pd.DataFrame(out)
 
     guide = [["이벤트 ↔ 공시 매칭 검증", ""],
+             ["먼저", "'이벤트 요약' 시트에서 이벤트가 무엇인지(유형·다른 이름·매칭 힌트·원문 링크) 확인한다."],
              ["하는 법", "이벤트별로 보고서 날짜순으로 읽고, 노란 '판정' 칸에서 같음 / 다름 / 반복 을 고른다. "
                      "'같음'을 처음 확인한 뒤 '반복' 칸에 '앞 n번과 같은 문장'이 있으면 '반복'으로 한 번에 처리한다. 애매하면 '메모'."],
              ["같은 사건 기준", "① 같은 기업 ② 같은 대상: 서비스·조직 이름이 같거나, 일반 표현이라도 기능·대상이 같음 "
@@ -166,17 +175,36 @@ def write_sheets(con, ev: pd.DataFrame, ch: pd.DataFrame) -> None:
              ["주의", "청크에 적힌 내용만 본다. 판정 결과(제때·늦게·공시가 먼저·미확인)는 시트가 아니라 DB 뷰가 계산한다."],
              ["두 번 보기", "결과를 바꾸는 판정은 전체 검증을 끝낸 뒤 한 번 더 본다: '발표 전'에 같음(공시가 먼저 말함), 한 이벤트의 후보가 모두 '다름'(공시에서 미확인)."],
              ["범위", "'참고용'은 2026-06-30 이후 이벤트라 타임라인 표시용. 시간이 없으면 뒤로 미룬다."]]
+    cnt = m.groupby("event_id").agg(키워드=("match_method", lambda x: (x == "keyword").sum()),
+                                    임베딩=("match_method", lambda x: (x == "embedding").sum()))
+    summ = pd.DataFrame([{
+        "이벤트": e.event_id, "기업": e.corp_name, "이벤트명": e.event_name, "발표일": e.official_date,
+        "범위": "판정" if e.analysis_scope == "judge" else "참고용", "유형": TYPE_KO.get(e.event_type, e.event_type),
+        "뉴스 주장 단계": "" if pd.isna(e.ai_level_claimed) else f"L{int(float(e.ai_level_claimed))}",
+        "다른 이름": "" if pd.isna(e.all_names) else e.all_names, "검색어": ", ".join(e.terms),
+        "매칭 힌트": "" if pd.isna(e.term_note) else e.term_note,
+        "이벤트 확인 기록": "" if pd.isna(e.verification) else e.verification,
+        "원문 링크": "" if pd.isna(e.primary_source_url) else e.primary_source_url,
+        "후보 (키워드)": int(cnt.loc[e.event_id, "키워드"]) if e.event_id in cnt.index else 0,
+        "후보 (임베딩)": int(cnt.loc[e.event_id, "임베딩"]) if e.event_id in cnt.index else 0,
+    } for e in ev.itertuples()])
+
     OUT.mkdir(parents=True, exist_ok=True)
     for who in sorted(set(REVIEWER.values())):
         path = OUT / f"event_match_{who}.xlsx"
-        if path.exists():
-            old = pd.read_excel(path, sheet_name="매칭", dtype=str)
-            if old["판정"].notna().any():
-                print(f"{path.name}: 판정이 들어 있어 덮어쓰지 않음 (apply 로 DB 반영 후 다시 만들기)")
-                continue
         part = df[df["검증"] == who].drop(columns="검증")
+        if path.exists():  # 이미 적은 판정·메모는 (이벤트, chunk_id) 기준으로 이어 붙인다
+            old = pd.read_excel(path, sheet_name="매칭", dtype=str)
+            old = old[old["판정"].notna() | old["메모"].notna()].set_index(["이벤트", "chunk_id"])[["판정", "메모"]]
+            if len(old):
+                part = part.set_index(["이벤트", "chunk_id"])
+                part.update(old)
+                part = part.reset_index()[df.columns.drop("검증")]
+                print(f"{path.name}: 기존 판정·메모 {len(old)}행 이어 붙임")
+        parts = summ[summ["기업"].map(REVIEWER) == who]
         with pd.ExcelWriter(path, engine="openpyxl") as xw:
             pd.DataFrame(guide).to_excel(xw, sheet_name="안내", index=False, header=False)
+            parts.to_excel(xw, sheet_name="이벤트 요약", index=False)
             part.to_excel(xw, sheet_name="매칭", index=False)
         wb = load_workbook(path)
         g = wb["안내"]
@@ -185,9 +213,20 @@ def write_sheets(con, ev: pd.DataFrame, ch: pd.DataFrame) -> None:
         for row in g.iter_rows():
             for c in row:
                 c.alignment = Alignment(wrap_text=True, vertical="top")
+        es = wb["이벤트 요약"]
+        es.freeze_panes = "D2"
+        ew = {"이벤트": 7, "기업": 11, "이벤트명": 26, "발표일": 11, "범위": 7, "유형": 10, "뉴스 주장 단계": 8,
+              "다른 이름": 30, "검색어": 26, "매칭 힌트": 50, "이벤트 확인 기록": 40, "원문 링크": 30,
+              "후보 (키워드)": 8, "후보 (임베딩)": 8}
+        for c in es[1]:
+            c.font, c.fill = Font(bold=True), PatternFill("solid", fgColor="DDE5F0")
+            es.column_dimensions[c.column_letter].width = ew.get(c.value, 12)
+        for row in es.iter_rows(min_row=2):
+            for c in row:
+                c.alignment = Alignment(wrap_text=True, vertical="top")
         ws = wb["매칭"]
         ws.freeze_panes = "F2"
-        widths = {"이벤트": 7, "기업": 11, "이벤트명": 22, "발표일": 11, "범위": 7, "후보": 5, "보고서": 18, "접수일": 11,
+        widths = {"이벤트": 7, "기업": 11, "이벤트명": 22, "이벤트 설명": 26, "발표일": 11, "범위": 7, "후보": 5, "보고서": 18, "접수일": 11,
                   "시점": 8, "섹션": 18, "방법": 7, "걸린 검색어": 16, "유사도": 7, "반복": 14, "근거 부분": 60,
                   "판정": 8, "메모": 25, "청크 전문": 80, "chunk_id": 22}
         dv = DataValidation(type="list", formula1='"' + ",".join(CHOICES) + '"', allow_blank=True)

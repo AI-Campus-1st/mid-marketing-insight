@@ -34,48 +34,103 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from config import settings  # noqa: E402
 from analysis.preprocess import OUT_CSV  # noqa: E402
 
-PROMPT_VERSION = "news_v2"
+PROMPT_VERSION = "news_v4"
 DEFAULT_MODEL = "gpt-4.1-mini"   # event_classify.py 와 같은 모델. .env 의 OPENAI_MODEL 로 바꿀 수 있음
 PRICE_PER_M = {"gpt-4.1-mini": (0.40, 1.60)}   # (입력, 출력) USD / 100만 토큰 — 추정용, 단가 바뀌면 수정
 MAX_CHARS = 1500      # 본문 앞부분만 (중앙값 약 1,070자 → 대부분 전문)
 SAMPLE_SEED = 42
 CACHE = settings.DATA_DIR / "processed" / "llm_cache" / f"classify_news_{PROMPT_VERSION}.jsonl"
 SAMPLE_FILE = settings.DATA_DIR / "processed" / "review" / "llm_sample_N.txt"   # N 자리에 표본 크기
+# v4: 관련·AI중심은 LLM 이 고른 사실(주체 유형·행위 유형·AI 역할)로 코드가 정한다
+#   (v3 까지 '0 으로 보라'고 적은 유형도 LLM 이 1 로 판정 — 관련 오류가 모두 LLM 1/사람 0 쪽)
+INDUSTRY_SUBJECTS = {"광고대행사", "매체·광고플랫폼", "애드테크·마케팅솔루션", "브랜드", "업계전반"}
+INDUSTRY_ACTIONS = {"마케팅서비스", "캠페인", "사업", "분석", "규제"}
+SUBJECT_TYPES = INDUSTRY_SUBJECTS | {"공공기관", "교육기관", "다른산업", "기타"}
+ACTION_TYPES = INDUSTRY_ACTIONS | {"모집안내", "지원사업", "인사", "기타"}
+
+
+# action_type 자리에 이슈·주체 이름을 쓰는 경우가 있어 가까운 행위로 바꾼다 (v4 시험 50건 중 11건)
+ACTION_ALIAS = {"실적·투자·상장": "사업", "제휴·협력": "사업", "행사·시상": "모집안내", "교육기관": "모집안내",
+                "공공기관": "지원사업", "AI 교육·인력": "모집안내"}
+
+
+def decide(subject_type: str, action_type: str, ai_role: str) -> tuple[int, int]:
+    """(is_relevant, is_ai_related). 관련 = 광고·마케팅 산업 주체가 산업 활동을 함, AI중심 = AI 역할이 핵심"""
+    if subject_type == "브랜드":   # 일반 기업은 마케팅 활동일 때만 (상품 출시·사옥 이전·IP 사업 같은 '사업'은 제외)
+        rel = action_type in {"캠페인", "마케팅서비스", "분석"}
+    else:
+        rel = subject_type in INDUSTRY_SUBJECTS and action_type in INDUSTRY_ACTIONS
+    return int(rel), int(ai_role == "핵심")
+
+
 SENTIMENT = {"기대": "positive", "우려": "negative", "중립": "neutral"}
 # Q2 키워드 Top N 을 셀 수 있게 고정 목록에서 고른다 (v1 자유 키워드는 기사마다 표현이 달라 집계 불가)
 ISSUES = ["생성형 AI 콘텐츠 제작", "AI 개인화·타겟팅", "AI 에이전트", "AI 검색·GEO", "마케팅 자동화·애드테크",
           "리테일 미디어·커머스", "AICC·고객상담", "AI 교육·인력", "AI 규제·저작권·윤리", "개인정보·데이터 규제",
           "실적·투자·상장", "제휴·협력", "행사·시상", "숏폼·인플루언서", "기타"]
 
+# 이슈마다 한 줄 정의 (v3) — LLM 이 넓은 항목(애드테크·생성형)을 기본값처럼 쓰지 않도록
+ISSUE_DESC = {
+    "생성형 AI 콘텐츠 제작": "광고 소재·영상·이미지·카피를 AI 로 생성·제작 (본문에 생성·제작 이야기가 있을 때만)",
+    "AI 개인화·타겟팅": "고객·오디언스 데이터 분석, 예측, 추천, 맞춤 타겟팅",
+    "AI 에이전트": "AI 에이전트·에이전틱 AI 가 업무를 스스로 수행",
+    "AI 검색·GEO": "AI 검색·답변 엔진 최적화(GEO·AEO), 검색 광고의 AI 변화",
+    "마케팅 자동화·애드테크": "광고 운영·집행·입찰 자동화 플랫폼, DSP·SSP 등 애드테크 기술 (마케팅 기술이면 무조건 붙이지 않음)",
+    "리테일 미디어·커머스": "리테일 미디어, 커머스 광고, 라이브커머스·쇼핑",
+    "AICC·고객상담": "AI 컨택센터·챗봇 상담",
+    "AI 교육·인력": "AI 교육·인재 양성·조직 역량",
+    "AI 규제·저작권·윤리": "AI 관련 규제·저작권·딥페이크·윤리 논란",
+    "개인정보·데이터 규제": "개인정보·쿠키·데이터 활용 규제",
+    "실적·투자·상장": "실적 발표, 투자 유치, 상장",
+    "제휴·협력": "MOU·제휴·공동 개발·합작 법인",
+    "행사·시상": "세미나·콘퍼런스·광고제·전시·시상",
+    "숏폼·인플루언서": "숏폼 영상, 인플루언서·크리에이터 마케팅",
+    "기타": "위 목록에 맞는 것이 없음",
+}
+
 # v1 → v2 변경 (표본 50건 A 확인): 감성 기대 40/50 — 출시·MOU·교육·상장 발표를 기대로 판정,
 # 관련 84% — 대학 발전기금·스타트업 대회 모집·지자체 투자유치 등을 관련으로 판정, 자유 키워드는 기사마다 표현이 달라 집계 불가
 # → 감성 기본값 중립 + 발표형 기사는 중립, 관련성은 '주체가 하는 일' 기준 + 0 예시 보강, 이슈는 고정 목록
+# v2 → v3 변경 (표본 50건 A 사람 검수: 관련 72%·AI중심 82%·감성 86%, 이슈 관련 기사 겹침 78%·정밀도 60%):
+#   관련 오류 14건·AI중심 9건이 모두 LLM 1/사람 0 → 다른 산업 AI·IT, 공공·교육·창업 사업, 행사 모집·위촉을 0 으로 명시,
+#   세미나(내용 소개 있으면 1)·교육(모집·수료 0) 기준, 관련과 AI중심은 따로 판단
+#   감성: 사람 판정 기대 0/50 → 기대 더 엄격, 회의적 질문·한계 지적은 우려
+#   이슈: 애드테크 LLM 19/사람 11·생성형 11/6 과다, 행사·시상 3/8 부족, MOU 에 제휴·협력 누락, 사람이 3개 고른 기사 있음
+#   → 항목 정의 추가, 행사·MOU 기사 규칙, 최대 3개
+# v3 → v4 (같은 50건: v3 관련 78%·AI중심 82%·감성 92%): '0 으로 보라'고 적은 유형도 여전히 관련 1 로 판정(10건)
+#   → LLM 은 주체 유형·행위 유형·AI 역할만 고르고, 관련·AI중심은 decide() 가 정함 (B 의 공시 분류 v5 와 같은 방식)
 SYSTEM = """당신은 광고대행사 신사업기획팀장을 위해 뉴스를 분류하는 분석가입니다.
-기사 하나를 읽고 아래 기준으로 판단해 JSON 으로만 답하세요.
+기사 하나를 읽고 아래 항목을 골라 JSON 으로만 답하세요. 관련 여부는 고른 값으로 코드가 정하므로, 주체·행위·AI 역할을 있는 그대로 고르세요.
 
-[is_relevant] 광고·마케팅 산업 동향으로 의미 있는 기사인가? (1/0)
-  판단법: 제목과 첫 문단의 주체가 '하는 일'이 광고·마케팅 활동·서비스·산업 자체인가.
-  1: 광고·마케팅 기술·솔루션·서비스 출시와 도입, 광고대행사·매체·광고 플랫폼·애드테크 기업의 사업,
-     브랜드의 마케팅·광고 캠페인 사례, 광고·마케팅 시장 분석, 광고·개인정보 규제
-  0: 마케팅이 지원 항목·교육 과목·나열 속 한 단어로만 나오는 기사. 예:
-     정치인·지자체·공공기관 행정과 지원사업(투자유치, 수출 사절단, 전통시장·소상공인 지원 공모, 청년 인재 양성),
-     교육·강좌·대회·공모전 참가자 모집이나 수료 소식, 대학·기관 소식(발전기금, 협약식),
-     스포츠 후원·상품 출시, 일반 기업·금융사의 실적·투자·인사, 다른 산업 기술(통신 인프라, 반도체, 핀테크 일반)
-[is_ai_related] 기사의 '주요 내용'이 AI 인가? (1/0)
-  1: AI 기술·서비스·도입·규제·영향이 제목이나 첫 문단의 핵심
-  0: AI 가 회사 소개, 배경 설명, 교육 과목·지원 항목 나열 속 하나로만 나옴
-[sentiment] 기사가 광고·마케팅 업계에 주는 영향을 '평가'하는 논조. 기본값은 중립.
-  중립: 사실 전달. 출시·도입·제휴·MOU·투자·상장·실적·행사·교육·수상 '발표' 기사는 회사의 자랑 문구가 있어도 중립
-  기대: 기자·전문가·보고서가 전망·효과·시장 변화를 긍정적으로 '평가'하는 서술이 기사의 중심일 때만
-  우려: 위험·규제 부담·부작용(저작권·딥페이크·허위정보·일자리·개인정보·신뢰 하락)·실패·한계를 중심으로 서술
-[issue_keywords] 아래 목록에서 기사의 핵심 이슈 1~2개를 골라 그대로 쓴다. 맞는 것이 없으면 "기타".
-  """ + " / ".join(ISSUES) + """
+[subject_type] 제목과 첫 문단에서 '무언가를 하는' 주체의 유형 하나 (주체가 여럿이면 기사의 중심 주체)
+  광고대행사 / 매체·광고플랫폼 (광고를 파는 매체, 포털·SNS·커머스의 광고 사업) / 애드테크·마케팅솔루션 (광고·마케팅 기술·솔루션 회사) /
+  브랜드 (자사 제품의 마케팅·광고를 하는 일반 기업) / 업계전반 (특정 회사 없이 광고·마케팅 시장·트렌드를 다룸) /
+  공공기관 (정부·지자체·공공기관·협회·진흥원) / 교육기관 (대학·교육 업체·교육 프로그램 운영 주체) /
+  다른산업 (통신·클라우드·IT·금융·핀테크·제조·유통 등 광고·마케팅 외 산업의 회사가 그 산업의 일을 함) / 기타
+[action_type] 그 주체가 하는 일 하나 (아래 9개 이름 중에서만. 주체 유형이나 이슈 목록의 이름을 쓰지 않는다)
+  마케팅서비스 (광고·마케팅 솔루션·서비스 출시·도입·고도화) / 캠페인 (광고·마케팅 캠페인 집행·사례) /
+  사업 (광고·마케팅 사업의 실적·투자·상장·조직·제휴) / 분석 (광고·마케팅 시장·트렌드·전략 분석, 세미나에서 발표된 내용 소개 포함) /
+  규제 (광고·개인정보·AI 규제) / 모집안내 (행사·교육·대회·공모전 개최·참가 모집·수료·성료 안내) /
+  지원사업 (지원사업·육성 프로그램 선정·운영) / 인사 (인물 영입·위촉·선임) / 기타
+[ai_role] 기사에서 AI 의 역할 하나
+  핵심 (AI 기술·서비스·도입·규제·영향이 제목이나 첫 문단의 핵심. AI 가 주제인 교육·세미나·공모전 포함) /
+  배경 (회사 소개·배경 설명·교육 과목·지원 항목·사업 분야 나열 속 하나) / 없음
+[sentiment] 기사 논조. 기본값은 중립이며, 대부분의 기사는 중립이다.
+  중립: 사실 전달. 출시·도입·제휴·MOU·투자·상장·실적·행사·교육·수상 '발표' 기사는 회사의 자랑 문구나
+        회사 관계자의 기대 발언이 있어도 중립. 기대와 우려를 함께 다룬 기사도 중립
+  기대: 기자·외부 전문가·보고서가 광고·마케팅 업계에 대한 긍정적 전망·효과를 '평가'하는 것이 기사 전체의 중심일 때만
+  우려: 위험·규제 부담·부작용(저작권·딥페이크·허위정보·일자리·개인정보·신뢰 하락)·실패·한계가 기사의 중심.
+        회의적인 질문형 제목('~할 수 있을까?')이나 '성과가 안 난다', '과장됐다' 같은 한계 지적이 중심이면 우려
+[issue_keywords] 아래 목록에서 기사의 핵심 이슈를 1~3개 골라 이름 그대로 쓴다. 넓은 항목을 기본값처럼 붙이지 않는다.
+  규칙: 세미나·콘퍼런스·광고제·전시 기사는 '행사·시상'을 반드시 포함 / MOU·제휴·공동 개발 기사는 '제휴·협력'을 반드시 포함 /
+        실적·투자·상장 기사는 '실적·투자·상장'을 포함 / 맞는 것이 없으면 "기타"
+""" + "\n".join(f"  - {k}: {v}" for k, v in ISSUE_DESC.items()) + """
 [summary] 한 줄 요약 (40자 이내)
-[reason] is_relevant·sentiment 판단 근거 (50자 이내)
+[reason] subject_type·action_type·sentiment 판단 근거 (50자 이내)
 
 응답 형식:
-{"is_relevant": 1|0, "is_ai_related": 1|0, "sentiment": "기대"|"우려"|"중립",
- "issue_keywords": [str, ...], "summary": str, "reason": str}"""
+{"subject": str (주체 이름), "subject_type": str, "action_type": str, "ai_role": "핵심"|"배경"|"없음",
+ "sentiment": "기대"|"우려"|"중립", "issue_keywords": [str, ...], "summary": str, "reason": str}"""
 
 
 def load_targets() -> pd.DataFrame:
@@ -91,7 +146,8 @@ def sample_targets(n: int) -> pd.DataFrame:
     if f.exists():
         ids = f.read_text(encoding="utf-8").split()
         return t.set_index("doc_id").loc[ids].reset_index()
-    s = t.sample(n, random_state=SAMPLE_SEED)
+    used = {d for g in f.parent.glob("llm_sample_*.txt") for d in g.read_text(encoding="utf-8").split()}
+    s = t[~t["doc_id"].isin(used)].sample(n, random_state=SAMPLE_SEED)   # 다른 표본(프롬프트 개선용)에 쓴 기사는 빼고
     f.parent.mkdir(parents=True, exist_ok=True)
     f.write_text("\n".join(s["doc_id"]), encoding="utf-8")
     return s
@@ -108,17 +164,30 @@ def load_cache() -> dict[str, dict]:
 
 
 def validate(out: dict) -> dict:
-    """응답 값 정리. 형식이 틀리면 ValueError → 재시도"""
-    rel, ai = int(out["is_relevant"]), int(out["is_ai_related"])
-    if rel not in (0, 1) or ai not in (0, 1) or out["sentiment"] not in SENTIMENT:
-        raise ValueError(f"잘못된 값: {out}")
+    """응답 값 정리. 유형 값이 목록 밖이면 가까운 값 또는 '기타'로 바꾸고(원래 값은 reason 에 남김), 감성이 틀리면 ValueError → 재시도"""
+    if out.get("sentiment") not in SENTIMENT:
+        raise ValueError(f"잘못된 감성: {out.get('sentiment')}")
+    note = []
+    st, at, ai = out.get("subject_type"), out.get("action_type"), out.get("ai_role")
+    if st not in SUBJECT_TYPES:
+        note.append(f"subject_type={st}"); st = "기타"
+    if at not in ACTION_TYPES:
+        note.append(f"action_type={at}"); at = ACTION_ALIAS.get(at, "기타")
+    if ai not in ("핵심", "배경", "없음"):
+        note.append(f"ai_role={ai}"); ai = "배경"
+    if note:
+        out["reason"] = f"{out.get('reason', '')} [값 보정: {', '.join(note)}]"
+    rel, is_ai = decide(st, at, ai)
     raw = [str(k).strip() for k in out.get("issue_keywords") or []]
-    kws = [k for k in raw if k in ISSUES][:2] or ["기타"]   # 목록 밖 값은 버리고, 남는 게 없으면 기타 (버린 값은 reason 뒤에 남김)
+    kws = [k for k in raw if k in ISSUES][:3] or ["기타"]   # 목록 밖 값은 버리고, 남는 게 없으면 기타 (버린 값은 reason 뒤에 남김)
     dropped = [k for k in raw if k and k not in ISSUES]
+    reason = str(out.get("reason", ""))
     if dropped:
-        out["reason"] = f"{out.get('reason', '')} [목록 밖: {', '.join(dropped)}]"
-    return {"is_relevant": rel, "is_ai_related": ai, "sentiment": out["sentiment"], "issue_keywords": kws,
-            "summary": str(out.get("summary", ""))[:80], "reason": str(out.get("reason", ""))[:120]}
+        reason += f" [목록 밖: {', '.join(dropped)}]"
+    return {"is_relevant": rel, "is_ai_related": is_ai, "sentiment": out["sentiment"], "issue_keywords": kws,
+            "summary": str(out.get("summary", ""))[:80],
+            "reason": f"[{out.get('subject', '')}·{st}·{at}·AI {ai}] {reason}"[:160],
+            "subject": str(out.get("subject", ""))[:40], "subject_type": st, "action_type": at, "ai_role": ai}
 
 
 def classify_one(client, model, r) -> dict | None:

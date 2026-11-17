@@ -27,7 +27,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from config import settings  # noqa: E402
-from analysis.preprocess import AI_RE, CORP_RE, OUT_CSV, clean_body, in_spans, load_news  # noqa: E402
+from analysis.preprocess import AI_RE, CORP_RE, OUT_CSV, as_text, clean_body, in_spans, load_news  # noqa: E402
 
 REVIEW_XLSX = settings.DATA_DIR / "processed" / "review" / "preprocess_review.xlsx"
 SEED = 42
@@ -117,7 +117,7 @@ def sheet_dups(raw: pd.DataFrame) -> pd.DataFrame:
         if k.empty:
             k, rule = keep[(keep["title_norm"] == d.title_norm) & (keep["media"] == d.media)], "②"
         k = k.iloc[0]
-        b1, b2 = k.body or "", d.body or ""
+        b1, b2 = as_text(k.body), as_text(d.body)
         sim = difflib.SequenceMatcher(None, b1, b2, autojunk=False).ratio() if b1 and b2 else None
         rows.append({"규칙": rule, "남긴 기사": k.doc_id, "중복 기사": d.doc_id,
                      "남긴 날짜": k.published_date[:16], "중복 날짜": d.published_date[:16],
@@ -176,6 +176,14 @@ def write_xlsx(sheets: dict[str, pd.DataFrame]) -> None:
     wb.save(REVIEW_XLSX)
 
 
+def has_judgments() -> bool:
+    for df in pd.read_excel(REVIEW_XLSX, sheet_name=None).values():
+        col = next((c for c in df.columns if str(c).startswith("판정")), None)
+        if col is not None and df[col].notna().any():
+            return True
+    return False
+
+
 def score() -> None:
     xl = pd.read_excel(REVIEW_XLSX, sheet_name=None)
     for name, df in xl.items():
@@ -195,8 +203,12 @@ def score() -> None:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--score", action="store_true", help="채운 엑셀의 판정 집계")
-    if ap.parse_args().score:
+    ap.add_argument("--force", action="store_true", help="판정이 들어 있는 엑셀도 덮어쓰기")
+    args = ap.parse_args()
+    if args.score:
         return score()
+    if REVIEW_XLSX.exists() and not args.force and has_judgments():
+        sys.exit(f"{REVIEW_XLSX.name} 에 사람 판정이 들어 있어 덮어쓰지 않음. 새로 만들려면 파일을 옮기고 실행하거나 --force")
     con = sqlite3.connect(settings.DB_PATH)
     raw = load_news(con).merge(
         pd.read_sql("SELECT doc_id, title_norm, body_hash FROM documents WHERE news_origin = 'provided'", con), on="doc_id")

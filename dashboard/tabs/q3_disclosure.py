@@ -97,7 +97,7 @@ def _timeline(r: pd.DataFrame) -> None:
         fig.add_scatter(x=miss.official_date, y=miss.label, mode="text", text=["   공시에서 미확인"] * len(miss),
                         textposition="middle right", textfont=dict(color=c["muted"], size=12), hoverinfo="skip", showlegend=False)
     fig.update_yaxes(categoryorder="array", categoryarray=list(d.label), autorange="reversed", title=None)
-    fig.update_xaxes(title=None, range=["2023-09-01", "2026-11-30"])
+    fig.update_xaxes(title=None, range=["2023-09-01", "2026-11-30"], dtick="M6", tickformat="%Y년 %-m월")  # 'Jan 2024' 대신 한글
     st.plotly_chart(style(fig, max(260, 46 * len(d) + 90)), width="stretch")
     st.caption("○ 뉴스 발표일 → ● 그 이벤트가 처음 실린 정기보고서 접수일. 점에 마우스를 올리면 보고서 이름과 걸린 일수가 나온다.")
 

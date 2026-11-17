@@ -4,8 +4,14 @@
 render() 를 A 의 app.py 탭에서 부르면 된다. 답변은 rag/qa_chain.py (하이브리드 검색 + LLM, 테스트 15개: 답변 10/10 · 거절 5/5).
 대시보드에서 LLM 을 부르는 유일한 곳 (질문마다 답해야 하므로). 분류·수집은 화면에서 하지 않는다.
 질문은 한 개씩 따로 답한다 (앞 대화를 기억해 이어서 답하지 않음) — 매번 기업 이름을 넣어 묻는 게 정확하다.
+대화 기록: 답이 나올 때마다 data/processed/chat_history/<대화id>.json 에 저장(저장소 제외), 사이드바 '지난 대화'에서 다시 연다.
 """
+import json
+from datetime import datetime
+
 import streamlit as st
+
+from config import settings
 
 from dashboard.theme import LEVEL_NAME
 
@@ -21,6 +27,8 @@ EXAMPLES = {"자체 솔루션": "제일기획의 AI 배너 자동화 솔루션 �
             "연구개발·특허": "KT나스미디어가 출원하거나 등록한 AI 관련 특허는 무엇인가요?",
             "AI 조직": "플레이디의 AX Unit은 어떤 조직인가요?",
             "제휴·협력": "이노션의 AI 얼라이언스에는 몇 개 기업이 참여했나요?"}
+HIST_DIR = settings.DATA_DIR / "processed" / "chat_history"
+HIST_SHOW = 30  # 사이드바에 보여 줄 지난 대화 수
 REFUSE = "**공시에서 확인되지 않습니다.**\n\n질문한 내용이 정기공시에 적혀 있지 않거나, 분석 대상 5개사가 아니에요."
 
 
@@ -54,13 +62,69 @@ def _show(msg: dict) -> None:
                                 f"{s['section'].split('>')[-1].strip()}{lv} — [DART 원문]({s['url']})")
 
 
+# ---------- 대화 기록 (파일 하나 = 대화 하나) ----------
+def _save() -> None:
+    msgs = st.session_state.qa_msgs
+    if not msgs:
+        return
+    cid = st.session_state.setdefault("qa_id", datetime.now().strftime("%Y%m%d-%H%M%S-%f"))
+    HIST_DIR.mkdir(parents=True, exist_ok=True)
+    first = next(m["content"] for m in msgs if m["role"] == "user")
+    (HIST_DIR / f"{cid}.json").write_text(json.dumps(
+        {"id": cid, "updated": datetime.now().strftime("%Y-%m-%d %H:%M"), "title": first, "msgs": msgs},
+        ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+def _history() -> list[dict]:
+    if not HIST_DIR.exists():
+        return []
+    out = []
+    for f in HIST_DIR.glob("*.json"):
+        try:
+            out.append(json.loads(f.read_text(encoding="utf-8")))
+        except (OSError, json.JSONDecodeError):
+            continue
+    return sorted(out, key=lambda c: c["id"], reverse=True)
+
+
+def _open(c: dict) -> None:
+    st.session_state.qa_id, st.session_state.qa_msgs = c["id"], list(c["msgs"])
+
+
+def _new() -> None:
+    st.session_state.pop("qa_id", None)
+    st.session_state.qa_msgs = []
+
+
+def _delete() -> None:
+    cid = st.session_state.get("qa_id")
+    if cid:
+        (HIST_DIR / f"{cid}.json").unlink(missing_ok=True)
+    _new()
+
+
+def _sidebar() -> None:
+    with st.sidebar:
+        st.button("＋ 새 대화", width="stretch", type="primary", on_click=_new)
+        convs = _history()
+        st.markdown("**지난 대화**")
+        if not convs:
+            st.caption("아직 없어요. 질문하면 여기에 저장돼요.")
+        cur = st.session_state.get("qa_id")
+        for c in convs[:HIST_SHOW]:
+            title = c["title"] if len(c["title"]) <= 24 else c["title"][:24] + "…"
+            mark = "▶ " if c["id"] == cur else ""  # 지금 보고 있는 대화
+            st.button(f"{mark}{title}  \n{c['updated']}", key=f"hist_{c['id']}", width="stretch",
+                      on_click=_open, args=(c,), help=c["title"])
+
+
 def render() -> None:
     msgs = st.session_state.setdefault("qa_msgs", [])
+    _sidebar()
     head, clear = st.columns([5, 1], vertical_alignment="bottom")
     head.title(TITLE)
-    if msgs and clear.button("대화 지우기", width="stretch"):
-        msgs.clear()
-        st.rerun()
+    if msgs:
+        clear.button("이 대화 지우기", width="stretch", on_click=_delete)
     st.markdown(TAGLINE)
 
     picked = None
@@ -83,4 +147,5 @@ def render() -> None:
         with st.chat_message("assistant"), st.spinner("공시를 찾고 답을 쓰는 중…"):
             a = _answer(q)
         msgs.append(a)
+        _save()
         st.rerun()

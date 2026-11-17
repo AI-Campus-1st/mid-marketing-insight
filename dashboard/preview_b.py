@@ -20,7 +20,7 @@ st.set_page_config(page_title="광고대행사 AI, 공시로 확인하기", layo
 with st.sidebar:
     st.markdown("### 광고대행사 AI, 공시로 확인하기")
     st.caption("뉴스에 나온 AI 사업이 사업보고서에도 적혀 있는지 5개사 공시로 확인해요.")
-    page = st.radio("화면", ["AI 실행 확인 챗봇", "Q3 공시 반영"], label_visibility="collapsed")
+    page = st.radio("화면", ["광고대행사 AI 공시 챗봇", "Q3 공시 반영"], label_visibility="collapsed")
     st.divider()
     if page == "Q3 공시 반영":  # 필터는 Q3 화면에서만 쓴다
         st.session_state.setdefault("corps", CORPS)
@@ -31,7 +31,7 @@ with st.sidebar:
                                min_value=date(2023, 10, 19), max_value=date(2026, 10, 19))
     st.caption("데이터: DART 정기공시 5개사 · 뉴스 이벤트 28개 (2023-10-19 ~ 2026-10-19)")
 
-if page == "AI 실행 확인 챗봇":
+if page == "광고대행사 AI 공시 챗봇":
     qa.render()
 elif isinstance(period, tuple) and len(period) == 2:
     q3_disclosure.render(corps or CORPS, period)

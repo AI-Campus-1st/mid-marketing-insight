@@ -47,3 +47,48 @@ def chunk_levels(exclude_playd: bool = True) -> pd.DataFrame:
         df = df[~playd]
     df["level"] = df.ai_level.map(lambda x: None if pd.isna(x) else f"L{int(x)}")
     return df
+
+
+# ── A 파트: 뉴스 (Q1 기사량·급증, Q2 이슈) ─────────────────────────────
+# 제공 뉴스 집계 대상(중복 제외)만. 정제·태그는 analysis/preprocess.py, LLM 결과는 llm_results(news_v4) 에서 읽는다
+NEWS_PROMPT = "news_v4"
+CONCERN_CSV = settings.DATA_DIR / "processed" / "q2_concern_articles.csv"
+
+
+@st.cache_data
+def news() -> pd.DataFrame:
+    """기사 1건 = 1행: 발행일·월·카테고리(목록)·AI 기사 여부·제목 속 기업(목록)·LLM 관련·감성·이슈(목록)"""
+    import json
+    from analysis import trend
+    df = trend.load_articles()   # 집계 대상 6,450건 + month, is_ai, keyword, category
+    llm = pd.read_sql("SELECT doc_id, is_relevant, is_ai_related, sentiment, issue_keywords FROM llm_results "
+                      "WHERE prompt_version = ?", _con(), params=(NEWS_PROMPT,))
+    df = df.merge(llm, on="doc_id", how="left")
+    df["date"] = pd.to_datetime(df["published_date"]).dt.date
+    df["quarter"] = pd.PeriodIndex(df["published_date"].str[:10], freq="Q").astype(str)
+    df["categories"] = df["category"].fillna("").str.split("; ")
+    df["title_corps"] = df["corps_in_title"].fillna("").map(lambda s: [c for c in s.split("; ") if c])
+    df["issues"] = df["issue_keywords"].map(lambda s: json.loads(s) if isinstance(s, str) else [])
+    return df[["doc_id", "published_date", "date", "month", "quarter", "media", "title", "categories", "is_ai",
+               "title_corps", "is_relevant", "is_ai_related", "sentiment", "issues"]]
+
+
+@st.cache_data
+def concern_articles() -> pd.DataFrame | None:
+    """사람이 거른 우려 기사 (analysis/q2_concerns.py --apply). 아직 없으면 None"""
+    if not CONCERN_CSV.exists():
+        return None
+    df = pd.read_csv(CONCERN_CSV)
+    url = pd.read_sql("SELECT doc_id, url FROM documents WHERE news_origin = 'provided'", _con())
+    df = df.merge(url, on="doc_id", how="left")
+    df["date"] = pd.to_datetime(df["published_date"]).dt.date
+    return df
+
+
+def filter_news(df: pd.DataFrame, period, corps: list[str], categories: list[str], all_corps: list[str]) -> pd.DataFrame:
+    """공통 필터: 기간(발행일) · 기업(제목에 기업명, 5곳 모두면 거르지 않음) · 카테고리(수집 키워드)"""
+    out = df[(df["date"] >= period[0]) & (df["date"] <= period[1])]
+    if set(corps) != set(all_corps):
+        out = out[out["title_corps"].map(lambda cs: any(c in corps for c in cs))]
+    out = out[out["categories"].map(lambda cs: any(c in categories for c in cs))]
+    return out

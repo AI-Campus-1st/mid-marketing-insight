@@ -53,6 +53,8 @@ cp .env.example .env   # .env 에 DART_API_KEY, LLM API 키 입력
 8. 반영 시차·지표: `python analysis/lag.py` → `python analysis/metrics.py`
 9. VectorDB 구축: `python rag/build_index.py`
 10. 대시보드 실행: `streamlit run dashboard/app.py`
+   - 화면: Q1 기사량·급증 / Q2 화제 이슈 (A) · Q3 공시 반영 / 공시 챗봇 (B). 사이드바 공통 필터(기간·기업·카테고리)가 모든 화면에 적용
+   - 한 DB 에 뉴스 결과(`llm_results`·`news_company`, `data/processed/news_preprocessed.csv`)와 공시 결과(`disclosure_chunks`·`event_dart_mapping`)가 모두 있어야 모든 화면이 나옵니다. 없는 쪽 화면은 안내 문구만 나와요
    - B 화면(Q3 공시 반영·공시 Q&A)만 미리 보기: `streamlit run dashboard/preview_b.py` → 브라우저에서 http://localhost:8501
    - 공시 Q&A 는 `.env` 의 `OPENAI_API_KEY` 가 있어야 답합니다 (질문 1개당 검색 + LLM 1회)
 

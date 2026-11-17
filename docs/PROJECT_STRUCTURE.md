@@ -40,6 +40,7 @@ mid-marketing-insight/
 │   ├── disclosure_eda.ipynb   # [B·D3] 공시 건수 추이, 유형 분포, AI 언급 집계
 │   ├── classify_news.py       # [A·D4] LLM 관련도·AI 관련·감성·이슈 키워드 → llm_results
 │   ├── llm_review.py          # [A·D4] 뉴스 LLM 분류 사람 검수 엑셀(LLM 값 분리) / 정확도 집계 → review_samples
+│   ├── q2_concerns.py         # [A·D5] Q2 우려 기사 사람 검수 엑셀 → 판정 O 만 q2_concern_articles.csv (화면용)
 │   ├── event_review_sheet.py  # [A·D3] 제공·네이버·웹 기사를 사건 묶음으로 → 검토 시트 (규칙 기반, AI 미사용)
 │   ├── event_classify.py      # [A·D3] 검토 시트 LLM 1차 판정 (네이버 외 출처 본문만 입력)
 │   ├── anchor_events.py       # [A·D2] 확정 이벤트 28개(anchor_events.csv) → ai_events (+ companies)
@@ -65,13 +66,13 @@ mid-marketing-insight/
 │   └── test_questions.csv     # [B·D5] 테스트 질문과 기대 결과
 │
 ├── dashboard/                 # ── 화면 계층 (저장된 결과만 조회) ──
-│   ├── app.py                 # [공동·D6] 진입점: 상단 결론 카드, 공통 필터(기간·기업·카테고리)
-│   ├── data_loader.py         # [공동·D6] DB 조회 함수 (st.cache_data). B 파트: reflection(), chunk_levels() 작성됨
+│   ├── app.py                 # [공동·D6] 진입점: 상단 결론 카드(초안), 사이드바 공통 필터(기간·기업·카테고리) → Q1·Q2·Q3, 공시 챗봇 (A 작성)
+│   ├── data_loader.py         # [공동·D6] DB 조회 함수 (st.cache_data). B: reflection(), chunk_levels() / A: news(), concern_articles(), filter_news()
 │   ├── theme.py               # [B·D6] 차트 색(판정·AI 단계, 라이트·다크 검증)·공통 스타일
 │   ├── preview_b.py           # [B·D6] app.py 전에 Q3·공시 Q&A 탭만 띄워 보는 미리보기
 │   └── tabs/
-│       ├── q1_issue_trend.py  # [A·D6] Q1 월별 기사량 + 급증 시점
-│       ├── q2_sentiment.py    # [A·D6] Q2 기대 vs 우려 비율, 이슈 키워드 Top N
+│       ├── q1_issue_trend.py  # [A·D6] Q1 월별 기사량 + 급증 시점(기준선은 전체 기간으로 계산) — render(df, period)
+│       ├── q2_issues.py       # [A·D6] Q2 이슈별 분기 비중 추이·이슈 순위·우려 기사 목록(사람 검수), 감성은 한 줄 — render(df, period)
 │       ├── q3_disclosure.py   # [B·D6] Q3 반영 판정 요약·기업별 반영 결과·AI 단계 분포(L3 비중)·이벤트 타임라인·이벤트 표 — render(corps, period)
 │       └── qa.py              # [B·D6] 공시 Q&A 화면 (rag/qa_chain) — render()
 │
@@ -169,6 +170,6 @@ flowchart LR
 
 | 담당 | 주요 파일 |
 |---|---|
-| A (뉴스·이슈 분석) | `anchor_queries.csv`, `load_news.py`, `supplement_search.py`, `supplement_fetch.py`, `load_news_supplement.py`, `preprocess.py`, `eda.ipynb`, `event_review_sheet.py`, `event_classify.py`, `classify_news.py`, `anchor_events.py`, `q1_issue_trend.py`, `q2_sentiment.py` |
+| A (뉴스·이슈 분석) | `anchor_queries.csv`, `load_news.py`, `supplement_search.py`, `supplement_fetch.py`, `load_news_supplement.py`, `preprocess.py`, `eda.ipynb`, `event_review_sheet.py`, `event_classify.py`, `classify_news.py`, `anchor_events.py`, `q1_issue_trend.py`, `q2_issues.py` |
 | B (공시·RAG) | `companies.csv`, `dart_corp_code.py`, `dart_collect.py`, `dart_document.py`, `disclosure_eda.ipynb`, `chunk.py`, `classify_chunks.py`, `level_review_sheet.py`, `embeddings.py`, `match_candidates.py`, `retriever.py`, `qa_chain.py`, `eval_qa.py`, `q3_disclosure.py`, `qa.py` |
 | 공동 | `schema.sql`, `settings.py`, `review.py`, `lag.py`, `metrics.py`, `app.py`, `data_loader.py`, `decisions.md` |

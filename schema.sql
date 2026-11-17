@@ -176,6 +176,75 @@ CREATE TABLE IF NOT EXISTS event_dart_mapping (
 );
 
 -- ---------------------------------------------------------------------
+-- 6-2. event_reflection (뷰): 이벤트별 공시 반영 판정 (실행 설계서 4장, A·B 합의 '반영 지표 = 판정형')
+--    기준일 d = official_date. 기대 보고서 = d 이후 처음 끝나는 보고 기간(분기말)의 정기보고서.
+--    첫 매칭 = event_dart_mapping.verified = 1 중 원본 접수일(report_date)이 가장 이른 청크.
+--      reference  : analysis_scope = 'reference' (REFLECTION_CUTOFF 이후 이벤트, 타임라인 표시만)
+--      not_found  : 검증된 매칭 없음 → 화면 표기 '공시에서 미확인' ('미반영' 금지)
+--      preceded   : 첫 매칭 접수일 < d (공시가 먼저 말함)
+--      on_time    : 첫 매칭 보고 기간 ≤ 기대 보고 기간 (예: 1월 발표가 직전 사업보고서(3월 접수)에 실림 포함)
+--                   분기보고서에는 연혁이 없으므로(34건 중 33건 생략), 첫 매칭이 '회사의 연혁'이고 기대 보고서가
+--                   1·3분기 보고서면 다음 반기·사업보고서를 기대 보고서로 본다 (실행 설계서 4장)
+--      delayed_k  : k 분기 늦은 보고서에서 처음 매칭 (quarters_late = k)
+--    lag_days = 첫 매칭 접수일 − d (보조 지표, 분포만).
+--    말-실행 격차 say_do_gap = 뉴스 주장 단계 − 검증된 매칭 청크의 최고 단계 (AI 용어가 없어 분류하지 않은 청크는 제외)
+--    판정 규칙이 바뀌어도 다시 계산할 필요 없도록 표가 아니라 뷰로 둔다.
+-- ---------------------------------------------------------------------
+DROP VIEW IF EXISTS event_reflection;
+CREATE VIEW event_reflection AS
+WITH matched AS (
+    SELECT m.event_id, m.chunk_id, m.report_date, d.title AS report_name, k.ai_level, k.section,
+           date(replace(substr(d.title, instr(d.title, '(') + 1, 7), '.', '-') || '-01', '+1 month', '-1 day') AS period_end
+    FROM event_dart_mapping m
+    JOIN disclosure_chunks k USING (chunk_id)
+    JOIN documents d ON d.doc_id = k.doc_id
+    WHERE m.verified = 1
+),
+first_match AS (
+    SELECT * FROM (
+        SELECT matched.*, ROW_NUMBER() OVER (PARTITION BY event_id ORDER BY report_date, period_end, chunk_id) AS rn
+        FROM matched
+    ) WHERE rn = 1
+),
+levels AS (
+    SELECT event_id, MAX(ai_level) AS disclosed_level, COUNT(*) AS n_matched FROM matched GROUP BY event_id
+),
+ev AS (
+    SELECT e.*, c.corp_name,
+           date(strftime('%Y', e.official_date) || '-'
+                || printf('%02d', ((CAST(strftime('%m', e.official_date) AS INTEGER) + 2) / 3) * 3) || '-01',
+                '+1 month', '-1 day') AS expected_period_end
+    FROM ai_events e JOIN companies c USING (corp_code)
+),
+joined AS (
+    SELECT ev.*, f.report_name AS first_report, f.report_date AS first_report_date, f.period_end AS first_period_end,
+           f.chunk_id AS first_chunk_id, f.section AS first_section, l.disclosed_level, l.n_matched,
+           CASE WHEN f.section LIKE '%회사의 연혁%' AND strftime('%m', ev.expected_period_end) IN ('03', '09')
+                THEN 1 ELSE 0 END AS history_shift,
+           (CAST(strftime('%Y', f.period_end) AS INTEGER) * 4 + (CAST(strftime('%m', f.period_end) AS INTEGER) + 2) / 3)
+         - (CAST(strftime('%Y', ev.expected_period_end) AS INTEGER) * 4 + (CAST(strftime('%m', ev.expected_period_end) AS INTEGER) + 2) / 3)
+           AS quarters_late
+    FROM ev
+    LEFT JOIN first_match f ON f.event_id = ev.event_id
+    LEFT JOIN levels l ON l.event_id = ev.event_id
+)
+SELECT event_id, corp_code, corp_name, event_name, event_type, official_date, analysis_scope,
+       date(expected_period_end, 'start of month', '+' || (history_shift * 3) || ' months', '+1 month', '-1 day') AS expected_period_end,
+       first_report, first_report_date, first_period_end, first_chunk_id, first_section,
+       CAST(julianday(first_report_date) - julianday(official_date) AS INTEGER) AS lag_days,
+       quarters_late - history_shift AS quarters_late,
+       CASE
+           WHEN analysis_scope = 'reference' THEN 'reference'
+           WHEN first_report_date IS NULL THEN 'not_found'
+           WHEN first_report_date < official_date THEN 'preceded'
+           WHEN quarters_late - history_shift <= 0 THEN 'on_time'
+           ELSE 'delayed_' || (quarters_late - history_shift)
+       END AS verdict,
+       ai_level_claimed, disclosed_level, n_matched,
+       CASE WHEN disclosed_level IS NOT NULL THEN ai_level_claimed - disclosed_level END AS say_do_gap
+FROM joined;
+
+-- ---------------------------------------------------------------------
 -- 7. review_samples: LLM 결과 표본 검수 기록 (Day 4, 뉴스·공시 공통)
 --    정확도 = is_correct 평균. 리포트의 'AI 기반 이슈 분석' 장에 사용한다.
 -- ---------------------------------------------------------------------

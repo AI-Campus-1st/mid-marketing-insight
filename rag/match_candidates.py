@@ -8,9 +8,9 @@ make  : 이벤트마다 후보를 뽑아 event_dart_mapping 에 넣고, 검증�
         - 실행할 때 쓴 검색어를 ai_events.search_terms 에 기록 (원본은 CSV 하나)
         - 이미 사람이 검증한 행(verified)은 그대로 둔다
         - 시트: 공시 담당 B 가 5개사 전부 검증. 이벤트별로 보고서 날짜순.
-          같은 이벤트 안에서 앞 후보와 같은 문장이면 '반복' 표시 → 첫 매칭 확인 뒤 한 번에 처리
-apply : 채운 시트의 판정(같음 / 다름 / 반복)을 event_dart_mapping.verified 에 반영한다.
-        같음·반복 = 1, 다름 = 0. 판정 기준(실행 설계서 4장): 같은 기업 / 같은 대상(이름이 같거나 기능·대상이 같음) /
+          같은 이벤트 안에서 다음 보고서에 같은 문장이 또 나오면 한 행으로 합치고 날짜만 적는다 (판정은 처음 행에만)
+apply : 채운 시트의 판정(같음 / 다름)을 event_dart_mapping.verified 에 반영한다. 같음 = 1, 다름 = 0.
+        합쳐 둔 같은 문장의 다른 보고서에도 같은 판정을 넣는다 (verify_note 에 '반복'). 판정 기준(실행 설계서 4장): 같은 기업 / 같은 대상(이름이 같거나 기능·대상이 같음) /
         시간 정합(기준일 이후 기간이거나, 이전이면 계획 맥락)
 
 실행
@@ -42,8 +42,8 @@ TOP_K = 5
 REVIEWER = {"이노션": "B", "KT나스미디어": "B", "인크로스": "B", "플레이디": "B", "제일기획": "B"}
 TYPE_KO = {"launch": "출시·공개", "organization": "조직 신설", "adoption": "도입", "investment": "투자",
            "partnership": "제휴·협약", "patent": "특허", "campaign": "캠페인", "award": "수상"}
-CHOICES = ["같음", "다름", "반복"]
-VERIFIED = {"같음": 1, "반복": 1, "다름": 0}
+CHOICES = ["같음", "다름"]
+VERIFIED = {"같음": 1, "다름": 0}
 
 
 def report_kind(title: str) -> str:
@@ -148,23 +148,38 @@ def write_sheets(con, ev: pd.DataFrame, ch: pd.DataFrame) -> None:
     m = m.sort_values(["event_id", "report_date", "chunk_id"])
     out = []
     for eid, g in m.groupby("event_id", sort=True):
-        seen = {}
-        for n, r in enumerate(g.itertuples(), 1):
+        first = {}   # 문장 키 → 처음 나온 행 (같은 문장이 다음 보고서에 또 나오면 그 행에 합친다)
+        for r in g.itertuples():
             terms = json.loads(r.matched_terms) if isinstance(r.matched_terms, str) else []
-            snip = snippet(r.text, terms) if terms else r.text[:300].replace("\n", " ")
             key = norm(snippet(r.text, terms, 60)) if terms else norm(r.text)
-            rep = f"앞 {seen[key]}번과 같은 문장" if key in seen else ""
-            seen.setdefault(key, n)
-            out.append({
+            if key in first:
+                f = first[key]
+                f["반복 보고서"].append(r.report_date)
+                f["반복 chunk_id"].append(r.chunk_id)
+                continue
+            snip = snippet(r.text, terms) if terms else r.text[:300].replace("\n", " ")
+            first[key] = row = {
                 "검증": REVIEWER[r.corp_name], "이벤트": eid, "기업": r.corp_name, "이벤트명": r.event_name,
                 "이벤트 설명": event_desc(r),
                 "발표일": r.official_date, "범위": "판정" if r.analysis_scope == "judge" else "참고용",
-                "후보": n, "보고서": r.title, "접수일": r.report_date,
+                "보고서": r.title, "접수일": r.report_date,
                 "시점": "발표 전" if r.report_date < r.official_date else "발표 후",
                 "섹션": str(r.section).split(">")[-1].strip(), "방법": "키워드" if r.match_method == "keyword" else "임베딩",
-                "걸린 검색어": ", ".join(terms), "유사도": r.match_score, "반복": rep, "근거 부분": snip,
+                "걸린 검색어": ", ".join(terms), "유사도": r.match_score, "근거 부분": snip,
                 "판정": {1: "같음", 0: "다름"}.get(r.verified, "") if pd.notna(r.verified) else "",
-                "메모": r.verify_note if isinstance(r.verify_note, str) else "", "청크 전문": r.text, "chunk_id": r.chunk_id})
+                "메모": r.verify_note if isinstance(r.verify_note, str) else "", "청크 전문": r.text, "chunk_id": r.chunk_id,
+                "반복 보고서": [], "반복 chunk_id": []}
+            out.append(row)
+        for n, row in enumerate([o for o in out if o["이벤트"] == eid], 1):
+            row["후보"] = n
+    for row in out:
+        reps = row.pop("반복 보고서")
+        row["같은 문장이 또 나온 보고서"] = f"{len(reps)}개: " + ", ".join(reps) if reps else ""
+        row["반복 chunk_id"] = ";".join(row["반복 chunk_id"])
+    order = ["검증", "이벤트", "기업", "이벤트명", "이벤트 설명", "발표일", "범위", "후보", "보고서", "접수일", "시점", "섹션",
+             "방법", "걸린 검색어", "유사도", "같은 문장이 또 나온 보고서", "근거 부분", "판정", "메모", "청크 전문",
+             "chunk_id", "반복 chunk_id"]
+    out = [{k: r[k] for k in order} for r in out]
     df = pd.DataFrame(out)
     if DRAFT_CSV.exists():  # 참고 초안을 '판정' 앞에 붙인다 (판정은 사람이 원문을 보고)
         dr = pd.read_csv(DRAFT_CSV, dtype=str)
@@ -177,8 +192,9 @@ def write_sheets(con, ev: pd.DataFrame, ch: pd.DataFrame) -> None:
 
     guide = [["이벤트 ↔ 공시 매칭 검증", ""],
              ["먼저", "'이벤트 요약' 시트에서 이벤트가 무엇인지(유형·다른 이름·매칭 힌트·원문 링크) 확인한다."],
-             ["하는 법", "이벤트별로 보고서 날짜순으로 읽고, 노란 '판정' 칸에서 같음 / 다름 / 반복 을 고른다. "
-                     "'같음'을 처음 확인한 뒤 '반복' 칸에 '앞 n번과 같은 문장'이 있으면 '반복'으로 한 번에 처리한다. 애매하면 '메모'."],
+             ["하는 법", "이벤트별로 보고서 날짜순으로 읽고, 노란 '판정' 칸에서 같음 / 다름 을 고른다. 애매하면 '메모'."],
+             ["같은 문장", "다음 보고서에 똑같은 문장이 또 나오면 행을 따로 만들지 않고 '같은 문장이 또 나온 보고서' 칸에 날짜만 적었다. "
+                         "처음 나온 행만 판정하면 apply 할 때 그 보고서들에도 같은 판정이 들어간다."],
              ["같은 사건 기준", "① 같은 기업 ② 같은 대상: 서비스·조직 이름이 같거나, 일반 표현이라도 기능·대상이 같음 "
                            "③ 시간 정합: 발표 후 기간을 다루거나, 발표 전이면 계획·개발 맥락 (→ '공시가 먼저 말함' 후보)"],
              ["주의", "청크에 적힌 내용만 본다. 판정 결과(제때·늦게·공시가 먼저·미확인)는 시트가 아니라 DB 뷰가 계산한다."],
@@ -237,8 +253,9 @@ def write_sheets(con, ev: pd.DataFrame, ch: pd.DataFrame) -> None:
         ws = wb["매칭"]
         ws.freeze_panes = "F2"
         widths = {"이벤트": 7, "기업": 11, "이벤트명": 22, "이벤트 설명": 26, "발표일": 11, "범위": 7, "후보": 5, "보고서": 18, "접수일": 11,
-                  "시점": 8, "섹션": 18, "방법": 7, "걸린 검색어": 16, "유사도": 7, "반복": 14, "근거 부분": 60,
-                  "판정": 8, "메모": 25, "청크 전문": 80, "chunk_id": 22, "Claude 초안": 9, "초안 근거": 45}
+                  "시점": 8, "섹션": 18, "방법": 7, "걸린 검색어": 16, "유사도": 7, "근거 부분": 60,
+                  "판정": 8, "메모": 25, "청크 전문": 80, "chunk_id": 22, "Claude 초안": 9, "초안 근거": 45,
+                  "같은 문장이 또 나온 보고서": 22, "반복 chunk_id": 10}
         dv = DataValidation(type="list", formula1='"' + ",".join(CHOICES) + '"', allow_blank=True)
         ws.add_data_validation(dv)
         head, judge, band = PatternFill("solid", fgColor="DDE5F0"), PatternFill("solid", fgColor="FFF2CC"), PatternFill("solid", fgColor="F2F2F2")
@@ -273,13 +290,15 @@ def apply() -> None:
         d = d[d["판정"].notna() & (d["판정"].str.strip() != "")]
         bad = d[~d["판정"].str.strip().isin(CHOICES)]
         if len(bad):
-            sys.exit(f"{path.name}: 판정 값이 이상한 행 {bad['후보'].tolist()} (같음/다름/반복 중 하나)")
-        for r in d.itertuples():
-            j = r.판정.strip()
-            note = (r.메모 if isinstance(r.메모, str) else "") or ("반복" if j == "반복" else None)
-            con.execute("""UPDATE event_dart_mapping SET verified = ?, verified_by = ?, verify_note = ?
-                           WHERE event_id = ? AND chunk_id = ?""", (VERIFIED[j], who, note, r.이벤트, r.chunk_id))
-            n += 1
+            sys.exit(f"{path.name}: 판정 값이 이상한 행 {bad['후보'].tolist()} (같음/다름 중 하나)")
+        for _, r in d.iterrows():
+            j = r["판정"].strip()
+            note = r["메모"] if isinstance(r["메모"], str) else None
+            reps = r["반복 chunk_id"].split(";") if isinstance(r.get("반복 chunk_id"), str) and r["반복 chunk_id"] else []
+            for cid, nt in [(r["chunk_id"], note)] + [(c, f"반복 (원본 {r['chunk_id']})") for c in reps]:
+                con.execute("""UPDATE event_dart_mapping SET verified = ?, verified_by = ?, verify_note = ?
+                               WHERE event_id = ? AND chunk_id = ?""", (VERIFIED[j], who, nt, r["이벤트"], cid))
+                n += 1
     con.commit()
     print(f"반영 {n}행")
     print(pd.read_sql("""SELECT event_id, COALESCE(SUM(verified = 1), 0) AS 같음, COALESCE(SUM(verified = 0), 0) AS 다름, SUM(verified IS NULL) AS 미검증

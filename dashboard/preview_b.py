@@ -15,11 +15,11 @@ from dashboard.tabs import q3_disclosure, qa  # noqa: E402
 
 CORPS = ["제일기획", "이노션", "플레이디", "인크로스", "KT나스미디어"]
 
-st.set_page_config(page_title="공시 반영·Q&A", layout="wide")
+st.set_page_config(page_title="AI 실행 확인 챗봇", layout="wide")
 
 with st.sidebar:
     st.markdown("### 말뿐인 AI인가, 실행하는 AI인가")
-    page = st.radio("화면", ["공시 Q&A", "Q3 공시 반영"], label_visibility="collapsed")
+    page = st.radio("화면", ["AI 실행 확인 챗봇", "Q3 공시 반영"], label_visibility="collapsed")
     st.divider()
     if page == "Q3 공시 반영":  # 필터는 Q3 화면에서만 쓴다
         corps = st.multiselect("기업", CORPS, default=CORPS)
@@ -27,7 +27,7 @@ with st.sidebar:
                                min_value=date(2023, 10, 19), max_value=date(2026, 10, 19))
     st.caption("데이터: DART 정기공시 5개사 · 뉴스 이벤트 28개 (2023-10-19 ~ 2026-10-19)")
 
-if page == "공시 Q&A":
+if page == "AI 실행 확인 챗봇":
     qa.render()
 elif isinstance(period, tuple) and len(period) == 2:
     q3_disclosure.render(corps or CORPS, period)

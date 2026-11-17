@@ -26,3 +26,6 @@ venv/
 
 # ===== 분석 결과·LLM 캐시 (저장소 제외) =====
 data/processed/
+
+# A↔B 데이터 넘기기 묶음 (뉴스 본문 포함, analysis/handoff.py)
+data/handoff/

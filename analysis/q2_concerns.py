@@ -10,6 +10,7 @@ python analysis/q2_concerns.py --apply   → 판정 O 인 기사만 data/process
 
 import argparse
 import json
+import re
 import sqlite3
 import sys
 from pathlib import Path
@@ -86,7 +87,12 @@ def apply() -> None:
     judged = j[JUDGE].fillna("").str.strip().str.upper()
     if (judged == "").any():
         print(f"아직 판정 안 한 행 {(judged == '').sum()}건 — 판정한 행만 반영")
-    keep = j[judged == "O"]
+    keep = j[judged == "O"].copy()
+    # '같은 사건'에 다른 기사 제목을 적은 경우, 그 제목의 기사(대표 기사, 칸이 비어 있기 쉬움)도 같은 묶음으로
+    norm = lambda t: re.sub(r"[^0-9A-Za-z가-힣]", "", str(t))   # noqa: E731
+    groups = {norm(g): g for g in keep["같은 사건"].dropna() if str(g).strip()}
+    empty = keep["같은 사건"].fillna("").str.strip() == ""
+    keep.loc[empty, "같은 사건"] = keep.loc[empty, "제목"].map(lambda t: groups.get(norm(t), ""))
     d = load().set_index("doc_id").loc[keep["doc_id"]].reset_index()
     out = pd.DataFrame({"doc_id": d["doc_id"], "published_date": d["published_date"], "media": d["media"], "title": d["title"],
                         "issues": d["issue_keywords"], "summary": d["summary"],

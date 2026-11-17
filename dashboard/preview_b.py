@@ -23,7 +23,10 @@ with st.sidebar:
     page = st.radio("화면", ["AI 실행 확인 챗봇", "Q3 공시 반영"], label_visibility="collapsed")
     st.divider()
     if page == "Q3 공시 반영":  # 필터는 Q3 화면에서만 쓴다
-        corps = st.multiselect("기업", CORPS, default=CORPS)
+        st.session_state.setdefault("corps", CORPS)
+        corps = st.multiselect("기업", CORPS, key="corps")
+        st.button("기업 초기화 (5곳 모두)", width="stretch",
+                  on_click=lambda: st.session_state.update(corps=CORPS))
         period = st.date_input("이벤트 발표일", value=(date(2023, 10, 19), date(2026, 10, 19)),
                                min_value=date(2023, 10, 19), max_value=date(2026, 10, 19))
     st.caption("데이터: DART 정기공시 5개사 · 뉴스 이벤트 28개 (2023-10-19 ~ 2026-10-19)")

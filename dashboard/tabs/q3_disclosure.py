@@ -133,8 +133,14 @@ def _levels(corps: list[str]) -> None:
 def _table(r: pd.DataFrame) -> None:
     # 표에서만 쓰는 기업 체크박스 (사이드바 기업 필터로 고른 기업 안에서 다시 고른다)
     corps = sorted(r.corp_name.unique())
-    st.caption("표에서 볼 기업")
-    on = [c for col, c in zip(st.columns(len(corps)), corps) if col.checkbox(c, value=True, key=f"q3_tbl_{c}")]
+    keys = {c: f"q3_tbl_{c}" for c in corps}
+    for k in keys.values():
+        st.session_state.setdefault(k, True)
+    head, reset = st.columns([5, 1], vertical_alignment="bottom")
+    head.caption("표에서 볼 기업")
+    reset.button("초기화", key="q3_tbl_reset", width="stretch",
+                 on_click=lambda: st.session_state.update({k: True for k in keys.values()}))
+    on = [c for col, c in zip(st.columns(len(corps)), corps) if col.checkbox(c, key=keys[c])]
     r = r[r.corp_name.isin(on)]
     if r.empty:
         st.info("기업을 하나 이상 골라 주세요.")

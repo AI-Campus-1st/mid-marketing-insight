@@ -36,6 +36,7 @@ from rag.embeddings import chunk_embeddings, embed_texts  # noqa: E402
 TERMS_CSV = settings.CONFIG_DIR / "event_search_terms.csv"
 ANCHOR_CSV = settings.DATA_DIR / "processed" / "anchor_events.csv"
 OUT = settings.DATA_DIR / "processed" / "review"
+DRAFT_CSV = OUT / "event_match_draft.csv"   # (선택) Claude 참고 초안: 이벤트, chunk_id, Claude 초안, 초안 근거
 TOP_K = 5
 # 검증은 공시 담당 B 가 전부 (Day 4 변경, decisions.md). preceded·not_found 판정은 B 가 검증 후 한 번 더 확인
 REVIEWER = {"이노션": "B", "KT나스미디어": "B", "인크로스": "B", "플레이디": "B", "제일기획": "B"}
@@ -165,6 +166,14 @@ def write_sheets(con, ev: pd.DataFrame, ch: pd.DataFrame) -> None:
                 "판정": {1: "같음", 0: "다름"}.get(r.verified, "") if pd.notna(r.verified) else "",
                 "메모": r.verify_note if isinstance(r.verify_note, str) else "", "청크 전문": r.text, "chunk_id": r.chunk_id})
     df = pd.DataFrame(out)
+    if DRAFT_CSV.exists():  # 참고 초안을 '판정' 앞에 붙인다 (판정은 사람이 원문을 보고)
+        dr = pd.read_csv(DRAFT_CSV, dtype=str)
+        df = df.merge(dr, on=["이벤트", "chunk_id"], how="left")
+        cols = list(df.columns)
+        for c in ("Claude 초안", "초안 근거"):
+            cols.remove(c)
+        i = cols.index("판정")
+        df = df[cols[:i] + ["Claude 초안", "초안 근거"] + cols[i:]]
 
     guide = [["이벤트 ↔ 공시 매칭 검증", ""],
              ["먼저", "'이벤트 요약' 시트에서 이벤트가 무엇인지(유형·다른 이름·매칭 힌트·원문 링크) 확인한다."],
@@ -174,6 +183,7 @@ def write_sheets(con, ev: pd.DataFrame, ch: pd.DataFrame) -> None:
                            "③ 시간 정합: 발표 후 기간을 다루거나, 발표 전이면 계획·개발 맥락 (→ '공시가 먼저 말함' 후보)"],
              ["주의", "청크에 적힌 내용만 본다. 판정 결과(제때·늦게·공시가 먼저·미확인)는 시트가 아니라 DB 뷰가 계산한다."],
              ["두 번 보기", "결과를 바꾸는 판정은 전체 검증을 끝낸 뒤 한 번 더 본다: '발표 전'에 같음(공시가 먼저 말함), 한 이벤트의 후보가 모두 '다름'(공시에서 미확인)."],
+             ["Claude 초안", "초록 칸 'Claude 초안'·'초안 근거'는 Claude 가 쓴 참고 초안이다. 판정은 원문을 보고 노란 '판정' 칸에 직접 적는다. '⚠경계'는 판단이 갈릴 수 있는 것."],
              ["범위", "'참고용'은 2026-06-30 이후 이벤트라 타임라인 표시용. 시간이 없으면 뒤로 미룬다."]]
     cnt = m.groupby("event_id").agg(키워드=("match_method", lambda x: (x == "keyword").sum()),
                                     임베딩=("match_method", lambda x: (x == "embedding").sum()))
@@ -228,7 +238,7 @@ def write_sheets(con, ev: pd.DataFrame, ch: pd.DataFrame) -> None:
         ws.freeze_panes = "F2"
         widths = {"이벤트": 7, "기업": 11, "이벤트명": 22, "이벤트 설명": 26, "발표일": 11, "범위": 7, "후보": 5, "보고서": 18, "접수일": 11,
                   "시점": 8, "섹션": 18, "방법": 7, "걸린 검색어": 16, "유사도": 7, "반복": 14, "근거 부분": 60,
-                  "판정": 8, "메모": 25, "청크 전문": 80, "chunk_id": 22}
+                  "판정": 8, "메모": 25, "청크 전문": 80, "chunk_id": 22, "Claude 초안": 9, "초안 근거": 45}
         dv = DataValidation(type="list", formula1='"' + ",".join(CHOICES) + '"', allow_blank=True)
         ws.add_data_validation(dv)
         head, judge, band = PatternFill("solid", fgColor="DDE5F0"), PatternFill("solid", fgColor="FFF2CC"), PatternFill("solid", fgColor="F2F2F2")
@@ -245,6 +255,9 @@ def write_sheets(con, ev: pd.DataFrame, ch: pd.DataFrame) -> None:
                 if shade:
                     c.fill = band
             ws[f"{cols['판정']}{i}"].fill = judge
+            for c in ("Claude 초안", "초안 근거"):
+                if c in cols:
+                    ws[f"{cols[c]}{i}"].fill = PatternFill("solid", fgColor="E2EFDA")
         wb.save(path)
         print(f"{path.name}: {len(part)}행, 이벤트 {part['이벤트'].nunique()}개")
 

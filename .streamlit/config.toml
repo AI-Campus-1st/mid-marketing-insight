@@ -4,3 +4,7 @@ toolbarMode = "minimal"
 
 [browser]
 gatherUsageStats = false
+
+# 코드를 고치면 화면을 저절로 다시 그린다 (새로고침 안 해도 됨)
+[server]
+runOnSave = true

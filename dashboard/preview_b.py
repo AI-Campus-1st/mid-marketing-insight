@@ -18,7 +18,8 @@ CORPS = ["제일기획", "이노션", "플레이디", "인크로스", "KT나스�
 st.set_page_config(page_title="AI 실행 확인 챗봇", layout="wide")
 
 with st.sidebar:
-    st.markdown("### 말뿐인 AI인가, 실행하는 AI인가")
+    st.markdown("### 광고대행사 AI, 공시로 확인하기")
+    st.caption("뉴스에 나온 AI 사업이 사업보고서에도 적혀 있는지 5개사 공시로 확인해요.")
     page = st.radio("화면", ["AI 실행 확인 챗봇", "Q3 공시 반영"], label_visibility="collapsed")
     st.divider()
     if page == "Q3 공시 반영":  # 필터는 Q3 화면에서만 쓴다

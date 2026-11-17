@@ -10,7 +10,9 @@
             - 층화 표본이라 드문 단계가 많이 들어간다 → score 는 표본 정확도와 함께
               전체 459개의 LLM 단계 비중으로 가중한 정확도를 같이 낸다 (리포트에는 가중값 + '층화 표본' 표기).
             - 판정 시트에는 LLM 결과를 넣지 않는다 (서로의 판정·LLM 값을 보지 않고 판정). 정답 대조용 key 파일은 따로.
-    score : 두 사람이 채운 시트를 읽어 일치율(A·B 사이, 각자와 LLM)을 출력하고 review_samples 에 저장한다.
+    score : 채운 시트를 읽어 LLM 과의 일치율을 출력하고 review_samples 에 저장한다.
+            A·B 시트가 둘 다 있으면 A·B 일치율도 낸다. B 시트 하나뿐이면 A·B 가 상의해 채운 '합의 판정'으로 보고
+            reviewer = 'AB' 로 저장한다 (Day 4: 독립 판정 2부 대신 합의 판정 1부, decisions.md).
 
 판정 입력 ('판정' 칸 드롭다운): 0 / 1 / 2 / 3 / 무관 (빈칸은 아직 판정 안 함 → 집계 제외)
 
@@ -190,15 +192,17 @@ def score() -> None:
     con = sqlite3.connect(settings.DB_PATH)
     con.execute(f"DELETE FROM review_samples WHERE target = 'ai_level' AND chunk_id IN ({','.join('?' * len(m))})",
                 list(m.index))
+    consensus = list(sheets) == ["B"]  # B 시트 하나 = A·B 합의 판정
     for r in sheets:
+        who = "AB" if consensus else r
         done = m[m[r] != ""]
         acc = (done[r] == done.llm).mean() if len(done) else float("nan")
-        print(f"{r}: 판정 {len(done)}/{len(m)}, LLM 과 일치 {acc:.0%}")
+        print(f"{'A·B 합의' if consensus else r}: 판정 {len(done)}/{len(m)}, LLM 과 일치 {acc:.0%}")
         notes = read_sheet(OUT / f"ai_level_review_{r}.xlsx").set_index("chunk_id").note
         con.executemany(
             """INSERT INTO review_samples (chunk_id, target, prompt_version, llm_label, human_label, is_correct, reviewer, note)
                VALUES (?, 'ai_level', ?, ?, ?, ?, ?, ?)""",
-            [(cid, x.prompt_version, x.llm, x[r], int(x[r] == x.llm), r,
+            [(cid, x.prompt_version, x.llm, x[r], int(x[r] == x.llm), who,
               None if pd.isna(notes.get(cid)) else notes.get(cid)) for cid, x in done.iterrows()])
     con.commit()
 
@@ -210,7 +214,7 @@ def score() -> None:
         by_level = (done[r] == done.llm).groupby(done.llm).mean()
         w = full.reindex(by_level.index).fillna(0)
         if w.sum():
-            print(f"{r}: 전체 단계 비중으로 가중한 LLM 정확도 {(by_level * w).sum() / w.sum():.0%} "
+            print(f"{'A·B 합의' if consensus else r}: 전체 단계 비중으로 가중한 LLM 정확도 {(by_level * w).sum() / w.sum():.0%} "
                   f"(단계별 {by_level.round(2).to_dict()})")
 
     if all(r in sheets for r in REVIEWERS):

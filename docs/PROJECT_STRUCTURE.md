@@ -66,12 +66,14 @@ mid-marketing-insight/
 │
 ├── dashboard/                 # ── 화면 계층 (저장된 결과만 조회) ──
 │   ├── app.py                 # [공동·D6] 진입점: 상단 결론 카드, 공통 필터(기간·기업·카테고리)
-│   ├── data_loader.py         # [공동·D6] DB 조회 함수 (st.cache_data)
+│   ├── data_loader.py         # [공동·D6] DB 조회 함수 (st.cache_data). B 파트: reflection(), chunk_levels() 작성됨
+│   ├── theme.py               # [B·D6] 차트 색(판정·AI 단계, 라이트·다크 검증)·공통 스타일
+│   ├── preview_b.py           # [B·D6] app.py 전에 Q3·공시 Q&A 탭만 띄워 보는 미리보기
 │   └── tabs/
 │       ├── q1_issue_trend.py  # [A·D6] Q1 월별 기사량 + 급증 시점
 │       ├── q2_sentiment.py    # [A·D6] Q2 기대 vs 우려 비율, 이슈 키워드 Top N
-│       ├── q3_disclosure.py   # [B·D6] Q3 단계 분포, 앵커 이벤트 타임라인, 산점도, 기업별 AI 실체 카드
-│       └── qa.py              # [B·D6] 공시 Q&A 화면
+│       ├── q3_disclosure.py   # [B·D6] Q3 반영 판정 요약·기업별 반영 결과·AI 단계 분포(L3 비중)·이벤트 타임라인·이벤트 표 — render(corps, period)
+│       └── qa.py              # [B·D6] 공시 Q&A 화면 (rag/qa_chain) — render()
 │
 ├── data/                      # (저장소 제외)
 │   ├── raw/

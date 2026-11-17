@@ -1,0 +1,10 @@
+# 대시보드 화면 설정: 오른쪽 위 영어 메뉴(Deploy 등)를 줄인다
+[client]
+toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false
+
+# 코드를 고치면 화면을 저절로 다시 그린다 (새로고침 안 해도 됨)
+[server]
+runOnSave = true

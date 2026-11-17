@@ -57,8 +57,11 @@ mid-marketing-insight/
 │   ├── level_review_sheet.py  # [B·D4] 단계 분류 검수 표본 50개 시트 / LLM 일치율 집계 → review_samples
 │   ├── embeddings.py          # [B·D4] 공시 청크 임베딩 캐시 (text-embedding-3-small, 매칭 후보·RAG 공용)
 │   ├── match_candidates.py    # [B·D4] 이벤트 ↔ 공시 매칭 후보(키워드 전부 + 임베딩 top-5) → event_dart_mapping, 검증 시트 / 판정 반영(apply)
+│   ├── retriever.py           # [B·D5] 하이브리드 검색(임베딩 + BM25 + 두 단어 구 가산점) + 기업 필터
+│   ├── qa_chain.py            # [B·D5] 공시 Q&A: 근거로만 답하고 없으면 거절, 출처(공시명·접수일·DART 링크·AI 단계)
+│   ├── eval_retrieval.py      # [B·D5] 테스트 질문으로 검색 정확도·거절 기준 평가
+│   ├── eval_qa.py             # [B·D5] 테스트 질문으로 답변·거절 끝까지 평가 → review/qa_eval.csv
 │   ├── build_index.py         # [B·D5] 임베딩 → Chroma (메타데이터: chunk_id·공시명·제출일·링크)
-│   ├── qa_chain.py            # [B·D5] LangChain 질의응답, 출처 표시, 근거 없으면 거절
 │   └── test_questions.csv     # [B·D5] 테스트 질문과 기대 결과
 │
 ├── dashboard/                 # ── 화면 계층 (저장된 결과만 조회) ──
@@ -165,5 +168,5 @@ flowchart LR
 | 담당 | 주요 파일 |
 |---|---|
 | A (뉴스·이슈 분석) | `anchor_queries.csv`, `load_news.py`, `supplement_search.py`, `supplement_fetch.py`, `load_news_supplement.py`, `preprocess.py`, `eda.ipynb`, `event_review_sheet.py`, `event_classify.py`, `classify_news.py`, `anchor_events.py`, `q1_issue_trend.py`, `q2_sentiment.py` |
-| B (공시·RAG) | `companies.csv`, `dart_corp_code.py`, `dart_collect.py`, `dart_document.py`, `disclosure_eda.ipynb`, `chunk.py`, `classify_chunks.py`, `level_review_sheet.py`, `embeddings.py`, `match_candidates.py`, `build_index.py`, `qa_chain.py`, `q3_disclosure.py`, `qa.py` |
+| B (공시·RAG) | `companies.csv`, `dart_corp_code.py`, `dart_collect.py`, `dart_document.py`, `disclosure_eda.ipynb`, `chunk.py`, `classify_chunks.py`, `level_review_sheet.py`, `embeddings.py`, `match_candidates.py`, `retriever.py`, `qa_chain.py`, `eval_qa.py`, `q3_disclosure.py`, `qa.py` |
 | 공동 | `schema.sql`, `settings.py`, `review.py`, `lag.py`, `metrics.py`, `app.py`, `data_loader.py`, `decisions.md` |

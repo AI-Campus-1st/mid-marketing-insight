@@ -21,7 +21,7 @@ from dashboard.tabs import q1_issue_trend, q2_issues  # noqa: E402
 CORPS = ["제일기획", "이노션", "플레이디", "인크로스", "KT나스미디어"]
 CATEGORIES = ["기술 및 트렌드", "시장 및 경쟁", "공급망 및 인프라", "규제 및 정책"]
 START, END = date(2023, 10, 19), date(2026, 10, 19)
-PAGES = ["Q1 기사량·급증", "Q2 화제 이슈", "Q3 공시 반영", "공시 챗봇"]
+PAGES = ["공시 챗봇", "Q1 기사량·급증", "Q2 화제 이슈", "Q3 공시 반영"]  # 챗봇이 첫 화면
 
 st.set_page_config(page_title="광고대행사 AI, 말과 실행", layout="wide")
 

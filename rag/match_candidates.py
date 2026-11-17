@@ -36,7 +36,7 @@ from rag.embeddings import chunk_embeddings, embed_texts  # noqa: E402
 TERMS_CSV = settings.CONFIG_DIR / "event_search_terms.csv"
 ANCHOR_CSV = settings.DATA_DIR / "processed" / "anchor_events.csv"
 OUT = settings.DATA_DIR / "processed" / "review"
-DRAFT_CSV = OUT / "event_match_draft.csv"   # (선택) Claude 참고 초안: 이벤트, chunk_id, Claude 초안, 초안 근거
+DRAFT_COLS = ["Claude 초안", "초안 근거"]   # 시트에 있으면 다시 만들 때 이어 받는 참고 초안 칸
 TOP_K = 5
 # 검증은 공시 담당 B 가 전부 (Day 4 변경, decisions.md). preceded·not_found 판정은 B 가 검증 후 한 번 더 확인
 REVIEWER = {"이노션": "B", "KT나스미디어": "B", "인크로스": "B", "플레이디": "B", "제일기획": "B"}
@@ -181,14 +181,6 @@ def write_sheets(con, ev: pd.DataFrame, ch: pd.DataFrame) -> None:
              "chunk_id", "반복 chunk_id"]
     out = [{k: r[k] for k in order} for r in out]
     df = pd.DataFrame(out)
-    if DRAFT_CSV.exists():  # 참고 초안을 '판정' 앞에 붙인다 (판정은 사람이 원문을 보고)
-        dr = pd.read_csv(DRAFT_CSV, dtype=str)
-        df = df.merge(dr, on=["이벤트", "chunk_id"], how="left")
-        cols = list(df.columns)
-        for c in ("Claude 초안", "초안 근거"):
-            cols.remove(c)
-        i = cols.index("판정")
-        df = df[cols[:i] + ["Claude 초안", "초안 근거"] + cols[i:]]
 
     guide = [["이벤트 ↔ 공시 매칭 검증", ""],
              ["먼저", "'이벤트 요약' 시트에서 이벤트가 무엇인지(유형·다른 이름·매칭 힌트·원문 링크) 확인한다."],
@@ -219,14 +211,20 @@ def write_sheets(con, ev: pd.DataFrame, ch: pd.DataFrame) -> None:
     for who in sorted(set(REVIEWER.values())):
         path = OUT / f"event_match_{who}.xlsx"
         part = df[df["검증"] == who].drop(columns="검증")
-        if path.exists():  # 이미 적은 판정·메모는 (이벤트, chunk_id) 기준으로 이어 붙인다
-            old = pd.read_excel(path, sheet_name="매칭", dtype=str)
-            old = old[old["판정"].notna() | old["메모"].notna()].set_index(["이벤트", "chunk_id"])[["판정", "메모"]]
+        if path.exists():  # 기존 시트의 참고 초안·판정·메모를 (이벤트, chunk_id) 기준으로 이어 받는다
+            old_all = pd.read_excel(path, sheet_name="매칭", dtype=str)
+            if set(DRAFT_COLS) <= set(old_all.columns):
+                part = part.merge(old_all[["이벤트", "chunk_id"] + DRAFT_COLS], on=["이벤트", "chunk_id"], how="left")
+                cols = [c for c in part.columns if c not in DRAFT_COLS]
+                i = cols.index("판정")
+                part = part[cols[:i] + DRAFT_COLS + cols[i:]]
+            old = old_all[old_all["판정"].notna() | old_all["메모"].notna()].set_index(["이벤트", "chunk_id"])[["판정", "메모"]]
             if len(old):
+                order = list(part.columns)
                 part = part.set_index(["이벤트", "chunk_id"])
                 part.update(old)
-                part = part.reset_index()[df.columns.drop("검증")]
-                print(f"{path.name}: 기존 판정·메모 {len(old)}행 이어 붙임")
+                part = part.reset_index()[order]
+                print(f"{path.name}: 기존 판정·메모 {len(old)}행 이어 받음")
         parts = summ[summ["기업"].map(REVIEWER) == who]
         with pd.ExcelWriter(path, engine="openpyxl") as xw:
             pd.DataFrame(guide).to_excel(xw, sheet_name="안내", index=False, header=False)

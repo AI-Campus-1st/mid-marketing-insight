@@ -15,7 +15,7 @@ from dashboard.tabs import q3_disclosure, qa  # noqa: E402
 
 CORPS = ["제일기획", "이노션", "플레이디", "인크로스", "KT나스미디어"]
 
-st.set_page_config(page_title="AI 실행 확인 챗봇", layout="wide")
+st.set_page_config(page_title="광고대행사 AI, 공시로 확인하기", layout="wide")
 
 with st.sidebar:
     st.markdown("### 광고대행사 AI, 공시로 확인하기")

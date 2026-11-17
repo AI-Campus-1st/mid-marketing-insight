@@ -131,6 +131,14 @@ def _levels(corps: list[str]) -> None:
 
 
 def _table(r: pd.DataFrame) -> None:
+    # 표에서만 쓰는 기업 체크박스 (사이드바 기업 필터로 고른 기업 안에서 다시 고른다)
+    corps = sorted(r.corp_name.unique())
+    st.caption("표에서 볼 기업")
+    on = [c for col, c in zip(st.columns(len(corps)), corps) if col.checkbox(c, value=True, key=f"q3_tbl_{c}")]
+    r = r[r.corp_name.isin(on)]
+    if r.empty:
+        st.info("기업을 하나 이상 골라 주세요.")
+        return
     t = r.sort_values(["analysis_scope", "corp_name", "official_date"])[
         ["corp_name", "event_name", "official_date", "판정", "first_report", "first_report_date", "lag_days", "dart_url", "primary_source_url"]]
     st.dataframe(t, hide_index=True, width="stretch", height=min(35 * len(t) + 40, 800), column_config={

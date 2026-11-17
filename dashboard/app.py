@@ -79,7 +79,11 @@ if page != "공시 챗봇":
 
 # ── 화면 ─────────────────────────────────────────────────────────────
 if page in ("Q1 기사량·급증", "Q2 화제 이슈"):
-    news = dl.filter_news(dl.news(), (START, END), corps, categories, CORPS)   # 기업·카테고리 (기간은 화면에서)
+    try:
+        news = dl.filter_news(dl.news(), (START, END), corps, categories, CORPS)   # 기업·카테고리 (기간은 화면에서)
+    except Exception as e:  # 뉴스 결과(news_preprocessed.csv·llm_results)가 없는 DB — Q3·챗봇과 같게 안내 문구 (B 리뷰, PR #22)
+        st.warning(f"이 화면에 필요한 뉴스 데이터가 없어요 — `analysis/handoff.py import` 로 A 의 뉴스 결과를 넣어 주세요. ({type(e).__name__}: {e})")
+        st.stop()
     if set(corps) != set(CORPS):
         n = int(((news["date"] >= period[0]) & (news["date"] <= period[1])).sum())
         st.caption(f"기업 필터: 제목에 {', '.join(corps)} 이(가) 나온 기사 {n:,}건만 보고 있어요.")

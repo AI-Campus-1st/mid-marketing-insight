@@ -281,18 +281,16 @@ def score(round_no: int = 1) -> None:
 
     # 층화 표본 보정: LLM 단계별 정확도 × 전체 분류 결과에서 그 단계의 비중
     # 비중은 '채점한 프롬프트 버전'의 분류 결과로 — DB 는 최신 버전만 들고 있으므로, 표본 버전이 다르면 그 버전의 캐시에서 계산
-    # (1차 v6 표본을 v7 DB 분포로 가중하면 81% 로 부풀었음 → v6 분포로 75.8%, A 리뷰 PR #23)
+    # (1차 v6 표본을 v7 DB 분포로 가중하면 81% 로 부풀었음 → v6 분포로 다시 계산, A 리뷰 PR #23)
     version = key.prompt_version.mode().iloc[0]
     db = pd.read_sql("SELECT ai_level, prompt_version FROM disclosure_chunks WHERE model IS NOT NULL", con)
     if (db.prompt_version == version).all():
         levels = db.ai_level.map(lambda x: "무관" if pd.isna(x) else str(int(x)))
     else:
         cache = settings.DATA_DIR / "processed" / "llm_cache" / f"chunk_classify_{version}.jsonl"
-        levels = []
-        for line in cache.read_text(encoding="utf-8").splitlines():
-            ms = [m["level"] for m in json.loads(line).get("mentions") or [] if isinstance(m.get("level"), int)]
-            levels.append(str(max(ms)) if ms else "무관")   # classify_chunks 와 같게: 항목 중 가장 높은 단계, 없으면 무관
-        levels = pd.Series(levels)
+        from rag.classify_chunks import clean   # 분류 때와 같은 규칙 (AI 용어 없는 인용 버림, 문자열 단계도 읽음 — A 리뷰 PR #23)
+        levels = pd.Series([clean(json.loads(line))["ai_level"] for line in cache.read_text(encoding="utf-8").splitlines()])
+        levels = levels.map(lambda x: "무관" if x is None or pd.isna(x) else str(int(x)))
         print(f"(가중 비중: {version} 분류 결과 {len(levels)}개 — 캐시 {cache.name})")
     full = levels.value_counts(normalize=True)
     for r in sheets:

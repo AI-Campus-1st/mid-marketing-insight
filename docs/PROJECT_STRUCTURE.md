@@ -54,7 +54,7 @@ mid-marketing-insight/
 │   ├── chunk.py               # [B·D3] 화이트리스트 섹션(II 전체·I-2 연혁·I-5 정관)만 청킹, AI 용어 집계 → disclosure_chunks
 │   ├── check_search_terms.py  # [B·D3] 이벤트 검색어를 공시 청크에 대 보고 후보 수·이벤트 전 출현·0건 점검
 │   ├── classify_chunks.py     # [B·D3] AI 언급 청크만 LLM 단계(L0~L3)·영역·성과 숫자 분류 (프롬프트 chunk_v6)
-│   ├── level_review_sheet.py  # [B·D4] 단계 분류 검수 표본 50개 시트 / LLM 일치율 집계 → review_samples
+│   ├── level_review_sheet.py  # [B·D4] 단계 분류 검수 표본 시트(1차 50·2차 29) / LLM 일치율 집계 → review_samples, merge 로 한 파일
 │   ├── embeddings.py          # [B·D4] 공시 청크 임베딩 캐시 (text-embedding-3-small, 매칭 후보·RAG 공용)
 │   ├── match_candidates.py    # [B·D4] 이벤트 ↔ 공시 매칭 후보(키워드 전부 + 임베딩 top-5) → event_dart_mapping, 검증 시트 / 판정 반영(apply)
 │   ├── retriever.py           # [B·D5] 하이브리드 검색(임베딩 + BM25 + 두 단어 구 가산점) + 기업 필터
@@ -96,7 +96,7 @@ mid-marketing-insight/
 │   │   ├── anchor_events_confirmed.csv  # 확정 판정 95행 + event_id (어느 행이 어느 이벤트로 묶였는지)
 │   │   ├── review_logs/       # 판정 기록(제목·URL 제외), LLM 판정 AI 2차 검토 표본
 │   │   └── review/            # [B] 공시 사람 검수 엑셀 (DB 반영 원본)
-│   │       ├── ai_level_review_B.xlsx  # 단계 분류 검수 50개 A·B 합의 판정 (+ 숨김 시트 'LLM 정답') → review_samples
+│   │       ├── ai_level_review_B.xlsx  # 단계 분류 검수 A·B 합의 판정: 1차 50개(v6)·2차 29개(v7), 시트 '1차·2차 안내/판정/LLM 정답' → review_samples
 │   │       └── event_match_B.xlsx      # 이벤트-공시 매칭 검증 204행 (+ 이벤트 요약, Claude 참고 초안) → event_dart_mapping
 │   └── vectordb/              # 공시 청크 임베딩 캐시 chunk_emb_{모델}.npz (매칭·RAG 공용), Chroma 파일
 │

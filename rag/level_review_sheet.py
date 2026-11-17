@@ -20,6 +20,7 @@
     python rag/level_review_sheet.py make
     python rag/level_review_sheet.py score
     python rag/level_review_sheet.py make2 / score2   # 2차 검수 (프롬프트 v7 확인용 새 표본 30개)
+    python rag/level_review_sheet.py merge            # 검수가 끝난 뒤 1차·2차 파일을 ai_level_review_B.xlsx 하나로 (시트 '1차 …'·'2차 …')
 출력: data/processed/review/ai_level_review_{A,B}.xlsx (판정용), ai_level_review_key.csv (LLM 정답, 판정자에게 보내지 않음)
       판정이 끝나면 LLM 정답을 판정 시트의 숨김 시트 'LLM 정답'으로 옮기고 CSV 는 지운다 (score 는 둘 다 읽음)
 """
@@ -64,6 +65,9 @@ SUPPLEMENT = [
     "청크에 적힌 내용만 본다 (다른 공시·뉴스에서 아는 사실은 반영하지 않는다).",
 ]
 R2_FILE = "ai_level_review_r2_B.xlsx"   # 2차 검수 (프롬프트 v7 확인용 새 표본, A·B 합의 판정)
+# 검수가 끝난 뒤 merge 로 1차·2차를 한 파일(ai_level_review_B.xlsx)에 합친다 → 시트 이름이 차수별로 바뀜
+MERGED = "ai_level_review_B.xlsx"
+ROUND_SHEETS = {1: ("1차 안내", "1차 판정", "1차 LLM 정답"), 2: ("2차 안내", "2차 판정", "2차 LLM 정답")}
 R2_PER_CORP = 6
 
 
@@ -117,8 +121,10 @@ def write_sheet(path: Path, sheet: pd.DataFrame) -> None:
     wb.save(path)
 
 
-def read_sheet(path: Path) -> pd.DataFrame:
-    d = pd.read_excel(path, sheet_name="판정", dtype=str)
+def read_sheet(path: Path, sheet: str = "판정") -> pd.DataFrame:
+    """판정 시트 읽기. 합친 파일이면 sheet(예: '1차 판정'), 합치기 전 파일이면 '판정'"""
+    names = pd.ExcelFile(path).sheet_names
+    d = pd.read_excel(path, sheet_name=sheet if sheet in names else "판정", dtype=str)
     return d.rename(columns={v: k for k, v in COLS.items()})
 
 
@@ -199,7 +205,7 @@ def make_round2() -> None:
                   k.ai_level, k.ai_domain, k.reason, k.prompt_version
            FROM disclosure_chunks k JOIN companies c ON c.corp_code = k.corp_code JOIN documents d ON d.doc_id = k.doc_id
            WHERE k.model IS NOT NULL""", con)
-    used = set(read_sheet(OUT / "ai_level_review_B.xlsx").chunk_id)
+    used = set(read_sheet(OUT / MERGED, ROUND_SHEETS[1][1]).chunk_id)
     if PILOT_CACHE.exists():
         used |= {json.loads(line)["key"].split(":")[0] for line in PILOT_CACHE.read_text(encoding="utf-8").splitlines()}
     df = df[~df.chunk_id.isin(used)]
@@ -226,24 +232,29 @@ def make_round2() -> None:
     print(pd.crosstab(s.corp_name, s.llm_level).to_string())
 
 
-def load_key(files: dict | None = None) -> pd.DataFrame:
-    """LLM 정답: 판정 시트 안의 숨김 시트가 있으면 그것, 없으면 CSV"""
+def load_key(files: dict | None = None, key_sheet: str = KEY_SHEET) -> pd.DataFrame:
+    """LLM 정답: 판정 파일 안의 정답 시트(합친 파일은 'n차 LLM 정답')가 있으면 그것, 없으면 CSV"""
     for f in (files or {r: OUT / f"ai_level_review_{r}.xlsx" for r in REVIEWERS}).values():
         if f.exists():
             xl = pd.ExcelFile(f)
-            if KEY_SHEET in xl.sheet_names:
-                return pd.read_excel(xl, sheet_name=KEY_SHEET, dtype=str)
+            for name in (key_sheet, KEY_SHEET):
+                if name in xl.sheet_names:
+                    return pd.read_excel(xl, sheet_name=name, dtype=str)
     return pd.read_csv(OUT / "ai_level_review_key.csv", dtype=str)
 
 
 def score(round_no: int = 1) -> None:
-    files = {r: OUT / f"ai_level_review_{r}.xlsx" for r in REVIEWERS} if round_no == 1 else {"B": OUT / R2_FILE}
-    key = load_key(files)
+    _, judge_sheet, key_sheet = ROUND_SHEETS[round_no]
+    if (OUT / MERGED).exists() and judge_sheet in pd.ExcelFile(OUT / MERGED).sheet_names:  # 1차·2차를 합친 뒤
+        files = {"B": OUT / MERGED}
+    else:
+        files = {r: OUT / f"ai_level_review_{r}.xlsx" for r in REVIEWERS} if round_no == 1 else {"B": OUT / R2_FILE}
+    key = load_key(files, key_sheet)
     key["llm"] = key.llm_level.map(label)
     sheets = {}
     for r, f in files.items():
         if f.exists():
-            d = read_sheet(f)
+            d = read_sheet(f, judge_sheet)
             sheets[r] = d.set_index("chunk_id").human_level.map(label)
     if not sheets:
         sys.exit("판정 시트가 없습니다")
@@ -260,7 +271,7 @@ def score(round_no: int = 1) -> None:
         done = m[m[r] != ""]
         acc = (done[r] == done.llm).mean() if len(done) else float("nan")
         print(f"{'A·B 합의' if consensus else r}: 판정 {len(done)}/{len(m)}, LLM 과 일치 {acc:.0%}")
-        notes = read_sheet(files[r]).set_index("chunk_id").note
+        notes = read_sheet(files[r], judge_sheet).set_index("chunk_id").note
         con.executemany(
             """INSERT INTO review_samples (chunk_id, target, prompt_version, llm_label, human_label, is_correct, reviewer, note)
                VALUES (?, 'ai_level', ?, ?, ?, ?, ?, ?)""",
@@ -291,8 +302,40 @@ def score(round_no: int = 1) -> None:
     print("\n저장: review_samples (target = 'ai_level')")
 
 
+def merge_rounds() -> None:
+    """1차(ai_level_review_B.xlsx)와 2차(R2_FILE) 판정 파일을 한 파일로: 시트 이름 앞에 '1차·2차'를 붙이고 LLM 정답 시트도 보이게.
+    서식(글꼴·색·줄바꿈·열 너비·드롭다운·틀 고정)까지 옮긴다. 2차 파일은 지우지 않는다(확인 후 직접 정리)."""
+    from copy import copy
+    from openpyxl import load_workbook
+    base_path, r2_path = OUT / MERGED, OUT / R2_FILE
+    base = load_workbook(base_path)
+    if ROUND_SHEETS[1][1] in base.sheetnames:
+        sys.exit(f"{MERGED} 은 이미 합친 파일입니다.")
+    for old, new in zip(("안내", "판정", KEY_SHEET), ROUND_SHEETS[1]):
+        if old in base.sheetnames:
+            base[old].title = new
+    r2 = load_workbook(r2_path)
+    for old, new in zip(("안내", "판정", KEY_SHEET), ROUND_SHEETS[2]):
+        src, dst = r2[old], base.create_sheet(new)
+        for row in src.iter_rows():
+            for c in row:
+                d = dst.cell(row=c.row, column=c.column, value=c.value)
+                if c.has_style:
+                    d.font, d.fill, d.alignment, d.border = copy(c.font), copy(c.fill), copy(c.alignment), copy(c.border)
+                    d.number_format = c.number_format
+        for k, dim in src.column_dimensions.items():
+            dst.column_dimensions[k].width = dim.width
+        dst.freeze_panes = src.freeze_panes
+        for dv in src.data_validations.dataValidation:
+            dst.add_data_validation(copy(dv))
+    for name in (ROUND_SHEETS[1][2], ROUND_SHEETS[2][2]):
+        base[name].sheet_state = "visible"   # 검수가 끝났으니 정답 시트를 숨기지 않음
+    base.save(base_path)
+    print(f"→ {base_path.name}: {base.sheetnames}")
+
+
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description="공시 청크 AI 단계 검수 표본")
-    p.add_argument("action", choices=["make", "score", "make2", "score2"])
+    p.add_argument("action", choices=["make", "score", "make2", "score2", "merge"])
     a = p.parse_args().action
-    {"make": make, "score": score, "make2": make_round2, "score2": lambda: score(2)}[a]()
+    {"make": make, "score": score, "make2": make_round2, "score2": lambda: score(2), "merge": merge_rounds}[a]()

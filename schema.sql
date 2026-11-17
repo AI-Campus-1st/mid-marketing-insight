@@ -154,6 +154,28 @@ CREATE TABLE IF NOT EXISTS ai_events (
 );
 
 -- ---------------------------------------------------------------------
+-- 6-1. event_dart_mapping: 이벤트 ↔ 공시 청크 매칭 후보와 사람 검증 (Day 4~5, 담당 B, A·B 검증 분담)
+--    후보 = 키워드 후보 전부 + 임베딩 상위 5개 (같은 기업, 기준일 −1년 ~ 수집 종료). rag/match_candidates.py
+--    단계(ai_level)는 복사하지 않고 disclosure_chunks 에서 조인한다 → 분류가 바뀌어도 매칭을 다시 할 필요 없음.
+--    반영 판정(on_time / delayed_k / preceded / not_found / reference)은 저장하지 않고 뷰로 계산한다.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS event_dart_mapping (
+    event_id       TEXT NOT NULL REFERENCES ai_events(event_id),
+    chunk_id       TEXT NOT NULL REFERENCES disclosure_chunks(chunk_id),
+    rcept_no       TEXT NOT NULL,
+    report_date    TEXT NOT NULL,             -- 원본 접수일 (disclosure_chunks.report_date)
+    report_kind    TEXT CHECK (report_kind IN ('annual', 'half', 'quarter', 'other')),
+    match_method   TEXT NOT NULL CHECK (match_method IN ('keyword', 'embedding', 'manual')),
+    matched_terms  TEXT,                      -- 키워드 후보: 걸린 검색어 (JSON 배열)
+    match_score    REAL,                      -- 이벤트 설명과 청크의 코사인 유사도 (모든 후보)
+    verified       INTEGER CHECK (verified IN (0, 1)),   -- NULL 미검증 / 1 같은 사건 / 0 다른 사건
+    verified_by    TEXT,                      -- 'A' 또는 'B'
+    verify_note    TEXT,                      -- 판정 이유 (반복 문장이면 '반복')
+    created_at     TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+    PRIMARY KEY (event_id, chunk_id)
+);
+
+-- ---------------------------------------------------------------------
 -- 7. review_samples: LLM 결과 표본 검수 기록 (Day 4, 뉴스·공시 공통)
 --    정확도 = is_correct 평균. 리포트의 'AI 기반 이슈 분석' 장에 사용한다.
 -- ---------------------------------------------------------------------

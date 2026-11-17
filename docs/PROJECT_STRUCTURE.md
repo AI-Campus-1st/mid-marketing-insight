@@ -42,7 +42,7 @@ mid-marketing-insight/
 │   ├── llm_review.py          # [A·D4] 뉴스 LLM 분류 사람 검수 엑셀(LLM 값 분리) / 정확도 집계 → review_samples
 │   ├── event_review_sheet.py  # [A·D3] 제공·네이버·웹 기사를 사건 묶음으로 → 검토 시트 (규칙 기반, AI 미사용)
 │   ├── event_classify.py      # [A·D3] 검토 시트 LLM 1차 판정 (네이버 외 출처 본문만 입력)
-│   ├── anchor_events.py       # [A·D2] 확정 이벤트 30개(anchor_events.csv) → ai_events (+ companies)
+│   ├── anchor_events.py       # [A·D2] 확정 이벤트 28개(anchor_events.csv) → ai_events (+ companies)
 │   ├── prompts/
 │   │   ├── news_classify_v1.txt     # [A·D4] 뉴스 분류 프롬프트 (버전별 보관)
 │   │   └── ai_level_domain_v1.txt   # [B·D4] 공시 단계(L0~L3, config/ai_levels.py)·영역 분류 프롬프트
@@ -54,7 +54,9 @@ mid-marketing-insight/
 │   ├── chunk.py               # [B·D3] 화이트리스트 섹션(II 전체·I-2 연혁·I-5 정관)만 청킹, AI 용어 집계 → disclosure_chunks
 │   ├── check_search_terms.py  # [B·D3] 이벤트 검색어를 공시 청크에 대 보고 후보 수·이벤트 전 출현·0건 점검
 │   ├── classify_chunks.py     # [B·D3] AI 언급 청크만 LLM 단계(L0~L3)·영역·성과 숫자 분류 (프롬프트 chunk_v6)
-│   ├── level_review_sheet.py  # [B·D4] 단계 분류 검수 표본 50개 A·B 독립 판정 시트 / 일치율 집계 → review_samples
+│   ├── level_review_sheet.py  # [B·D4] 단계 분류 검수 표본 50개 시트 / LLM 일치율 집계 → review_samples
+│   ├── embeddings.py          # [B·D4] 공시 청크 임베딩 캐시 (text-embedding-3-small, 매칭 후보·RAG 공용)
+│   ├── match_candidates.py    # [B·D4] 이벤트 ↔ 공시 매칭 후보(키워드 전부 + 임베딩 top-5) → event_dart_mapping, 검증 시트 / 판정 반영(apply)
 │   ├── build_index.py         # [B·D5] 임베딩 → Chroma (메타데이터: chunk_id·공시명·제출일·링크)
 │   ├── qa_chain.py            # [B·D5] LangChain 질의응답, 출처 표시, 근거 없으면 거절
 │   └── test_questions.csv     # [B·D5] 테스트 질문과 기대 결과
@@ -85,10 +87,13 @@ mid-marketing-insight/
 │   │   ├── llm_cache/         # LLM 응답 캐시 (프롬프트·입력 버전별)
 │   │   ├── dart_text/         # 정기공시 원문 텍스트 ({rcept_no}.txt, 목차 제목은 '## ' 줄)
 │   │   ├── disclosure_counts_quarterly.csv  # 기업별·분기별 공시 건수 (disclosure_eda → A 탭 1 차트)
-│   │   ├── anchor_events.csv            # ★ 고유 앵커 이벤트 30개 (B 에게 넘기는 목록)
+│   │   ├── anchor_events.csv            # ★ 고유 앵커 이벤트 28개 (E001~E028, B 에게 넘기는 목록)
 │   │   ├── anchor_events_confirmed.csv  # 확정 판정 95행 + event_id (어느 행이 어느 이벤트로 묶였는지)
-│   │   └── review_logs/       # 판정 기록(제목·URL 제외), LLM 판정 AI 2차 검토 표본
-│   └── vectordb/              # Chroma 파일
+│   │   ├── review_logs/       # 판정 기록(제목·URL 제외), LLM 판정 AI 2차 검토 표본
+│   │   └── review/            # [B] 공시 사람 검수 엑셀 (DB 반영 원본)
+│   │       ├── ai_level_review_B.xlsx  # 단계 분류 검수 50개 A·B 합의 판정 (+ 숨김 시트 'LLM 정답') → review_samples
+│   │       └── event_match_B.xlsx      # 이벤트-공시 매칭 검증 204행 (+ 이벤트 요약, Claude 참고 초안) → event_dart_mapping
+│   └── vectordb/              # 공시 청크 임베딩 캐시 chunk_emb_{모델}.npz (매칭·RAG 공용), Chroma 파일
 │
 └── docs/
     ├── AI 마케팅 이슈 × 공시 분석 대시보드 기획안.md
@@ -160,5 +165,5 @@ flowchart LR
 | 담당 | 주요 파일 |
 |---|---|
 | A (뉴스·이슈 분석) | `anchor_queries.csv`, `load_news.py`, `supplement_search.py`, `supplement_fetch.py`, `load_news_supplement.py`, `preprocess.py`, `eda.ipynb`, `event_review_sheet.py`, `event_classify.py`, `classify_news.py`, `anchor_events.py`, `q1_issue_trend.py`, `q2_sentiment.py` |
-| B (공시·RAG) | `companies.csv`, `dart_corp_code.py`, `dart_collect.py`, `dart_document.py`, `disclosure_eda.ipynb`, `chunk.py`, `classify_chunks.py`, `level_review_sheet.py`, `build_index.py`, `qa_chain.py`, `q3_disclosure.py`, `qa.py` |
+| B (공시·RAG) | `companies.csv`, `dart_corp_code.py`, `dart_collect.py`, `dart_document.py`, `disclosure_eda.ipynb`, `chunk.py`, `classify_chunks.py`, `level_review_sheet.py`, `embeddings.py`, `match_candidates.py`, `build_index.py`, `qa_chain.py`, `q3_disclosure.py`, `qa.py` |
 | 공동 | `schema.sql`, `settings.py`, `review.py`, `lag.py`, `metrics.py`, `app.py`, `data_loader.py`, `decisions.md` |

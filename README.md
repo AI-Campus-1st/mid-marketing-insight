@@ -57,7 +57,7 @@ cp .env.example .env   # .env 에 DART_API_KEY, LLM API 키 입력
    - 한 DB 에 뉴스 결과(`llm_results`·`news_company`, `data/processed/news_preprocessed.csv`)와 공시 결과(`disclosure_chunks`·`event_dart_mapping`)가 모두 있어야 모든 화면이 나옵니다. 없는 쪽 화면은 안내 문구만 나와요
    - B 화면(Q3 공시 반영·공시 Q&A)만 미리 보기: `streamlit run dashboard/preview_b.py` → 브라우저에서 http://localhost:8501
    - 공시 Q&A 는 `.env` 의 `OPENAI_API_KEY` 가 있어야 답합니다 (질문 1개당 검색 + LLM 1회)
-   - '기획안 검토' 화면: 기획안(txt·md·pdf·docx 또는 붙여 넣기)을 넣으면 공시·뉴스에서 비슷한 AI 활용 사례를 같은 영역 / 인접 영역으로 나눠 보여 줍니다 (기획안 1개당 LLM 2회). 처음 실행할 때 뉴스 임베딩을 한 번 만듭니다 (약 2,500건, $0.1 미만)
+   - '기획안 검토' 화면: 기획안(txt·md·pdf·docx 또는 붙여 넣기)을 넣으면 공시·뉴스에서 비슷한 AI 활용 사례를 찾아, 왼쪽 기획안 문서 옆에 문단별 사례 카드(같은 영역 / 인접 영역)로 보여 줍니다 (기획안 1개당 LLM 2회). 처음 실행할 때 뉴스 임베딩을 한 번 만듭니다 (약 2,500건, $0.1 미만)
 
 > 파일명은 기획안 기준 초안이며 구현하면서 업데이트합니다.
 

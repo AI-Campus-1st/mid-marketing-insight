@@ -26,7 +26,10 @@ HOW_TO_READ = f"""
 
 
 def _monthly(df: pd.DataFrame) -> pd.DataFrame:
-    m = trend.monthly(df) if len(df) else pd.DataFrame(columns=["total", "ai", "ai_share", "partial"])
+    # 기사가 0건이면 빈 표 — 행 이름(월)을 글자 형식으로 둬야 아래 '2023-10' 같은 기간 비교에서 TypeError 가 나지 않는다
+    #   (기업 하나 + '기술 및 트렌드' 끔 → 0건: 제목에 기업명이 나온 기사는 모두 그 카테고리)
+    m = trend.monthly(df) if len(df) else pd.DataFrame(columns=["total", "ai", "ai_share", "partial"],
+                                                       index=pd.Index([], dtype=object, name="month"))
     sp = trend.detect_spikes(m["ai"], m["partial"]) if len(m) else pd.DataFrame()
     return m.join(sp[["baseline", "ratio", "spike"]]) if len(sp) else m
 

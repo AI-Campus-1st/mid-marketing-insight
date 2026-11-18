@@ -71,7 +71,7 @@ def disclosure_rows(corps: list[str], period: tuple) -> list[tuple[str, str]]:
 
     if f["judge"] == 0:
         ref = f" (발표가 최근이라 아직 판정하지 않은 참고용 이벤트 {f['reference']}개)" if f["reference"] else ""
-        execution = f"선택한 기업·기간에 반영을 판정할 AI 이벤트가 없어요{ref}."
+        execution = f"선택한 기업·기간에는 반영을 판정할 AI 이벤트가 없다{ref}."
     else:
         head = f"{who}{_ga(who)} 발표한 AI 이벤트 {f['judge']}개 중"
         if f["found"] == 0:

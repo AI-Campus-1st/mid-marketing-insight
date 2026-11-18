@@ -5,7 +5,7 @@
 - 사이드바 메뉴: 공시 챗봇 (B) · 기획안 검토 (A) · 리포트 — 리포트는 맨 위 버튼으로 Q1 기사량·급증 / Q2 화제 이슈 (A) · Q3 공시 반영 (B)
 - 공통 필터(사이드바): 기간 · 기업 · 카테고리 → 모든 차트에 반영 (가이드 필수). 카테고리는 뉴스(Q1·Q2)에만 있는 값
 - 상단 결론 카드: 의사결정 관점의 결론 (가이드 필수) — 분석 화면(Q1·Q2·Q3)에 표시, 챗봇은 대화 영역을 위해 생략
-- 챗봇 화면: 사이드바에 B 의 대화 기록(새 대화·지난 대화, qa.py)이 붙으므로 필터는 접어 둔다 (값은 유지)
+- 필터는 '리포트'에서만 보인다. 다른 화면에 다녀와도 값은 '_filters' 에 저장해 두었다가 되살림 (리포트 Q1·Q2·Q3 선택도 유지)
 - 화면은 DB·CSV 에 저장된 결과만 읽는다. 예외는 공시 챗봇의 질문 1건당 검색 + LLM 1회, 기획안 검토 1건당 검색 + LLM 2회
 """
 import sys
@@ -31,35 +31,47 @@ st.set_page_config(page_title=f"{ui.BRAND} · {ui.BRAND_SUB}", layout="wide")
 ui.inject()   # 카드형 UI 공통 CSS (design_test)
 
 
+FILTER_DEFAULTS = {"period": (START, END), **{f"corp_{c}": True for c in CORPS}, **{f"cat_{c}": True for c in CATEGORIES}}
+
+
 def _reset():
-    st.session_state.update(period=(START, END), **{f"corp_{c}": True for c in CORPS}, **{f"cat_{c}": True for c in CATEGORIES})
+    st.session_state.update(FILTER_DEFAULTS)
+
+
+# 필터는 '리포트'에서만 보인다. Streamlit 은 그 회차에 그리지 않은 위젯의 값을 지우므로,
+#   값을 위젯과 따로 '_filters' 에 저장해 두고 리포트로 돌아오면 그 값으로 위젯을 다시 채운다 (다른 화면에 다녀와도 유지)
+saved = st.session_state.setdefault("_filters", dict(FILTER_DEFAULTS))
 
 
 with st.sidebar:
     ui.brand()   # 로고 'AA 팩트체커' · 설명 (style.py, preview_b.py 와 같은 모양)
-    st.markdown('<div class="sb-label">화면</div>', unsafe_allow_html=True)
     menu = st.radio("화면", MENU, label_visibility="collapsed", format_func=lambda p: f"{MENU_ICON[p]}  {p}",
                     key="page_sel")   # key: 기획안 검토의 '챗봇에 물어보기'가 화면을 챗봇으로 바꿀 수 있게 (#46)
-    st.markdown('<div class="sb-label">필터</div>', unsafe_allow_html=True)
     chat = menu != "리포트"   # 필터를 쓰지 않는 화면 (공시 챗봇 · 기획안 검토)
-    for c in CORPS:
-        st.session_state.setdefault(f"corp_{c}", True)
-    for c in CATEGORIES:
-        st.session_state.setdefault(f"cat_{c}", True)
-    st.session_state.setdefault("period", (START, END))
-    # 챗봇 화면에서는 접어 둔다 — 위젯을 아예 숨기면 Streamlit 이 값을 지워 다른 화면으로 돌아올 때 초기화됨
-    with st.expander("필터 (이 화면에는 적용 안 됨)" if chat else "필터 (모든 화면에 적용)", expanded=not chat,
-                     icon=":material/tune:"):
-        period = st.date_input("기간 (기사 발행일 · 이벤트 발표일)", key="period", min_value=START, max_value=END)
+    if not chat:   # 필터는 리포트에서만
+        for k, v in saved.items():   # 다른 화면에 다녀오면 지워진 위젯 값을 저장해 둔 값으로 되살림
+            if k not in st.session_state:
+                st.session_state[k] = v
+        # 구분선 → 굵은 제목 '필터' → 기간 · 기업 · 뉴스 카테고리 → 맨 아래 '필터 초기화'(＋ 새 기획안과 같은 옅은 파랑 버튼)
+        st.divider()
+        st.markdown("**필터**")
+        period = st.date_input("기간", key="period", min_value=START, max_value=END)   # 기사 발행일 · 이벤트 발표일
+        # 기업·뉴스 카테고리: '기간'과 같은 제목 글자 + 기간 입력칸과 같은 상자로 체크박스를 묶음 (style.py .sb-field · st-key-fbox_)
         # 체크박스: 체크한 것만 파랑 (style.py). 하나도 고르지 않으면 전체로 봄
-        st.markdown('<div class="sb-label" style="margin-top:.6rem">기업</div>', unsafe_allow_html=True)
-        corps = [c for c in CORPS if st.checkbox(c, key=f"corp_{c}")]
+        st.markdown('<div class="sb-field">기업</div>', unsafe_allow_html=True)
+        with st.container(key="fbox_corp", gap=None):
+            corps = [c for c in CORPS if st.checkbox(c, key=f"corp_{c}")]
         st.caption("뉴스는 제목에 기업명이 나온 기사로 좁혀요 (제목 기준 137건)")
-        st.markdown('<div class="sb-label" style="margin-top:.6rem">뉴스 카테고리</div>', unsafe_allow_html=True)
-        categories = [c for c in CATEGORIES if st.checkbox(c, key=f"cat_{c}")]
+        st.markdown('<div class="sb-field">뉴스 카테고리</div>', unsafe_allow_html=True)
+        with st.container(key="fbox_cat", gap=None):
+            categories = [c for c in CATEGORIES if st.checkbox(c, key=f"cat_{c}")]
         st.caption("수집 키워드 카테고리 — 뉴스 화면(Q1·Q2)에만 적용")
-        st.button("필터 초기화", on_click=_reset, width="stretch", key="reset_filters", icon=":material/restart_alt:")
-    st.caption("데이터: 제공 뉴스 6,450건 · DART 정기공시 5개사 · 앵커 이벤트 28개 (2023-10-19 ~ 2026-10-19)")
+        st.button("필터 초기화", on_click=_reset, width="stretch", type="primary", key="filter_reset", icon=":material/restart_alt:")
+        saved.update({k: st.session_state[k] for k in FILTER_DEFAULTS})   # 이번 값을 저장 (다음에 돌아올 때 씀)
+    else:          # 챗봇·기획안 검토: 필터를 그리지 않고 저장해 둔 값만 (이 화면들은 필터를 쓰지 않음)
+        period = saved["period"]
+        corps = [c for c in CORPS if saved[f"corp_{c}"]]
+        categories = [c for c in CATEGORIES if saved[f"cat_{c}"]]
     if chat:   # 아래에 챗봇·기획안 검토가 기록(새 대화·지난 대화 / 새 기획안·지난 기획안)을 붙인다
         st.divider()
 
@@ -74,7 +86,9 @@ def _keep_report_page():
 # '리포트' 메뉴: 맨 위에서 Q1·Q2·Q3 중 하나를 고른다 (탭과 달리 고른 페이지만 그려서 빠름). 아래 코드는 page 로 분기
 if menu == "리포트":
     st.markdown('<div class="report-nav-marker"></div>', unsafe_allow_html=True)
-    page = st.segmented_control("리포트 페이지", REPORT_PAGES, default=REPORT_PAGES[0], key="report_page",
+    if "report_page" not in st.session_state:   # 다른 화면에 다녀오면 지워진 값 → 직전 페이지로 (필터와 같은 이유)
+        st.session_state["report_page"] = st.session_state.get("_report_last", REPORT_PAGES[0])
+    page = st.segmented_control("리포트 페이지", REPORT_PAGES, key="report_page",
                                 format_func=lambda p: f"{PAGE_ICON[p]}  {p}", label_visibility="collapsed",
                                 on_change=_keep_report_page) or st.session_state.get("_report_last", REPORT_PAGES[0])
 else:
@@ -147,3 +161,8 @@ else:
             qa.render()
     except Exception as e:  # 공시 테이블·임베딩이 없는 DB (예: 뉴스만 적재한 로컬)
         st.warning(f"이 화면에 필요한 공시 데이터가 이 DB 에 없어요. ({type(e).__name__}: {e})")
+
+# 사이드바 맨 아래: 데이터 설명 (챗봇·기획안 검토의 기록 목록 · 리포트 필터 아래)
+with st.sidebar:
+    st.divider()
+    st.caption("데이터: 제공 뉴스 6,450건 · DART 정기공시 5개사 · 앵커 이벤트 28개 (2023-10-19 ~ 2026-10-19)")

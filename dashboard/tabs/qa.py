@@ -51,10 +51,10 @@ def _qa():
     return _qa_cached("|".join(str((rag / f).stat().st_mtime_ns) for f in ("qa_chain.py", "retriever.py")))
 
 
-def _answer(q: str) -> dict:
-    """질문 → 대화에 넣을 답 메시지 {role, content, sources}"""
+def _answer(q: str, chunk_ids: list[str] | None = None) -> dict:
+    """질문 → 대화에 넣을 답 메시지 {role, content, sources}. chunk_ids: 다른 화면이 이미 찾은 근거 문단 (기획안 검토 버튼)"""
     try:
-        r = _qa().ask(q)
+        r = _qa().ask_with_chunks(q, chunk_ids) if chunk_ids else _qa().ask(q)
     except Exception as e:  # API 키 없음 등
         return {"role": "assistant", "content": f"답변을 만들지 못했어요 ({type(e).__name__}). `.env` 의 OPENAI_API_KEY 를 확인해 주세요.",
                 "sources": []}
@@ -140,7 +140,8 @@ def render() -> None:
         clear.button("이 대화 지우기", width="stretch", on_click=_delete)
     st.markdown(TAGLINE)
 
-    picked = st.session_state.pop("qa_pending", None)   # 다른 화면(기획안 검토)에서 넘어온 질문 — 바로 답한다
+    pending = st.session_state.pop("qa_pending", None)   # 다른 화면(기획안 검토)에서 넘어온 질문 — 바로 답한다
+    picked, picked_ids = (pending.get("q"), pending.get("chunk_ids")) if isinstance(pending, dict) else (pending, None)
     if not msgs and not picked:  # 첫 화면: 소개 + 질문 종류별 예시
         with st.chat_message("assistant"):
             st.markdown(WELCOME)
@@ -158,7 +159,7 @@ def render() -> None:
         msgs.append({"role": "user", "content": q})
         _show(msgs[-1])
         with st.chat_message("assistant"), st.spinner("공시를 찾고 답을 쓰는 중…"):
-            a = _answer(q)
+            a = _answer(q, picked_ids if q == picked else None)
         msgs.append(a)
         _save()
         st.rerun()

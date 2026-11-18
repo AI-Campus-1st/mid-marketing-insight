@@ -90,6 +90,15 @@ class QA:
     def ask(self, question: str) -> dict:
         return self._answer(question, self.context(question))
 
+    def ask_with_chunks(self, question: str, chunk_ids: list[str]) -> dict:
+        """다른 화면이 이미 찾은 공시 문단(chunk_ids)을 근거 맨 앞에 넣고, 나머지는 질문으로 검색해 답한다.
+        기획안 검토의 '챗봇에 물어보기'(#46): 버튼 질문의 키워드가 실행마다 달라 긴 청크 속 한 줄(이노션 GEO)을 다시 못 찾던 문제 (A 리뷰 PR #49)"""
+        import pandas as pd
+        m = self.retriever.meta.set_index("chunk_id")
+        base = m.loc[[c for c in chunk_ids if c in m.index]].reset_index()
+        ctx = pd.concat([base, self.context(question)]).drop_duplicates("chunk_id").head(CONTEXT_N).reset_index(drop=True)
+        return self._answer(question, ctx)
+
     def ask_about_plan(self, question: str, plan: dict, chunk_ids: list[str]) -> dict:
         """기획안 검토 화면의 질문 (B 제안 ③). 예전 후속 질문 모드(#29)의 두 문제를 피한다:
         ① 회사를 콕 집은 질문은 일반 챗봇과 똑같이 ask() — 기획안 근거에 묶여 공시 답을 놓치던 문제

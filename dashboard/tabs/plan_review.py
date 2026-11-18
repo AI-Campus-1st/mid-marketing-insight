@@ -368,8 +368,8 @@ def _sidebar() -> None:
         cur = st.session_state.get("pr_id")
         for c in items[:HIST_SHOW]:
             title = c["title"] if len(c["title"]) <= 24 else c["title"][:24] + "…"
-            mark = "▶ " if c["id"] == cur else ""
-            st.button(f"{mark}{title}  \n{c['updated']}", key=f"hist_pr_{c['id']}", width="stretch",
+            now = "cur_" if c["id"] == cur else ""   # 지금 보고 있는 기획안: key 에 cur_ → 둥근 파란 테두리 (style.py)
+            st.button(f"{title}  \n{c['updated']}", key=f"hist_pr_{now}{c['id']}", width="stretch",
                       on_click=_open, args=(c,), help=c["title"])
 
 

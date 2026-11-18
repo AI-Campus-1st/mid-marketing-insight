@@ -126,8 +126,8 @@ def _sidebar() -> None:
         cur = st.session_state.get("qa_id")
         for c in convs[:HIST_SHOW]:
             title = c["title"] if len(c["title"]) <= 24 else c["title"][:24] + "…"
-            mark = "▶ " if c["id"] == cur else ""  # 지금 보고 있는 대화
-            st.button(f"{mark}{title}  \n{c['updated']}", key=f"hist_{c['id']}", width="stretch",
+            now = "cur_" if c["id"] == cur else ""   # 지금 보고 있는 대화: key 에 cur_ → 둥근 파란 테두리 (style.py)
+            st.button(f"{title}  \n{c['updated']}", key=f"hist_{now}{c['id']}", width="stretch",
                       on_click=_open, args=(c,), help=c["title"])
 
 

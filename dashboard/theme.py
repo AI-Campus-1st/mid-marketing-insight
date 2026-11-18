@@ -10,7 +10,8 @@ import streamlit as st
 
 PALETTE = {
     "light": {
-        "surface": "#fcfcfb", "text": "#0b0b0b", "text2": "#52514e", "muted": "#8a8984", "grid": "#e8e7e3",
+        # 글자·격자·바탕은 화면(.streamlit/config.toml, dashboard/style.py)과 같은 값
+        "surface": "#ffffff", "text": "#1f2733", "text2": "#5b6575", "muted": "#8a93a3", "grid": "#e4e8ef",
         "verdict": {"제때": "#2a78d6", "공시가 먼저": "#1baf7a", "늦게": "#eb6834", "미확인": "#b4b3ad", "참고용": "#dcdbd6"},
         "level": {"L0": "#86b6ef", "L1": "#3987e5", "L2": "#256abf", "L3": "#104281"},
         "news": "#52514e",
@@ -22,6 +23,8 @@ PALETTE = {
         "news": "#c3c2b7",
     },
 }
+# 차트 글꼴 = 화면 글꼴 (dashboard/style.py 가 Pretendard 전체 굵기를 불러옴)
+FONT = "Pretendard, 'Pretendard Variable', -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif"
 VERDICT_ORDER = ["제때", "늦게", "공시가 먼저", "미확인"]
 VERDICT_KO = {"on_time": "제때", "preceded": "공시가 먼저", "not_found": "미확인", "reference": "참고용"}
 LEVEL_ORDER = ["L0", "L1", "L2", "L3"]
@@ -50,9 +53,10 @@ def style(fig, height: int = 360):
     c = colors()
     fig.update_layout(
         height=height, margin=dict(l=10, r=10, t=40, b=10), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color=c["text"], size=13), hoverlabel=dict(font_size=13),
+        font=dict(color=c["text"], size=13, family=FONT), hoverlabel=dict(font_size=13, font_family=FONT),
         legend=dict(orientation="h", yanchor="bottom", y=1.0, x=0, title=None, font=dict(color=c["text2"]), traceorder="normal"),
     )
     fig.update_xaxes(gridcolor=c["grid"], zerolinecolor=c["grid"], linecolor=c["grid"], tickfont=dict(color=c["text2"]), automargin=True)
     fig.update_yaxes(gridcolor=c["grid"], zerolinecolor=c["grid"], linecolor=c["grid"], tickfont=dict(color=c["text2"]), automargin=True)
+    fig.update_traces(textangle=0, selector=dict(type="bar"))   # 막대 안 숫자가 세로로 눕지 않게 (design_test)
     return fig

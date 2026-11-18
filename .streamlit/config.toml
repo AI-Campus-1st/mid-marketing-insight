@@ -8,3 +8,33 @@ gatherUsageStats = false
 # 코드를 고치면 화면을 저절로 다시 그린다 (새로고침 안 해도 됨)
 [server]
 runOnSave = true
+
+# ── 테마 (docs/design/references 스타일) ─────────────────────────────
+# 누가 띄워도 같은 색이 나오도록 라이트로 고정하고 색을 정확한 값으로 적는다
+#   (라이트·다크를 나누면 OS 가 다크 모드인 사람은 다른 색이 보이고, Streamlit 1.4x 이하는 그 구분을 몰라 기본 빨강이 됨)
+# 강조 파랑 #2a78d6 = 차트 팔레트(dashboard/theme.py)의 파랑. 나머지 색은 dashboard/style.py 의 CSS 에 16진수로
+# 필요: streamlit >= 1.51 (requirements.txt)
+[theme]
+base = "light"
+primaryColor = "#2a78d6"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f4f6fa"
+textColor = "#1f2733"
+borderColor = "#e4e8ef"
+linkColor = "#2a78d6"
+blueColor = "#2a78d6"
+blueBackgroundColor = "#eef4fc"
+dataframeHeaderBackgroundColor = "#f4f6fa"
+# 글꼴은 dashboard/style.py 가 Pretendard 전체 굵기를 불러와 모든 글자에 적용 (여기는 불러오기 실패 시 대비)
+font = "Pretendard, Apple SD Gothic Neo, Malgun Gothic, sans-serif"
+headingFont = "Pretendard, Apple SD Gothic Neo, Malgun Gothic, sans-serif"
+headingFontWeights = [800, 700, 700, 700, 600, 600]
+baseRadius = "0.75rem"
+buttonRadius = "0.6rem"
+showWidgetBorder = true
+showSidebarBorder = true
+
+[theme.sidebar]
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f4f6fa"
+borderColor = "#e4e8ef"

@@ -10,7 +10,8 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from dashboard import data_loader as dl
-from dashboard.theme import colors, mode, style
+from dashboard import style as ui
+from dashboard.theme import FONT, colors, mode, style
 
 # 내용 이슈 (형식 이슈 '제휴·협력'·'실적·투자·상장'·'행사·시상'·'기타'는 추이 차트에서 뺌). 색은 이슈에 고정 (순위가 아니라)
 TREND_ISSUES = ["생성형 AI 콘텐츠 제작", "AI 개인화·타겟팅", "마케팅 자동화·애드테크", "AI 에이전트", "AI 검색·GEO"]
@@ -56,23 +57,85 @@ def _trend_chart(share: pd.DataFrame, n: pd.Series):
                             hovertemplate=f"%{{x}} {iss} %{{y:.0f}}% (일부 기간)<extra></extra>")
     # 선이 5개라 끝 라벨 대신 범례(위쪽) + 마우스 올리면 이슈 이름 (끝 값이 비슷해 라벨이 겹침)
     fig.update_yaxes(title=None, ticksuffix="%", rangemode="tozero")
-    fig.update_xaxes(title=None, categoryorder="array", categoryarray=list(share.index))
+    fig.update_xaxes(title=None, categoryorder="array", categoryarray=list(share.index), showgrid=False)
     return style(fig, height=420)
 
 
+DIM, FOCUS_OTHERS = 0.28, 0.1   # 평소 선 투명도 / 한 이슈에 마우스를 올렸을 때 나머지 선
+
+
+def _trend_html(share: pd.DataFrame, n: pd.Series, height: int = 430) -> str:
+    """이슈별 비중 차트 (HTML): 평소엔 모든 선이 연하고, 범례 항목·선에 마우스를 올리면 그 이슈만 원래 색으로.
+    st.plotly_chart 는 범례 hover 이벤트를 받을 수 없어 직접 만든 범례 + plotly.js 스크립트로 그린다"""
+    import json
+    c, ic = colors(), _issue_colors()
+    fig = _trend_chart(share, n)
+    groups = {iss: [] for iss in TREND_ISSUES}          # 이슈 → trace 번호들 (선 + 일부 기간 빈 점)
+    names = [iss for iss in TREND_ISSUES for _ in range(2 if any(q in PARTIAL_Q for q in share.index) else 1)]
+    for i, (tr, iss) in enumerate(zip(fig.data, names)):
+        tr.opacity = DIM
+        groups[iss].append(i)
+    fig.update_layout(showlegend=False, height=height - 40, margin=dict(l=10, r=10, t=10, b=10),
+                      font=dict(family=FONT))
+    plot = fig.to_html(full_html=False, include_plotlyjs="cdn", div_id="q2trend",
+                       config={"displayModeBar": False, "responsive": True}, default_width="100%")
+    chips = "".join(f'<span class="chip" data-i="{k}"><i style="background:{ic[iss]}"></i>{iss}</span>'
+                    for k, iss in enumerate(TREND_ISSUES))
+    return f"""
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  body {{ margin: 0; font-family: Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background: transparent; }}
+  .legend {{ display: flex; flex-wrap: wrap; gap: .4rem; margin: 0 0 4px 4px; }}
+  .chip {{ display: inline-flex; align-items: center; gap: .4rem; font-size: 12.5px; color: {c["text2"]}; cursor: default;
+          padding: .25rem .6rem; border-radius: 999px; border: 1px solid transparent; opacity: .55; transition: all .12s; }}
+  .chip i {{ width: 9px; height: 9px; border-radius: 50%; display: inline-block; }}
+  .chip.on {{ opacity: 1; color: {c["text"]}; font-weight: 700; border-color: {c["grid"]}; }}
+  .hint {{ font-size: 11.5px; color: {c["muted"]}; margin-left: auto; align-self: center; }}
+</style>
+<div class="legend">{chips}<span class="hint">범례나 선에 마우스를 올리면 그 이슈가 보여요</span></div>
+{plot}
+<script>
+(function () {{
+  const groups = {json.dumps(list(groups.values()))};
+  const total = {len(fig.data)};
+  const gd = document.getElementById('q2trend');
+  const chips = [...document.querySelectorAll('.chip')];
+  function show(k) {{
+    const op = Array.from({{length: total}}, () => k === null ? {DIM} : {FOCUS_OTHERS});
+    if (k !== null) groups[k].forEach(i => op[i] = 1);
+    Plotly.restyle(gd, {{opacity: op}});
+    chips.forEach((c, i) => c.classList.toggle('on', i === k));
+  }}
+  function ready(cb) {{ (window.Plotly && gd && gd.data) ? cb() : setTimeout(() => ready(cb), 50); }}
+  ready(() => {{
+    chips.forEach((c, k) => {{ c.addEventListener('mouseenter', () => show(k)); c.addEventListener('mouseleave', () => show(null)); }});
+    gd.on('plotly_hover', e => {{ const t = e.points[0].curveNumber; const k = groups.findIndex(g => g.includes(t)); if (k >= 0) show(k); }});
+    gd.on('plotly_unhover', () => show(null));
+  }});
+}})();
+</script>"""
+
+
+FORMAT_ISSUES = {"제휴·협력", "실적·투자·상장", "행사·시상"}   # 형식 이슈 (내용 이슈와 구분해 옅게)
+LIGHT_BAR = {"light": "#d6e2f3", "dark": "#2b3a52"}
+
+
 def _topn_chart(rel: pd.DataFrame):
+    """이슈 순위 — 내용 이슈는 파랑, 형식 이슈(제휴·실적·행사)는 옅게 (레퍼런스: 강조만 진하게)"""
     c = colors()
     cnt = rel["issues"].explode().value_counts().drop("기타", errors="ignore").sort_values()
-    fig = go.Figure(go.Bar(x=cnt.values, y=cnt.index, orientation="h", marker=dict(color=c["verdict"]["제때"]),
-                           text=cnt.values, textposition="outside", textfont=dict(color=c["text2"]),
+    col = [LIGHT_BAR[mode()] if i in FORMAT_ISSUES else c["verdict"]["제때"] for i in cnt.index]
+    fig = go.Figure(go.Bar(x=cnt.values, y=cnt.index, orientation="h", marker=dict(color=col, cornerradius=6),
+                           text=cnt.values, textposition="outside", textfont=dict(color=c["text2"]), cliponaxis=False,
                            hovertemplate="%{y} %{x}건<extra></extra>"))
-    fig.update_xaxes(title=None, showgrid=False, showticklabels=False)
-    fig.update_yaxes(title=None)
-    return style(fig, height=max(260, 26 * len(cnt) + 60))
+    fig.update_xaxes(title=None, showgrid=False, showticklabels=False, range=[0, cnt.max() * 1.15])   # 막대 끝 숫자 자리
+    fig.update_yaxes(title=None, showgrid=False)
+    fig.update_layout(bargap=.35)
+    return style(fig, height=max(260, 26 * len(cnt) + 40))
 
 
 def _concerns(period) -> None:
-    st.markdown("#### 우려 기사")
+    ui.section("우려 기사", "!", badge="사람 검수", badge_kind="orange", sub="카드를 누르면 원문")
     df = dl.concern_articles()
     if df is None:
         st.info("우려 기사 목록은 사람 검수 후 표시돼요 (`analysis/q2_concerns.py`).")
@@ -86,13 +149,12 @@ def _concerns(period) -> None:
     g = df.sort_values("published_date").groupby("group", sort=False).agg(
         date=("date", "first"), title=("title", "first"), media=("media", "first"), url=("url", "first"),
         n=("doc_id", "size"), name=("event_group", "first")).sort_values("date", ascending=False)
-    for r in g.itertuples():
-        more = f" · 같은 사건 기사 {r.n}건" if r.n > 1 else ""
-        st.markdown(f"- {r.date} · {r.media} — [{r.title}]({r.url}){more}")
+    ui.mini_cards([{"tag": f"같은 사건 기사 {r.n}건" if r.n > 1 else "우려 논조", "title": r.title,
+                    "meta": f"{r.media} · {r.date}", "url": r.url} for r in g.itertuples()])
 
 
 def render(df: pd.DataFrame, period) -> None:
-    st.markdown("### Q2. 무엇이 화제인가 — AI 마케팅 이슈의 이동")
+    ui.page_title("Q2. 무엇이 화제인가 — AI 마케팅 이슈의 이동", "LLM 이 광고·마케팅 관련으로 분류한 기사의 이슈 (news_v4)")
     rel = df[df["is_relevant"] == 1]
     if rel.empty:
         st.info("선택한 필터에 해당하는 광고·마케팅 관련 기사가 없어요.")
@@ -105,22 +167,23 @@ def render(df: pd.DataFrame, period) -> None:
         early, late = share.loc[full[:3]].mean(), share.loc[full[-3:]].mean()
         rise = (late - early).sort_values(ascending=False)
         top = rise.index[0]
-        st.markdown(f"#### 광고·마케팅 관련 기사에서 **{top}** 비중이 {early[top]:.0f}% → {late[top]:.0f}% 로 가장 많이 늘었다"
-                    f" ({full[0]}–{full[2]} 평균 → {full[-3]}–{full[-1]} 평균)")   # '~' 두 개는 마크다운 취소선이 됨
-    a, b, c_ = st.columns(3)
-    a.metric(f"관련 기사 (전체의 {len(rel) / len(df):.0%})", f"{len(rel):,}건")
+        ui.lead(f'{ui.pill("NEXT", "line")} 광고·마케팅 관련 기사에서 <b>{ui.esc(top)}</b> 비중이 '
+                f'{early[top]:.0f}% → <b>{late[top]:.0f}%</b> 로 가장 많이 늘었다 '
+                f'<span style="font-weight:500;opacity:.6;font-size:.9rem">({full[0]}–{full[2]} 평균 → {full[-3]}–{full[-1]} 평균)</span>')
     neutral = (rel["sentiment"] == "neutral").mean()
-    b.metric("논조 중립 (사실 전달)", f"{neutral:.0%}")
-    c_.metric("우려 논조 (LLM)", f"{int((rel['sentiment'] == 'negative').sum())}건")
-    st.caption("관련 기사 대부분이 출시·제휴·실적 같은 사실 전달이라 기대·우려 비율 추이는 싣지 않고, 우려 기사는 사람이 거른 목록으로 보여요 (decisions.md).")
+    ui.kpis([("관련 기사", f"{len(rel):,}건", f"전체 기사의 {len(rel) / len(df):.0%}"),
+             ("논조 중립 (사실 전달)", f"{neutral:.0%}", "출시·제휴·실적 발표 위주"),
+             ("우려 논조 (LLM)", f"{int((rel['sentiment'] == 'negative').sum())}건", "사람이 거른 목록은 아래")], key="q2")
 
-    st.markdown("#### 이슈별 비중 (분기)")
-    st.plotly_chart(_trend_chart(share, n), width="stretch", config={"displayModeBar": False})
-    st.caption("관련 기사 중 각 이슈가 붙은 기사 비율 · 빈 점 = 일부 기간만 들어간 분기 · 형식 이슈(제휴·실적·행사)는 아래 막대에만")
+    with st.container(border=True, key="card_q2_trend"):
+        ui.section("이슈별 비중 (분기)", "◔", badge="내용 이슈 5개", badge_kind="blue", sub="빈 점 = 일부 기간만 들어간 분기")
+        import streamlit.components.v1 as components
+        components.html(_trend_html(share, n), height=440)
+        st.caption("관련 기사 중 각 이슈가 붙은 기사 비율 (한 기사에 이슈가 여럿이라 합이 100% 를 넘음)")
 
-    left, right = st.columns([3, 2])
-    with left:
-        st.markdown("#### 이슈 순위 (선택 기간)")
+    left, right = st.columns([2, 3], gap="large")
+    with left, st.container(border=True, key="card_q2_rank"):
+        ui.section("이슈 순위", "▤", sub="파랑 = 내용 · 옅음 = 형식")
         st.plotly_chart(_topn_chart(rel), width="stretch", config={"displayModeBar": False})
     with right:
         _concerns(period)

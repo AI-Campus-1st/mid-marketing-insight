@@ -242,6 +242,26 @@ def _conclusion(r: dict) -> None:
         st.markdown(f'<div class="pr-concl">{lead + ", ".join(bits)}.{"".join(rows)}{note}</div>', unsafe_allow_html=True)
 
 
+def _more_cases(r: dict) -> None:
+    """사례에 나온 회사마다 '공시 속 AI 사례 더 보기' (B 제안 ②) — 분류 결과에서 바로 읽음, LLM 호출 없음"""
+    from dashboard import data_loader as dl
+    from dashboard.theme import LEVEL_NAME
+    corps = list(dict.fromkeys(s["corp"] for s in r["disclosure"]["sources"] if s.get("corp")))
+    if not corps:
+        return
+    st.markdown("##### 📂 이 회사들의 공시 속 AI 사례 더 보기")
+    st.caption("기획안과 상관없이 그 회사 정기공시에 적힌 AI 사례예요 (자체 개발·상용화 · 도입·적용, 분기마다 반복되는 같은 문장은 처음 실린 공시 하나만). AI 호출 없이 저장된 분류 결과를 읽어요.")
+    for corp in corps:
+        cases = dl.ai_cases(corp)
+        with st.expander(f"{corp} — 공시 속 AI 사례 {len(cases)}개", icon=":material/apartment:"):
+            if cases.empty:
+                st.caption("공시에서 '도입·적용' 이상으로 분류된 AI 사례가 없어요.")
+            for c in cases.itertuples():
+                again = f" · 이후 {c.n_reports - 1}번 더 실림" if c.n_reports > 1 else ""
+                st.markdown(f"- **[{LEVEL_NAME[f'L{c.level}']}]** {c.sentence}  \n"
+                            f"  :gray[처음 실린 공시: {c.report_name} · {c.report_date}{again} — [DART 원문]({c.url})]")
+
+
 def _report(r: dict, label: str) -> None:
     p = r["plan"]
     st.markdown(f"##### {p['title'] or '(제목 없음)'}")
@@ -282,6 +302,7 @@ def _report(r: dict, label: str) -> None:
                 elif i in gaps:
                     right.markdown(GAP_CARD, unsafe_allow_html=True)
     st.caption("문서는 올린 파일에서 읽은 글자로 다시 그린 것이라 원본의 표·그림·글꼴은 보이지 않아요.")
+    _more_cases(r)
 
 
 # ---------- 기록 (파일 하나 = 기획안 하나, 챗봇 대화 기록과 같은 방식) ----------

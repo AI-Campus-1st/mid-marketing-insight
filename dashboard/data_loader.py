@@ -56,6 +56,60 @@ CONCERN_CSV = settings.DATA_DIR / "processed" / "q2_concern_articles.csv"
 
 
 @st.cache_data
+def _sentence(text: str, quote: str, width: int = 140) -> str:
+    """청크 본문에서 인용 구절이 든 문장 (앞뒤 문장 끝·줄바꿈까지, 너무 길면 자름). 구절을 못 찾으면 구절 그대로"""
+    import re
+    i = text.find(quote)
+    if i < 0:
+        return quote
+    ends = [m.end() for m in re.finditer(r"(다\.|\.\s|\n)", text)]
+    start = max([e for e in ends if e <= i], default=0)
+    stop = min([e for e in ends if e >= i + len(quote)], default=len(text))
+    out = re.sub(r"\s+", " ", text[start:stop]).strip()
+    if len(out) > width:   # 표 한 줄처럼 긴 경우: 구절 앞뒤로 자름
+        j = out.find(quote)
+        a = max(0, j - (width - len(quote)) // 2)
+        out = ("…" if a else "") + out[a:a + width] + ("…" if a + width < len(out) else "")
+    return out
+
+
+@st.cache_data
+def ai_cases(corp: str, n: int = 8) -> pd.DataFrame:
+    """회사의 공시 속 AI 사례 — 분류 결과(chunk_v7)에서 '자체 개발·상용화'(L3)·'도입·적용'(L2) 문단의 인용 구절이 든 문장.
+    같은 문장은 분기마다 반복되므로 하나로 묶고(한 문장이 다른 문장 안에 들어 있어도 하나로) '처음 실린 공시'를 보여 준다.
+    기업 비교와 같게 KT나스미디어 속 플레이디 제품 문단은 뺀다.
+    → sentence · level · report_name · report_date(처음) · url · n_reports (단계 높은 순, 최근에 처음 실린 순)"""
+    from difflib import SequenceMatcher
+    cols = ["sentence", "level", "report_name", "report_date", "url", "n_reports"]
+    lv = chunk_levels()
+    ids = lv[(lv.corp_name == corp) & (lv.ai_level >= 2)].chunk_id.tolist()
+    if not ids:
+        return pd.DataFrame(columns=cols)
+    df = pd.read_sql(
+        f"""SELECT k.chunk_id, k.ai_level, k.reason, k.text, k.report_date, k.rcept_no, d.title AS report_name
+            FROM disclosure_chunks k JOIN documents d ON d.doc_id = k.doc_id
+            WHERE k.chunk_id IN ({','.join('?' * len(ids))})""", _con(), params=ids)
+    df["quote"] = df.reason.str.extract(r"^L\d: '([^']+)'")[0]
+    df = df[df.quote.notna()].copy()
+    df["sentence"] = [_sentence(t, q) for t, q in zip(df.text, df.quote)]
+    df["key"] = df.sentence.str.replace(r"[^0-9A-Za-z가-힣]", "", regex=True)
+    df = df.sort_values("report_date")
+    groups: list[dict] = []   # 같은 문장(또는 서로 포함) 묶음
+    for row in df.itertuples():
+        g = next((g for g in groups if row.key in g["key"] or g["key"] in row.key
+                  or SequenceMatcher(None, row.key, g["key"]).ratio() >= 0.9), None)   # 거의 같은 문장('2024년 3월' vs '3월')도 하나로
+        if g is None:
+            groups.append({"key": row.key, "sentence": row.sentence, "level": int(row.ai_level), "report_name": row.report_name,
+                           "report_date": row.report_date, "url": DART_URL.format(row.rcept_no), "n_reports": 1})
+        else:
+            g["n_reports"] += 1
+            g["level"] = max(g["level"], int(row.ai_level))
+            if len(row.key) > len(g["key"]):   # 더 긴(온전한) 문장으로
+                g["key"], g["sentence"] = row.key, row.sentence
+    out = pd.DataFrame(groups, columns=["key"] + cols)
+    return out.sort_values(["level", "report_date"], ascending=[False, False]).head(n)[cols].reset_index(drop=True)
+
+
 def news() -> pd.DataFrame:
     """기사 1건 = 1행: 발행일·월·카테고리(목록)·AI 기사 여부·제목 속 기업(목록)·LLM 관련·감성·이슈(목록)"""
     import json

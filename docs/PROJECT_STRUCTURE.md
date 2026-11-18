@@ -65,7 +65,8 @@ mid-marketing-insight/
 │   ├── eval_retrieval.py      # [B·D5] 테스트 질문으로 검색 정확도·거절 기준 평가
 │   ├── eval_qa.py             # [B·D5] 테스트 질문으로 답변·거절 끝까지 평가 → review/qa_eval.csv
 │   ├── build_index.py         # [B·D7] 검색 파일(임베딩 캐시) 미리 만들기: 공시 청크·관련 뉴스 → data/vectordb/*.npz (대시보드가 켜질 때 API 안 부르게)
-│   └── test_questions.csv     # [B·D5] 테스트 질문과 기대 결과
+│   ├── test_questions.csv     # [B·D5] 테스트 질문과 기대 결과 (검색·프롬프트 개선에 쓴 15개)
+│   └── test_questions_holdout.csv  # [B·D7] 처음 보는 질문 15개 — 일반화 확인용, 한 번만 실행 (eval_qa.py --holdout)
 │
 ├── dashboard/                 # ── 화면 계층 (저장된 결과만 조회) ──
 │   ├── app.py                 # [공동·D6] 진입점: 상단 결론 카드(초안), 사이드바 공통 필터(기간·기업·카테고리) → Q1·Q2·Q3, 공시 챗봇 (A 작성)

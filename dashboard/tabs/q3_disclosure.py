@@ -35,7 +35,9 @@ def _summary(r: pd.DataFrame) -> None:
     if j.empty:  # 필터에 참고용(최근 발표) 이벤트만 남은 경우
         st.markdown(f"#### 선택한 기업·기간에 판정 대상 이벤트가 없어요 (참고용 {len(r)}개는 타임라인·표에서 볼 수 있어요)")
     else:
-        st.markdown(f"#### 판정 대상 이벤트 {len(j)}개 중 **{found}개({found / len(j):.0%})**가 정기공시에 실렸다")
+        # 굵게는 <b>: '**17개(68%)**가' 는 닫는 ** 앞이 ')' 뒤가 글자라 마크다운이 굵게로 못 읽고 별표가 그대로 보임
+        st.markdown(f"#### 판정 대상 이벤트 {len(j)}개 중 <b>{found}개({found / len(j):.0%})</b>가 정기공시에 실렸다",
+                    unsafe_allow_html=True)
     for col, v in zip(st.columns(4), VERDICT_ORDER):
         col.metric(_label(v), f"{n[v]}개")
 

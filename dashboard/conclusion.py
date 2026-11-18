@@ -67,7 +67,7 @@ def disclosure_rows(corps: list[str], period: tuple) -> list[tuple[str, str]]:
         if f["found"] == 0:
             execution = f"{head} 정기공시(사업·반기·분기보고서)에서 확인된 것은 <b>없다</b>"
         else:
-            parts = [f"제때 {f['on_time']}"] + ([f"늦게 {f['delayed']}"] if f["delayed"] else []) \
+            parts = [f"다음 공시에 반영 {f['on_time']}"] + ([f"늦게 반영 {f['delayed']}"] if f["delayed"] else []) \
                 + ([f"공시가 먼저 {f['preceded']}"] if f["preceded"] else [])
             execution = (f"{head} <b>{f['found']}개({f['found'] / f['judge']:.0%})</b>가 정기공시(사업·반기·분기보고서)에서 확인된다"
                          f" ({' · '.join(parts)})")
@@ -80,16 +80,16 @@ def disclosure_rows(corps: list[str], period: tuple) -> list[tuple[str, str]]:
 
     share, rank = f["l3_share"], f["l3_rank"]
     picked = [c for c in f["corps"] if c in share]
-    base = "대행사의 AI 경쟁력은 기사량이 아니라 <b>정기공시로 확인되는 자체 개발·상용화(L3)</b>를 기준으로 비교한다"
+    base = "대행사의 AI 경쟁력은 기사량이 아니라 <b>정기공시로 확인되는 자체 개발·상용화</b>를 기준으로 비교한다"
     if not picked:
         judgement = base + "."
     elif len(picked) == 1:
         c = picked[0]
-        judgement = (f"{base} — {c}의 공시 속 AI 문단 중 L3 비중은 <b>{share[c]:.0%}</b>"
+        judgement = (f"{base} — {c}의 공시 속 AI 문단 중 '자체 개발·상용화' 비중은 <b>{share[c]:.0%}</b>"
                      f"(5개사 중 {rank[c]}위)이다.")
     else:
         top, low = max(picked, key=share.get), min(picked, key=share.get)
-        judgement = (f"{base} — 선택한 기업 중 L3 비중이 가장 높은 곳은 <b>{top}({share[top]:.0%})</b>, "
+        judgement = (f"{base} — 선택한 기업 중 '자체 개발·상용화' 비중이 가장 높은 곳은 <b>{top}({share[top]:.0%})</b>, "
                      f"가장 낮은 곳은 {low}({share[low]:.0%})이다.")
     return [("공시의 실행", execution), ("판단", judgement)]
 

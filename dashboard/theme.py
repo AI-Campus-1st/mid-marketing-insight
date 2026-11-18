@@ -27,8 +27,17 @@ PALETTE = {
 FONT = "Pretendard, 'Pretendard Variable', -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif"
 VERDICT_ORDER = ["제때", "늦게", "공시가 먼저", "미확인"]
 VERDICT_KO = {"on_time": "제때", "preceded": "공시가 먼저", "not_found": "미확인", "reference": "참고용"}
+# 화면에 보이는 판정 이름 — 안쪽 이름(제때·늦게…)은 색 키로도 쓰여서(A 의 Q1·Q2 파랑) 그대로 두고 보여 주는 글자만 바꾼다
+VERDICT_LABEL = {"제때": "다음 공시에 반영", "늦게": "늦게 반영", "공시가 먼저": "공시가 먼저",
+                 "미확인": "공시에서 미확인", "참고용": "참고용"}
 LEVEL_ORDER = ["L0", "L1", "L2", "L3"]
-LEVEL_NAME = {"L0": "L0 언급", "L1": "L1 계획", "L2": "L2 도입·적용", "L3": "L3 자체 개발·상용화"}
+# 화면에 보이는 단계 이름 — L0~L3 코드는 빼고 뜻만 (코드는 리포트·결정 기록에서 씀)
+LEVEL_NAME = {"L0": "언급", "L1": "계획", "L2": "도입·적용", "L3": "자체 개발·상용화"}
+
+
+def verdict_label(v: str) -> str:
+    """안쪽 판정 이름 → 화면 이름 (예: '제때' → '다음 공시에 반영')"""
+    return VERDICT_LABEL.get(v, v)
 
 
 def mode() -> str:

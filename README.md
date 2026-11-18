@@ -66,7 +66,7 @@ cp .env.example .env                # .env 에 DART_API_KEY, OPENAI_API_KEY 입�
    - 검수: `python rag/level_review_sheet.py make` → 엑셀 판정 → `score` (2차: `make2` → `score2`, 끝나면 `merge` 로 한 파일에)
 6. **앵커 이벤트 (A):** `python analysis/event_review_sheet.py` → `python analysis/event_classify.py` → `python analysis/event_review_sheet.py --make-review` → to_review.csv 사람 확인 → `--merge-review` → `--export` → `python analysis/anchor_events.py`
 7. **뉴스 LLM 분류 (A):** `python analysis/classify_news.py`
-   - 검수: `python analysis/llm_review.py --version news_v4 --n 30` → 엑셀 판정 → `--score`
+   - 검수: `python analysis/llm_review.py --version news_v4 --n 30` → 엑셀 판정 → `python analysis/llm_review.py --version news_v4 --score` (`--version` 기본값이 news_v2 라 채점 때도 넣어야 함)
    - Q2 우려 기사: `python analysis/q2_concerns.py` → 엑셀 판정 → `--apply`
 8. **이벤트–공시 매칭 (B):** `python rag/check_search_terms.py` (검색어 점검) → `python rag/match_candidates.py make` → `data/processed/review/event_match_B.xlsx` 사람 검증 → `python rag/match_candidates.py apply`
    - 반영 판정(다음 공시에 반영 · 늦게 반영 · 공시가 먼저 · 공시에서 미확인 · 참고용)은 `schema.sql` 의 `event_reflection` 뷰가 매번 계산합니다 (따로 실행 없음)

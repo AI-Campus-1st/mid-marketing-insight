@@ -11,6 +11,8 @@
        → AI 단계 L1 이상만, 같은 본문 하나로, 한 회사 PLAN_PER_CORP 개까지, PLAN_CONTEXT_N 개
     3. 뉴스 사례: 제공 뉴스 중 관련 기사(rag/news_retriever.py)에서 같은 방식 (제목 첫 단어당 PLAN_PER_CORP 개)
     4. 답: LLM 이 사례 줄을 쓰고, 같은 영역 / 인접 영역은 코드가 먼저 정한다 (조직·제휴 → 인접, 고유 용어가 근거에 있으면 같은 영역)
+    5. 문단 연결 (plan_v4): 기획안을 문단으로 나눠(split_paras) 번호를 붙이고, 사례 줄마다 기획안의 어느 문단과 맞는지(para)를 받는다
+       → 화면은 왼쪽에 기획안 문서, 오른쪽에 그 문단의 사례 카드 (dashboard/tabs/plan_review.py)
 
 실행: python rag/plan_review.py 기획안.txt
 필요: .env 의 OPENAI_API_KEY (선택: OPENAI_MODEL, 기본 gpt-4.1-mini)
@@ -27,11 +29,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from config import settings  # noqa: E402
 from rag.retriever import Retriever  # noqa: E402
 
-PROMPT_VERSION = "plan_v3"
+PROMPT_VERSION = "plan_v4"
 # v1 (A·D7): 기획안 → 공시·뉴스 사례 한 목록
 # v1 → v2 (B 리뷰 PR #29): GEO 기획안에 공시 4개사가 한 목록으로 나와 '4곳이 GEO 를 한다'로 읽힘 → 같은 영역 / 인접 영역으로 나눔
 # v2 → v3 (B 리뷰 PR #29): '한 회사 한 줄' 이라 플레이디 '스파이더'(GEO)와 '크레파스'(광고 소재)가 같은 영역 한 줄에 묶임
 #   → 한 회사는 '영역마다' 한 줄 (같은 영역 줄과 인접 영역 줄을 따로), 같은 영역 줄에는 기획과 같은 일 사례만
+# v3 → v4 (화면 개편): 리포트가 목록뿐이라 기획안의 어느 부분에 대한 사례인지 안 보임 → 문단 번호를 붙여 넣고
+#   검색어·사례 줄마다 para(문단 번호)를 받는다. 번호가 없거나 범위 밖이면 0(기획 전체)
 DEFAULT_MODEL = "gpt-4.1-mini"
 CONTEXT_CHARS, NEWS_CHARS = 1000, 700
 NEWS_K = 12
@@ -57,12 +61,13 @@ PLAN_EXTRACT = """광고·마케팅 기획안(또는 AI 신사업 계획)을 읽
   ["생성형 AI 콘텐츠 제작", "AI 개인화·타겟팅", "마케팅 자동화·애드테크", "AI 에이전트", "AI 검색·GEO", "숏폼·인플루언서",
    "리테일 미디어·커머스", "AICC·고객상담", "AI 교육·인력", "기타"]
 - queries: 사례 검색어 3~4개. 기획에서 AI 를 쓰는 방식을 짧은 명사구로 (예: "AI 배너 광고 소재 자동 생성", "생성형 AI 검색 노출 최적화").
-  회사 이름이나 '기획안' 같은 일반어는 넣지 않는다.
+  회사 이름이나 '기획안' 같은 일반어는 넣지 않는다. 기획안은 [P번호] 문단으로 나뉘어 있다 — 검색어마다 그 방식이 적힌 문단 번호를 para 에.
+  실행 방안이 여럿이면 방안마다 하나씩 (배경·목표·리스크 문단이 아니라 AI 를 쓰는 방식이 적힌 문단에서).
 기획안에 AI·마케팅 활용 내용이 없으면 areas 는 [], queries 는 [].
-응답 형식: {"title": str, "areas": [str], "queries": [str]}"""
+응답 형식: {"title": str, "areas": [str], "queries": [{"query": str, "para": int}]}"""
 
 PLAN_SYSTEM = f"""당신은 {CORPS_TEXT}의 DART 정기공시와 광고·마케팅 뉴스에서, 사용자가 올린 기획안과 비슷한 AI 활용 사례를 찾아 주는 분석가입니다.
-아래 [기획안 요약]과 [근거]만 사용해 한국어로 답하고 JSON 으로만 답하세요. 근거에 없는 사례·사실·추측은 쓰지 않습니다.
+아래 [기획안 요약]·[기획안 문단]과 [근거]만 사용해 한국어로 답하고 JSON 으로만 답하세요. 근거에 없는 사례·사실·추측은 쓰지 않습니다.
 [근거]는 두 종류입니다: '공시' 근거(회사가 법적 책임을 지고 낸 보고서)와 '뉴스' 근거(언론 보도·회사 발표 인용).
 
 1. points: '공시' 근거에 나온 사례 0~5줄. 회사가 AI 를 쓴 사례만 (AI 가 아닌 일반 자동화·시스템 개발은 뺀다).
@@ -83,10 +88,48 @@ PLAN_SYSTEM = f"""당신은 {CORPS_TEXT}의 DART 정기공시와 광고·마케�
    news_summary: match=same 인 뉴스 사례 중 가장 가까운 것을 60자 안팎 한 문장. same 뉴스 사례가 없으면 "".
    summary·news_summary 에 이름을 쓴 회사는 반드시 points·news_points 에도 한 줄이 있어야 한다. 기획안과 관련 없는 근거는 쓰지 않는다.
    줄 안에 근거 번호를 쓰지 않는다 (번호는 cite 에만).
-응답 형식: {{"summary": str, "points": [{{"text": str, "cite": int, "match": "same"|"adjacent"}}],
- "news_summary": str, "news_points": [{{"text": str, "cite": int, "match": "same"|"adjacent"}}]}}"""
+6. 줄마다 para 에 그 사례와 가장 맞는 [기획안 문단] 번호(P 뒤 숫자)를 단다. 사례가 한 일과 같은·비슷한 일이 적힌 문단
+   (보통 실행 방안·서비스 개요 문단). 특정 문단과 맞지 않고 기획 전체와 관련되면 0.
+응답 형식: {{"summary": str, "points": [{{"text": str, "cite": int, "match": "same"|"adjacent", "para": int}}],
+ "news_summary": str, "news_points": [{{"text": str, "cite": int, "match": "same"|"adjacent", "para": int}}]}}"""
 
 CITE_IN_TEXT = r"\s*\(\d{1,2}(\s*,\s*\d{1,2})*\)"  # 줄 안 근거 번호 '(1)' '(4,6)'
+
+
+MARKER = re.compile(r"^\s*(■|□|▶|●|◆|#{1,6}\s|\[|\d{1,2}[.)]\s*\S|\(\d{1,2}\)|[가-하][.)]\s)")   # 제목·번호 줄
+BULLET = re.compile(r"^\s*[-•·*○◦▪]\s")
+LABEL = re.compile(r"^\s*[^\s:：\-•·*][^:：]{0,11}[:：]\s*\S")   # '배경: …'·'필요 역량: …' 처럼 짧은 이름표로 시작하는 줄
+
+
+def split_paras(text: str, max_paras: int = 60) -> list[str]:
+    """기획안 글 → 문단 목록. 빈 줄, 제목·번호 줄(■·1.·(1)·[…]), 이름표 줄('배경: …')에서 새 문단을 시작하고,
+    글머리표(-) 줄과 표시 없는 줄은 앞 문단에 붙인다 (PDF 는 빈 줄이 없고 긴 줄이 둘로 끊김)"""
+    paras, cur = [], []
+    for raw in text.replace("\r", "").split("\n"):
+        line = raw.rstrip()
+        if not line.strip():
+            if cur:
+                paras.append("\n".join(cur))
+            cur = []
+            continue
+        if cur and (MARKER.match(line) or LABEL.match(line)):
+            paras.append("\n".join(cur))
+            cur = []
+        cur.append(line)
+    if cur:
+        paras.append("\n".join(cur))
+    if len(paras) > max_paras:  # 너무 잘게 나뉘면 뒤쪽을 합친다
+        paras = paras[:max_paras - 1] + ["\n".join(paras[max_paras - 1:])]
+    return paras
+
+
+def _para(pt, n: int) -> int:
+    v = pt.get("para") if isinstance(pt, dict) else None
+    v = v[0] if isinstance(v, list) and v else v
+    if isinstance(v, str):
+        v = re.sub(r"\D", "", v)
+        v = int(v) if v else 0
+    return v if isinstance(v, int) and 1 <= v <= n else 0
 
 
 def _norm(s: str) -> str:
@@ -137,11 +180,20 @@ class PlanReview:
                 continue
         return {}
 
-    def read_plan(self, plan: str) -> dict:
-        out = self._llm(PLAN_EXTRACT, plan[:PLAN_CHARS], max_tokens=400)
-        queries = [q.strip() for q in out.get("queries") or [] if isinstance(q, str) and q.strip()][:4]
+    @staticmethod
+    def numbered(paras: list[str]) -> str:
+        return "\n".join(f"[P{i + 1}] {t}" for i, t in enumerate(paras))
+
+    def read_plan(self, paras: list[str]) -> dict:
+        out = self._llm(PLAN_EXTRACT, self.numbered(paras)[:PLAN_CHARS], max_tokens=500)
+        queries, qparas = [], []
+        for q in out.get("queries") or []:
+            text = q.get("query") if isinstance(q, dict) else q
+            if isinstance(text, str) and text.strip():
+                queries.append(text.strip())
+                qparas.append(_para(q, len(paras)))
         areas = [a for a in out.get("areas") or [] if isinstance(a, str)][:3]
-        return {"title": str(out.get("title") or "").strip(), "areas": areas, "queries": queries}
+        return {"title": str(out.get("title") or "").strip(), "areas": areas, "queries": queries[:4], "query_paras": qparas[:4]}
 
     # ---------- 근거 모으기 ----------
     def _disclosure(self, p: dict, pats: list[str]) -> pd.DataFrame:
@@ -182,17 +234,19 @@ class PlanReview:
     # ---------- 기획안 → 사례 ----------
     def review(self, plan: str) -> dict:
         """기획안 글 → {plan, disclosure: {summary, same, adjacent, sources}, news: {...}}
-        same·adjacent 는 [(줄, 출처 번호)], 출처 번호는 칸마다 1부터 (same 먼저)"""
-        p = self.read_plan(plan)
-        base = {"plan": p, "model": self.model, "prompt_version": PROMPT_VERSION}
+        same·adjacent 는 [(줄, 출처 번호, 문단 번호)], 출처 번호는 칸마다 1부터 (same 먼저), 문단 번호는 paras 의 1부터 (0 = 기획 전체)"""
+        paras = split_paras(plan[:PLAN_CHARS])
+        p = self.read_plan(paras)
+        base = {"plan": p, "paras": paras, "model": self.model, "prompt_version": PROMPT_VERSION}
         empty = {"summary": "", "same": [], "adjacent": [], "sources": []}
         if not p["queries"]:
             return {**base, "ok": False, "message": NO_PLAN, "disclosure": empty, "news": empty}
         pats = [AREA_TERMS[a] for a in p["areas"] if a in AREA_TERMS]
         ctx, nctx = self._disclosure(p, pats), self._news(p, pats)
-        head = f"제목: {p['title']}\nAI 활용 영역: {', '.join(p['areas'])}\n검색어: {', '.join(p['queries'])}"
-        out = self._llm(PLAN_SYSTEM, f"[기획안 요약]\n{head}\n\n[기획안 원문 일부]\n{plan[:1500]}\n\n[근거]\n"
-                        + self._blocks(ctx, nctx), max_tokens=1300)
+        qs = ", ".join(f"{q} (P{n})" if n else q for q, n in zip(p["queries"], p["query_paras"]))
+        head = f"제목: {p['title']}\nAI 활용 영역: {', '.join(p['areas'])}\n검색어: {qs}"
+        out = self._llm(PLAN_SYSTEM, f"[기획안 요약]\n{head}\n\n[기획안 문단]\n{self.numbered(paras)}\n\n[근거]\n"
+                        + self._blocks(ctx, nctx), max_tokens=1600)
         nd, nn = len(ctx), 0 if nctx is None else len(nctx)
         # 같은 영역 / 인접 영역 (B 리뷰 PR #29): 고유 용어가 있는 영역(AREA_TERMS)은 코드가 정한다 — 인용한 근거에 그 용어가 있으면 same.
         #   기획 영역이 모두 고유 용어 영역이면(예: GEO 하나) 용어가 없는 근거는 adjacent. 그 밖에는 LLM 의 match
@@ -200,7 +254,7 @@ class PlanReview:
         pat = re.compile("|".join(pats)) if pats else None
         medias = set() if nctx is None else set(nctx.media)
 
-        def _col(key: str, lo: int, hi: int, text_of) -> list[tuple[str, int, str]]:
+        def _col(key: str, lo: int, hi: int, text_of) -> list[tuple[str, int, str, int]]:
             rows, seen = [], set()
             for pt in out.get(key) or []:
                 c = _cite(pt)
@@ -221,24 +275,24 @@ class PlanReview:
                 if (name.strip(), match) in seen:  # 한 회사는 영역(같은/인접)마다 한 줄 (LLM 이 규칙을 가끔 어김)
                     continue
                 seen.add((name.strip(), match))
-                rows.append((text, c, match))
+                rows.append((text, c, match, _para(pt, len(paras))))
             return sorted(rows, key=lambda x: x[2] == "adjacent")  # same 먼저 (안정 정렬)
 
         def _summary(key: str, rows) -> str:
             t = re.sub(CITE_IN_TEXT, "", str(out.get(key) or "")).replace("**", "").strip()
             t = re.split(r"(?<=[.다함])\s", t, maxsplit=1)[0]  # 한 문장만
-            if any(m == "same" for *_, m in rows):
+            if any(r[2] == "same" for r in rows):
                 return t
             # same 이 없으면 정해진 문장 (LLM 요약이 인접 사례를 같은 영역처럼 쓰지 않게)
             src = "공시" if key == "summary" else "뉴스"
             return f"{src}에는 기획과 같은 영역({', '.join(p['areas']) or '기획'})의 사례가 없고, 인접 영역 사례만 있어요." if rows else ""
 
         def _pack(rows, summary, source_of) -> dict:
-            order = list(dict.fromkeys(c for _, c, _ in rows))
+            order = list(dict.fromkeys(r[1] for r in rows))
             new = {c: i + 1 for i, c in enumerate(order)}
             return {"summary": summary,
-                    "same": [(t, new[c]) for t, c, m in rows if m == "same"],
-                    "adjacent": [(t, new[c]) for t, c, m in rows if m == "adjacent"],
+                    "same": [(t, new[c], pa) for t, c, m, pa in rows if m == "same"],
+                    "adjacent": [(t, new[c], pa) for t, c, m, pa in rows if m == "adjacent"],
                     "sources": [{"n": new[c], **source_of(c)} for c in order]}
 
         drows = _col("points", 1, nd, lambda c: ctx.text[c - 1])
@@ -257,6 +311,7 @@ class PlanReview:
 def format_review(r: dict) -> str:
     p = r["plan"]
     lines = [f"[기획안] {p['title']} · 영역: {', '.join(p['areas'])} · 검색어: {', '.join(p['queries'])}"]
+    lines += [f"  P{i + 1} {t.splitlines()[0][:50]}" for i, t in enumerate(r.get("paras", []))]
     if r["message"]:
         lines.append(r["message"])
     for label, col, ref in (("공시", r["disclosure"], "{}"), ("뉴스", r["news"], "뉴스 {}")):
@@ -264,7 +319,7 @@ def format_review(r: dict) -> str:
             continue
         lines.append(f"\n[{label}] {col['summary']}")
         for head, rows in (("같은 영역", col["same"]), ("인접 영역", col["adjacent"])):
-            lines += [f"  ({head}) {t} [{ref.format(n)}]" for t, n in rows]
+            lines += [f"  ({head}) P{pa} {t} [{ref.format(n)}]" for t, n, pa in rows]
         for s in col["sources"]:
             name = f"{s['corp']} {s['report']} (접수 {s['report_date']})" if "corp" in s else f"{s['media']} ({s['date']}) {s['title']}"
             lines.append(f"    [{ref.format(s['n'])}] {name}\n      {s['url']}")

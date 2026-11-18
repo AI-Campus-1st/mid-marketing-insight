@@ -165,7 +165,11 @@ div[class*="st-key-hist_"] button p { font-size: .85rem; line-height: 1.35; }
   background: #e1ecf9 !important; color: #2a78d6 !important; border-radius: 9px;
 }
 .stMain:has(.chatpage-marker) [data-testid="stChatMessageAvatarAssistant"] svg { fill: #2a78d6 !important; color: #2a78d6 !important; }
-.stMain:has(.chatpage-marker) [data-testid="stChatMessageAvatarUser"] { border-radius: 9px; }
+/* 사용자 아이콘 = 진한 파랑 바탕 + 흰 그림 (AI 아이콘은 옅은 파랑 바탕 + 파랑 그림 — 같은 파랑 계열이지만 채움으로 구분) */
+.stMain:has(.chatpage-marker) [data-testid="stChatMessageAvatarUser"] {
+  background: #2a78d6 !important; color: #ffffff !important; border-radius: 9px;
+}
+.stMain:has(.chatpage-marker) [data-testid="stChatMessageAvatarUser"] svg { fill: #ffffff !important; color: #ffffff !important; }
 /* 예시 질문 카드: 옅은 파랑 카드 + 파랑 태그 + 굵은 질문 */
 .stMain:has(.chatpage-marker) div[data-testid="stVerticalBlock"]:has(> div[class*="st-key-ex_"]) {
   background: #f4f8fd; border-color: #d9e7f7 !important; box-shadow: none;
@@ -267,6 +271,10 @@ div[class*="st-key-hl_"] div[data-testid="stExpander"] summary span[data-testid=
 div[class*="st-key-hl_"] div[data-testid="stExpander"] summary p span { color: #8a93a3 !important; font-weight: 500 !important;
   font-size: .82rem !important; margin-left: .5rem; }
 div[class*="st-key-hl_"] div[data-testid="stExpanderDetails"] { padding-top: 0; border-top: none !important; }
+/* 지난 대화·지난 기획안: 지금 보고 있는 항목 = 둥근 파란 선 테두리 (전에는 이름 앞 '▶'). key 가 hist_cur_ · hist_pr_cur_ 로 시작 */
+div[class*="st-key-hist_cur_"] button, div[class*="st-key-hist_pr_cur_"] button {
+  border: 1.5px solid #2a78d6 !important; border-radius: 10px !important; background: transparent !important;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 3px 10px rgba(42, 120, 214, .14) !important; }   /* 테두리만 + 옅은 그림자, 채우지 않음 */
 </style>
 """
 

@@ -32,7 +32,7 @@ from config import settings  # noqa: E402
 from rag.retriever import Retriever  # noqa: E402
 
 PROMPT_VERSION = "qa_v4"
-PLAN_PROMPT_VERSION = "plan_v1"
+PLAN_PROMPT_VERSION = "plan_v2"  # v1 → v2 (B 리뷰 PR #29): 사례를 같은 영역 / 인접 영역으로 나눔
 # v1 → v2 (테스트 15개): 1차 MOU 연혁("10개 AI 전문 기업과 손잡고")을 보고 "따라서 AI 얼라이언스는 10개"로 추론한 환각,
 #   정답 청크가 검색 9~22위라 근거 5개에 못 들어감, 여러 가지를 묻는 질문에 일부만 답함
 #   → 고유 이름이 근거에 없으면 답하지 않기·추론 금지, 묻는 것 모두 답하기, 검색 30개 → 근거 8개
@@ -54,6 +54,8 @@ PLAN_SEARCH_K = 80  # 기획안: 넓게 찾은 뒤 AI 청크만 남긴다 (30개
 AREA_TERMS = {"AI 검색·GEO": r"GEO|생성형 엔진|AI 검색|AEO", "AI 에이전트": r"에이전트|에이전틱",
               "숏폼·인플루언서": r"인플루언서|크리에이터|숏폼", "AICC·고객상담": r"AICC|컨택센터|고객상담",
               "리테일 미디어·커머스": r"리테일 ?미디어"}
+# 조직·제휴·투자 사례는 '일 자체'가 아니라서 인접 영역 (프롬프트 규칙을 LLM 이 자주 어겨 코드로: 이노션 'AI 전담 TF 신설'이 same 으로 나옴)
+ORG_TERMS = r"TF|조직|팀\s?(신설|구성)|신설|얼라이언스|MOU|업무협약|제휴|투자|인수"
 PLAN_PER_CORP = 2   # 기획안 사례: 한 회사(공시)·한 제목 앞부분(뉴스)이 근거를 독차지하지 않게 (첫 시험에서 KT나스미디어 연구개발 표가 8개 중 5개)
 REFUSAL = "공시에서 확인되지 않습니다."
 DART_URL = "https://dart.fss.or.kr/dsaf001/main.do?rcpNo={}"
@@ -102,19 +104,24 @@ PLAN_EXTRACT = """광고·마케팅 기획안(또는 AI 신사업 계획)을 읽
 PLAN_SYSTEM = f"""당신은 {CORPS_TEXT}의 DART 정기공시와 광고·마케팅 뉴스에서, 사용자가 올린 기획안과 비슷한 AI 활용 사례를 찾아 주는 분석가입니다.
 아래 [기획안 요약]과 [근거]만 사용해 한국어로 답하고 JSON 으로만 답하세요. 근거에 없는 사례·사실·추측은 쓰지 않습니다.
 
-1. points: '공시' 근거에 나온 사례 0~5줄. 기획안과 같은 업무에 AI 를 쓴 것만 고른다 (AI 가 아닌 일반 자동화·시스템 개발은 뺀다).
-   한 줄 = 한 회사의 한 사례,
-   "회사: 무엇을 했나 (단계·연도)" 꼴로 50자 안팎. 근거 번호를 cite 에.
+1. points: '공시' 근거에 나온 사례 0~5줄. 회사가 AI 를 쓴 사례만 (AI 가 아닌 일반 자동화·시스템 개발은 뺀다).
+   한 줄 = 한 회사의 한 사례, "회사: 무엇을 했나 (단계·연도)" 꼴로 50자 안팎. 근거 번호를 cite 에.
 2. news_points: '뉴스' 근거에 나온 사례 0~5줄. 같은 꼴. 공시 사례를 되풀이하지 않는다.
    5개사가 아닌 회사·브랜드 사례도 된다. 보도·발표 내용이므로 "~를 발표", "~로 보도"처럼 쓴다.
-   기획안과 같은 상품·서비스를 실제로 사업화한 회사 사례를 먼저, 업계 동향 기사는 그다음에 쓴다.
    줄 맨 앞 이름은 사례의 주체(회사·브랜드)다. 매체 이름을 쓰지 않는다. 주체가 특정되지 않으면 "업계:"로 쓴다.
-   줄 안에 근거 번호를 쓰지 않는다 (번호는 cite 에만).
-3. summary: 공시 사례 중 기획안과 가장 가까운 것이 무엇인지 한 문장 (근거 번호 없이). 공시 사례가 없으면 "".
-   news_summary: 뉴스 사례 중 기획안과 가장 가까운 것이 무엇인지 60자 안팎 한 문장. 뉴스 사례가 없으면 "".
-4. 한 회사는 한 줄만 (사례가 여럿이면 한 줄에 묶는다). 여러 회사의 사례를 고루 보여 준다.
+3. 줄마다 match 를 단다.
+   - "same": 기획안의 실행 방안 중 하나와 같은 일(같은 상품·서비스, 같은 마케팅 업무)에 AI 를 쓴 사례.
+     예: GEO 기획안 ↔ GEO 솔루션 출시 / 광고 소재 자동 제작 기획안 ↔ AI 로 광고 이미지·영상 소재 생성
+   - "adjacent": 비슷한 기술이지만 다른 일에 쓴 사례, 또는 조직 신설·제휴·투자처럼 일 자체가 아닌 사례.
+     예: GEO 기획안 ↔ 검색광고 문구 자동 생성 / 소재 제작 기획안 ↔ AI 전담 조직 신설
+   판단은 사례가 '무슨 일을 했나'로 한다 (AI 라는 공통점만으로 same 이 아니다). same 을 먼저, adjacent 는 칸마다 2줄까지.
+4. summary: match=same 인 공시 사례 중 기획안과 가장 가까운 것을 한 문장 (근거 번호 없이). same 공시 사례가 없으면 "".
+   news_summary: match=same 인 뉴스 사례 중 가장 가까운 것을 60자 안팎 한 문장. same 뉴스 사례가 없으면 "".
+5. 한 회사는 한 줄만 (사례가 여럿이면 한 줄에 묶는다). 여러 회사의 사례를 고루 보여 준다.
    summary·news_summary 에 이름을 쓴 회사는 반드시 points·news_points 에도 한 줄이 있어야 한다. 기획안과 관련 없는 근거는 쓰지 않는다.
-응답 형식: {{"summary": str, "points": [{{"text": str, "cite": int}}], "news_summary": str, "news_points": [{{"text": str, "cite": int}}]}}"""
+   줄 안에 근거 번호를 쓰지 않는다 (번호는 cite 에만).
+응답 형식: {{"summary": str, "points": [{{"text": str, "cite": int, "match": "same"|"adjacent"}}],
+ "news_summary": str, "news_points": [{{"text": str, "cite": int, "match": "same"|"adjacent"}}]}}"""
 
 
 def _norm(s: str) -> str:
@@ -149,16 +156,31 @@ def _one_per_name(raw) -> list:
     return out
 
 
-def _points(raw, lo: int, hi: int) -> list[tuple[str, int]]:
-    """LLM 의 [{text, cite}] → [(text, cite)] — cite 가 lo~hi 범위(그 칸의 근거 종류)인 줄만"""
+def _points(raw, lo: int, hi: int) -> list[tuple[str, int, str | None]]:
+    """LLM 의 [{text, cite, match?}] → [(text, cite, match)] — cite 가 lo~hi 범위(그 칸의 근거 종류)인 줄만"""
     out = []
     for pt in raw or []:
         c = pt.get("cite") if isinstance(pt, dict) else None
         c = c[0] if isinstance(c, list) and c else c
         if isinstance(pt, dict) and pt.get("text") and isinstance(c, int) and lo <= c <= hi:
             text = re.sub(r"\s*\(\d{1,2}(\s*,\s*\d{1,2})*\)", "", pt["text"].replace("**", "")).strip()  # 줄 안 근거 번호 '(1)' '(4,6)'
-            out.append((text, c))
+            out.append((text, c, pt.get("match")))
     return out
+
+
+SAME_HEAD, ADJ_HEAD = "✅ 같은 영역 — 기획과 같은 일에 AI 를 쓴 사례", "↪ 참고: 인접 영역 — 비슷한 기술을 다른 일에 쓴 사례"
+
+
+def _lines(points, ref, grouped: bool) -> str:
+    """[(text, cite, match)] → 목록 글. grouped 면 같은 영역 / 인접 영역 소제목으로 나눔 (한쪽만 있어도 소제목은 붙임)"""
+    row = lambda t, c: f"- {t} {ref(c)}"  # noqa: E731
+    if not grouped:
+        return "\n".join(row(t, c) for t, c, _ in points)
+    same = [row(t, c) for t, c, m in points if m != "adjacent"]
+    adj = [row(t, c) for t, c, m in points if m == "adjacent"]
+    parts = [f"**{SAME_HEAD}**\n" + "\n".join(same)] if same else []
+    parts += [f"**{ADJ_HEAD}**\n" + "\n".join(adj)] if adj else []
+    return "\n\n".join(parts)
 
 
 class QA:
@@ -204,21 +226,25 @@ class QA:
         return {}
 
     @staticmethod
-    def _assemble(out: dict, ctx, nctx) -> dict:
-        """LLM 답 → 공시 칸(answer·sources)과 뉴스 칸(news_answer·news_sources). 출처 번호는 칸마다 1부터"""
+    def _assemble(out: dict, ctx, nctx, grouped: bool = False) -> dict:
+        """LLM 답 → 공시 칸(answer·sources)과 뉴스 칸(news_answer·news_sources). 출처 번호는 칸마다 1부터
+        grouped=True (기획안): 줄을 '같은 영역'과 '참고: 인접 영역'으로 나눠 쓴다 (same 먼저, 번호도 그 순서)"""
         nd = len(ctx)
         nn = 0 if nctx is None else len(nctx)
         points = _points(out.get("points"), 1, nd)
         npoints = _points(out.get("news_points"), nd + 1, nd + nn)
-        order = list(dict.fromkeys(c for _, c in points))
+        if grouped:  # same 을 먼저 (안정 정렬)
+            points = sorted(points, key=lambda x: x[2] == "adjacent")
+            npoints = sorted(npoints, key=lambda x: x[2] == "adjacent")
+        order = list(dict.fromkeys(c for _, c, _ in points))
         new = {c: i + 1 for i, c in enumerate(order)}
-        norder = list(dict.fromkeys(c for _, c in npoints))
+        norder = list(dict.fromkeys(c for _, c, _ in npoints))
         nnew = {c: i + 1 for i, c in enumerate(norder)}
         answerable = bool(points) and out.get("answerable", True) is not False  # 인용 없는 답은 거절로
         answer = REFUSAL
         if answerable:
             sm = (out.get("summary") or "").replace("**", "").strip()
-            answer = (sm + "\n\n" if sm else "") + "\n".join(f"- {t} [{new[c]}]" for t, c in points)
+            answer = (sm + "\n\n" if sm else "") + _lines(points, lambda c: f"[{new[c]}]", grouped)
         sources = [] if not answerable else [{
             "n": new[c], "corp": ctx.corp_name[c - 1], "report": ctx.report_name[c - 1], "report_date": ctx.report_date[c - 1],
             "section": ctx.section[c - 1], "ai_level": None if ctx.ai_level.isna()[c - 1] else int(ctx.ai_level[c - 1]),
@@ -226,7 +252,7 @@ class QA:
         news_answer = None
         if npoints:
             ns = (out.get("news_summary") or "").replace("**", "").strip()
-            news_answer = (ns + "\n\n" if ns else "") + "\n".join(f"- {t} [뉴스 {nnew[c]}]" for t, c in npoints)
+            news_answer = (ns + "\n\n" if ns else "") + _lines(npoints, lambda c: f"[뉴스 {nnew[c]}]", grouped)
         news_sources = [{"n": nnew[c], "media": nctx.media[c - nd - 1], "date": nctx.date[c - nd - 1],
                          "title": nctx.title[c - nd - 1], "url": nctx.url[c - nd - 1], "doc_id": nctx.doc_id[c - nd - 1]}
                         for c in norder]
@@ -285,10 +311,48 @@ class QA:
                         + self._blocks(ctx, nctx), max_tokens=1300)
         out["answerable"] = True
         out["points"], out["news_points"] = _one_per_name(out.get("points")), _one_per_name(out.get("news_points"))
+        # 같은 영역 / 인접 영역 (B 리뷰 PR #29): 고유 용어가 있는 영역(AREA_TERMS)은 코드가 정한다 — 인용한 근거에 그 용어가 있으면 same.
+        #   기획 영역이 모두 고유 용어 영역이면(예: GEO 하나) 용어가 없는 근거는 adjacent. 그 밖에는 LLM 의 match
+        #   (GEO 기획안 v1: 공시 4개사가 한 목록에 나와 '4곳이 GEO 를 한다'로 읽힘 — 실제 GEO 는 이노션·플레이디 2곳)
+        nd = len(ctx)
+        all_term = bool(p["areas"]) and len(pats) == len(p["areas"])
+        pat = re.compile("|".join(pats)) if pats else None
+
+        def _cited_text(c: int) -> str:
+            if 1 <= c <= nd:
+                return ctx.text[c - 1]
+            k = c - nd - 1
+            return "" if nctx is None or not 0 <= k < len(nctx) else nctx.title[k] + " " + nctx.text[k]
+
+        medias = set() if nctx is None else set(nctx.media)
+        for key in ("points", "news_points"):
+            for pt in out[key]:
+                if not isinstance(pt, dict):
+                    continue
+                c = pt.get("cite")
+                c = c[0] if isinstance(c, list) and c else c
+                name, sep, rest = str(pt.get("text", "")).partition(":")
+                if sep and name.strip() in medias:  # 줄 맨 앞에 매체 이름을 쓴 경우(동향 기사) → '업계'
+                    pt["text"] = "업계:" + rest
+                hit = pat is not None and isinstance(c, int) and bool(pat.search(_cited_text(c)))
+                if re.search(ORG_TERMS, str(pt.get("text", ""))):  # 먼저: 청크(1,000자)에 영역 용어가 섞여 있어도 줄이 조직·제휴 이야기면 인접
+                    pt["match"] = "adjacent"
+                elif hit:
+                    pt["match"] = "same"
+                elif all_term:
+                    pt["match"] = "adjacent"
+                else:
+                    pt["match"] = "adjacent" if pt.get("match") == "adjacent" else "same"
         for key in ("summary", "news_summary"):  # 요약은 한 문장만, 줄 안 근거 번호 제거
             t = re.sub(r"\s*\(\d{1,2}(\s*,\s*\d{1,2})*\)", "", str(out.get(key) or ""))
             out[key] = re.split(r"(?<=[.다함])\s", t.strip(), maxsplit=1)[0]
-        r = self._assemble(out, ctx, nctx)
+        # 요약은 same 사례에 대해서만 — same 이 없으면 정해진 문장으로 (LLM 요약이 인접 사례를 같은 영역처럼 쓰지 않게)
+        area = ", ".join(p["areas"]) or "기획"
+        if not any(isinstance(x, dict) and x.get("match") == "same" for x in out["points"]):
+            out["summary"] = f"공시에는 기획과 같은 영역({area})의 사례가 없고, 인접 영역 사례만 있습니다." if out["points"] else ""
+        if not any(isinstance(x, dict) and x.get("match") == "same" for x in out["news_points"]):
+            out["news_summary"] = f"뉴스에도 기획과 같은 영역({area})의 사례는 없고, 인접 영역 사례만 있습니다." if out["news_points"] else ""
+        r = self._assemble(out, ctx, nctx, grouped=True)
         if not r["answerable"]:
             r["answer"] = "공시에서 비슷한 사례를 찾지 못했습니다."
         return {**base, **r, "context_chunk_ids": ctx.chunk_id.tolist(),

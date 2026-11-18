@@ -52,7 +52,7 @@ REFUSE = "**공시에서 확인되지 않습니다.**\n\n질문한 내용이 정
 REFUSE_SHORT = "**공시에서 확인되지 않습니다.** 질문한 내용이 정기공시에 적혀 있지 않거나, 분석 대상 5개사가 아니에요."
 
 
-@st.cache_resource(show_spinner="공시·뉴스 검색기를 준비하는 중…")
+@st.cache_resource(show_spinner="공시·뉴스 검색기를 준비하는 중…", max_entries=1)  # 최신 코드의 검색기 하나만 (B 리뷰 PR #29)
 def _qa_cached(code_version: str):
     from rag.qa_chain import QA
     return QA()
@@ -69,6 +69,8 @@ def _qa():
 def _bold_first(text: str) -> str:
     """'결론\n\n- 줄…' → 결론만 굵게 (결론이 없으면 목록만)"""
     head, sep, rest = text.partition("\n\n")
+    if head.startswith("**"):  # 결론 없이 소제목(같은 영역 등)부터 시작
+        return text
     if not sep:
         return text if text.startswith("- ") else f"**{text}**"
     return f"**{head}**\n\n{rest}"

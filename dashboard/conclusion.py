@@ -5,10 +5,10 @@ app.py 의 conclusion() TODO 중 B 몫 (decisions.md Day 6 '결론 카드 범위
     - 공시의 실행: reflection() 을 기업·이벤트 발표일로 걸러 판정 대상 수·반영 수
     - 판단: 필터 기업의 L3 비중 순위 (chunk_levels, Q3 '공시 AI 단계'와 같은 기준 — 플레이디 제품 근거 문단 제외, 기간은 걸지 않음)
 
-    disclosure_rows(corps, period) -> [("공시의 실행", 문장), ("판단", 문장)]   # 문장은 app.py 카드처럼 <b> 쓰는 HTML
+    disclosure_rows(corps, period) -> [("공시", 문장), ("판단", 문장)]   # 문장은 app.py 카드처럼 <b> 쓰는 HTML
     disclosure_facts(corps, period) -> 숫자 dict (문장 없이 값만, 리포트·시험용)
 
-'뉴스의 말'(A·D7)도 같은 꼴: news_rows(news, period, corps) -> [("뉴스의 말", 문장)]
+'뉴스의 말'(A·D7)도 같은 꼴: news_rows(news, period, corps) -> [("뉴스", 문장)]
     - news = data_loader.filter_news(dl.news(), 전체 기간, corps, categories, …) — 기업·카테고리만 거른 전체 기간 기사
       (급증 기준선은 Q1 처럼 전체 기간으로 계산하고, 문장에는 선택 기간의 급증만)
     - 급증: Q1 과 같은 규칙 (trend.detect_spikes, 월평균 AI 기사 MIN_MONTHLY_AI 미만이면 판정 안 함)
@@ -68,7 +68,7 @@ def disclosure_rows(corps: list[str], period: tuple) -> list[tuple[str, str]]:
     try:
         f = disclosure_facts(corps, period)
     except (sqlite3.Error, pd.errors.DatabaseError):  # 공시 테이블이 없는 DB (다른 오류는 숨기지 않음)
-        return [("공시의 실행", "공시 데이터가 이 DB 에 없어 표시하지 않아요.")]
+        return [("공시", "공시 데이터가 이 DB 에 없어 표시하지 않아요.")]
     who = _corp_text(f["corps"])
 
     if f["judge"] == 0:
@@ -92,18 +92,19 @@ def disclosure_rows(corps: list[str], period: tuple) -> list[tuple[str, str]]:
 
     share, rank = f["l3_share"], f["l3_rank"]
     picked = [c for c in f["corps"] if c in share]
-    base = "대행사의 AI 경쟁력은 기사량이 아니라 <b>정기공시로 확인되는 자체 개발·상용화</b>를 기준으로 비교한다"
+    # 형식: '~를 기준으로 비교했을 때, ~다.' (A 요청 — 기준과 결과를 한 문장으로)
+    base = "대행사의 AI 경쟁력을 <b>정기공시로 확인되는 자체 개발·상용화</b>를 기준으로 비교했을 때"
     if not picked:
-        judgement = base + "."
+        judgement = f"{base}, 선택한 기업에는 비교할 공시 속 AI 문단이 없다."
     elif len(picked) == 1:
         c = picked[0]
-        judgement = (f"{base} — {c}의 공시 속 AI 문단 중 '자체 개발·상용화' 비중은 <b>{share[c]:.0%}</b>"
+        judgement = (f"{base}, {c}의 공시 속 AI 문단 중 '자체 개발·상용화' 비중은 <b>{share[c]:.0%}</b>"
                      f"(5개사 중 {rank[c]}위)이다.")
     else:
         top, low = max(picked, key=share.get), min(picked, key=share.get)
-        judgement = (f"{base} — 선택한 기업 중 '자체 개발·상용화' 비중이 가장 높은 곳은 <b>{top}({share[top]:.0%})</b>, "
+        judgement = (f"{base}, 선택한 기업 중 '자체 개발·상용화' 비중이 가장 높은 곳은 <b>{top}({share[top]:.0%})</b>, "
                      f"가장 낮은 곳은 {low}({share[low]:.0%})이다.")
-    return [("공시의 실행", execution), ("판단", judgement)]
+    return [("공시", execution), ("결론", judgement)]
 
 
 def news_facts(news: pd.DataFrame, period: tuple) -> dict:
@@ -175,20 +176,20 @@ def news_rows(news: pd.DataFrame, period: tuple, corps: list[str]) -> list[tuple
         try:
             g = company_news_facts(news, period)
         except (KeyError, sqlite3.Error, pd.errors.DatabaseError):
-            return [("뉴스의 말", "뉴스 데이터가 이 DB 에 없어 표시하지 않아요.")]
+            return [("뉴스", "뉴스 데이터가 이 DB 에 없어 표시하지 않아요.")]
         who = _corp_text(corps)
         if not g["articles"]:
-            return [("뉴스의 말", f"선택한 기간에는 제목에 {who}{_ga(who)} 나온 기사가 없다.")]
+            return [("뉴스", f"선택한 기간에는 제목에 {who}{_ga(who)} 나온 기사가 없다.")]
         text = f"제목에 {who}{_ga(who)} 나온 기사 <b>{g['articles']}건</b> 중 {g['peak']}{_ga(g['peak'])} {g['peak_n']}건으로 가장 많았"
         if g["issues"]:
             text += "고, 주로 " + "·".join(f"<b>{i}</b>({v:.0f}%)" for i, v in g["issues"]) + " 이슈를 다뤘다"
         else:
             text += "다"
-        return [("뉴스의 말", text + ".")]
+        return [("뉴스", text + ".")]
     try:
         f = news_facts(news, period)
     except (KeyError, sqlite3.Error, pd.errors.DatabaseError):  # 뉴스 결과(llm_results 등)가 없는 DB
-        return [("뉴스의 말", "뉴스 데이터가 이 DB 에 없어 표시하지 않아요.")]
+        return [("뉴스", "뉴스 데이터가 이 DB 에 없어 표시하지 않아요.")]
     subj = "제공 뉴스의 AI 마케팅 기사"
     if f["spike"]:
         s = f["spike"]
@@ -209,7 +210,7 @@ def news_rows(news: pd.DataFrame, period: tuple, corps: list[str]) -> list[tuple
         second = f"선택한 기간이 {MIN_YEAR_MONTHS}개월보다 짧거나 관련 기사가 적어 화제 이동은 판정하지 않는다"
     else:
         second = "관련 기사가 없어 화제 이동은 판정하지 않는다"
-    return [("뉴스의 말", f"{first}, {second}.")]
+    return [("뉴스", f"{first}, {second}.")]
 
 
 def scope_text(period: tuple, corps: list[str], categories: list[str] | None = None, all_categories: list[str] | None = None) -> str:

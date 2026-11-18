@@ -222,6 +222,8 @@ button[data-testid="stTab"][aria-selected="true"], button[data-testid="stTab"][a
 /* ── Q3 하위 탭: 다른 화면과 같은 요소 모양 ── */
 /* 본문 가로 라디오(이벤트 타임라인 기업 선택) → 알약 버튼 */
 .stMain:has(.q3page-marker) div[role="radiogroup"] { gap: .4rem; flex-wrap: wrap; }
+/* 리포트 맨 위 선택 버튼(segmented control)도 radiogroup 이라 위 Q3 규칙이 걸려 버튼 사이가 6px 벌어짐 → 붙여 둔다 */
+.stMain [data-testid="stButtonGroup"] div[role="radiogroup"] { gap: 0 !important; flex-wrap: nowrap; }
 .stMain:has(.q3page-marker) div[role="radiogroup"] label[data-baseweb="radio"] > div:first-child { display: none; }
 .stMain:has(.q3page-marker) div[role="radiogroup"] > label {
   padding: .35rem .9rem; border-radius: 999px; border: 1px solid #d9dce2; margin: 0;

@@ -14,6 +14,7 @@ from dashboard import style as ui
 from dashboard.theme import colors, mode, style
 
 MIN_MONTHLY_AI = 30   # 필터로 월평균 AI 기사가 이보다 적으면 급증 판정이 흔들려서 표시하지 않는다
+MIN_FULL_MONTHS = 7   # 직전 6개월 평균과 비교하려면 완전한 달이 이만큼은 있어야 한다
 
 HOW_TO_READ = f"""
 - **AI 기사** = 제목이나 본문(정제 후)에 AI 용어(AI·인공지능·생성형·LLM·GPT 등)가 나온 기사. 제공 뉴스(키워드 수집) 기준이다.
@@ -84,7 +85,8 @@ def render(df: pd.DataFrame, period) -> None:
         st.info("선택한 필터에 해당하는 기사가 없어요.")
         return
     full_all = m_all[~m_all["partial"]]
-    show_spikes = len(full_all) >= 7 and full_all["ai"].mean() >= MIN_MONTHLY_AI
+    mean_ai = float(full_all["ai"].mean()) if len(full_all) else 0.0
+    show_spikes = len(full_all) >= MIN_FULL_MONTHS and mean_ai >= MIN_MONTHLY_AI
     full = m[~m["partial"]]
     spikes = list(m.index[m["spike"]]) if show_spikes and "spike" in m else []
 
@@ -94,7 +96,8 @@ def render(df: pd.DataFrame, period) -> None:
         ui.lead(f"<b>{first}</b> 에 AI 기사가 직전 6개월 평균의 <b>{m.loc[first, 'ratio']:.1f}배</b>로 급증했고, "
                 f"이후 월 {int(after['ai'].min())}건 아래로 내려가지 않았다")
     elif not show_spikes:
-        ui.lead("선택한 필터에서는 기사 수가 적어 급증 시점을 판정하지 않아요")
+        ui.lead(f"선택한 필터에서는 기사 수가 적어 급증 시점을 판정하지 않아요 "
+                f'<span style="font-weight:500;opacity:.6;font-size:.9rem">(AI 기사 월평균 {mean_ai:.1f}건)</span>')
     else:
         ui.lead("선택한 기간에는 급증한 달이 없어요")
 
@@ -113,7 +116,7 @@ def render(df: pd.DataFrame, period) -> None:
         if spikes or show_spikes:
             _spike_timeline(df, m, spikes)
         else:
-            st.caption("판정하지 않음")
+            st.caption("기사가 적어 급증을 가릴 수 없어요")   # 기업·카테고리 필터로 기사가 크게 줄었을 때 (위 show_spikes 조건)
 
     if spikes:
         with st.expander("급증한 달에 무엇이 늘었나 (제목 단어)"):

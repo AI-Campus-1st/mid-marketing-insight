@@ -2,8 +2,8 @@
 [B·D6] Q3 공시 반영 — 뉴스에서 말한 AI 가 정기공시(사업·반기·분기보고서)에 언제·얼마나 구체적으로 실렸나
 
 render(corps, period) 를 A 의 app.py 에서 부르면 된다. corps: 기업 목록, period: (시작일, 끝일) 이벤트 발표일 범위
-화면은 하위 탭 4개로 나눈다 (한 화면에 차트 하나):
-    요약 · 이벤트 타임라인 · 공시 AI 단계 · 이벤트 표
+화면은 하위 탭 3개로 나눈다 (한 화면에 차트 하나):
+    요약 · 이벤트 타임라인(아래에 이벤트 표) · 공시 AI 단계
 """
 import pandas as pd
 import plotly.graph_objects as go
@@ -123,11 +123,7 @@ def _levels(corps: list[str]) -> None:
                     hovertemplate="%{y} · " + LEVEL_NAME[lvl] + " %{x:.0%} (%{customdata}개 문단)<extra></extra>")
     fig.update_layout(barmode="stack", bargap=0.4)
     fig.update_xaxes(tickformat=".0%", range=[0, 1], title=None)
-    st.plotly_chart(style(fig, 300), width="stretch")
-    top = order[::-1]
-    tbl = pd.DataFrame({"기업": top, "L3 비중": [f"{share.loc[x, 'L3']:.0%}" for x in top],
-                        "AI 문단 수": [int(t.loc[x].sum()) for x in top]})
-    st.dataframe(tbl, hide_index=True, width="content")
+    st.plotly_chart(style(fig, 300), width="stretch")   # 기업별 L3 비중 표는 뺐다 — 차트에 마우스를 올리면 비중·문단 수가 나옴
     with st.expander("분류 방법과 한계"):
         st.markdown("- AI 용어가 있는 공시 문단만 LLM 으로 분류 (프롬프트 chunk_v7). 처음 보는 표본 29개를 A·B 가 합의 판정한 기준 **가중 정확도 87%**.\n"
                     "- L3·L0 은 표본에서 100% 맞았지만 **L2(외부 AI 도입) 정확도는 25%로 낮다** — L3 비중 중심으로 볼 것.\n"
@@ -170,12 +166,13 @@ def render(corps: list[str], period: tuple) -> None:
     if r.empty:
         st.info("선택한 기업·기간에 이벤트가 없습니다.")
         return
-    t1, t2, t3, t4 = st.tabs(["요약", "이벤트 타임라인", "공시 AI 단계", "이벤트 표"])
+    t1, t2, t3 = st.tabs(["요약", "이벤트 타임라인", "공시 AI 단계"])
     with t1:
         _summary(r)
     with t2:
         _timeline(r)
+        st.divider()
+        st.markdown("##### 이벤트 표")   # 타임라인에서 본 이벤트를 바로 아래에서 공시·기사 원문 링크로 확인
+        _table(r)
     with t3:
         _levels(corps)
-    with t4:
-        _table(r)

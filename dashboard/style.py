@@ -127,12 +127,23 @@ section[data-testid="stSidebar"] div[data-testid="stExpander"] details {
 section[data-testid="stSidebar"] div[data-testid="stExpander"] summary { font-weight: 700; padding-top: .7rem; padding-bottom: .7rem; }
 section[data-testid="stSidebar"] label[data-testid="stWidgetLabel"] p { font-size: .8rem; font-weight: 700; color: #5b6575; }
 section[data-testid="stSidebar"] div[data-testid="stDateInput"] input { font-size: .85rem; }
+/* 리포트 필터: '기업'·'뉴스 카테고리' 제목은 '기간' 위젯 제목과 같게, 체크박스는 기간 입력칸과 같은 상자로 묶음 */
+section[data-testid="stSidebar"] .sb-field { font-size: .8rem; font-weight: 700; color: #5b6575; line-height: 1.6; margin: .5rem 0 .25rem; }
+section[data-testid="stSidebar"] div[class*="st-key-fbox_"],
+section[data-testid="stSidebar"] div[data-testid="stDateInput"] div[data-baseweb="input"] {
+  background: #f4f6fa !important; border: 1px solid #e4e8ef !important; border-radius: 12px !important; }   /* 기간 입력칸도 같은 색을 직접 지정 (테마 값에 맡기면 다르게 보일 수 있음) */
+section[data-testid="stSidebar"] div[class*="st-key-fbox_"] { padding: .45rem .8rem; }
+section[data-testid="stSidebar"] div[data-testid="stDateInput"] div[data-baseweb="input"] > div { background: transparent !important; }
+section[data-testid="stSidebar"] div[class*="st-key-fbox_"] label[data-baseweb="checkbox"] { padding: .18rem 0; }
+/*   상자 안 글자는 기간 입력칸과 같은 크기(.85rem), 체크 표시는 16px → 13px (체크 그림은 배경 이미지라 크기도 같이) */
+section[data-testid="stSidebar"] div[class*="st-key-fbox_"] label[data-baseweb="checkbox"] p { font-size: .85rem !important; }
+section[data-testid="stSidebar"] div[class*="st-key-fbox_"] label[data-baseweb="checkbox"] > span:first-child {
+  width: 13px !important; height: 13px !important; min-width: 13px; border-radius: 4px !important; margin-top: 4px !important;
+  background-size: 9px 9px !important; background-position: center !important; }
 /* 선택 칩: 진한 파랑 → 옅은 파랑 칩 */
 span[data-baseweb="tag"] { background: #e5effa !important; border-radius: 8px !important; }
 span[data-baseweb="tag"] span, span[data-baseweb="tag"] svg { color: #2a78d6 !important; fill: #2a78d6 !important; font-weight: 600; }
 /* 필터 초기화: 파랑 테두리 버튼 */
-div.st-key-reset_filters button { border: 1.5px solid #2a78d6; color: #2a78d6; background: transparent; font-weight: 700; }
-div.st-key-reset_filters button:hover { background: #eef4fc; }
 /* 챗봇 대화 기록 목록 (qa.py 의 hist_ 버튼): 목록 항목처럼 */
 div[class*="st-key-hist_"] button { border: none; background: transparent; justify-content: flex-start; text-align: left;
   padding: .5rem .65rem; border-radius: 10px; }

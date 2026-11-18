@@ -8,13 +8,23 @@ app.py 의 conclusion() TODO 중 B 몫 (decisions.md Day 6 '결론 카드 범위
     disclosure_rows(corps, period) -> [("공시의 실행", 문장), ("판단", 문장)]   # 문장은 app.py 카드처럼 <b> 쓰는 HTML
     disclosure_facts(corps, period) -> 숫자 dict (문장 없이 값만, 리포트·시험용)
 
-'뉴스의 말'(A 몫)은 이 파일에 없다. A 가 같은 꼴(news_rows)로 더하면 conclusion() 은 두 함수를 이어 붙이기만 하면 된다.
+'뉴스의 말'(A·D7)도 같은 꼴: news_rows(news, period, corps) -> [("뉴스의 말", 문장)]
+    - news = data_loader.filter_news(dl.news(), 전체 기간, corps, categories, …) — 기업·카테고리만 거른 전체 기간 기사
+      (급증 기준선은 Q1 처럼 전체 기간으로 계산하고, 문장에는 선택 기간의 급증만)
+    - 급증: Q1 과 같은 규칙 (trend.detect_spikes, 월평균 AI 기사 MIN_MONTHLY_AI 미만이면 판정 안 함)
+    - 화제 이동: 관련 기사(news_v4)의 해마다 이슈 비중 — 첫해는 비중 1위, 다음 해부터는 전년보다 비중이 가장 많이 오른 이슈
+      (전체 기준 2024 생성형 AI 콘텐츠 제작 → 2025 AI 에이전트 +19%p → 2026 AI 검색·GEO +10%p, 기존 고정 문장과 같음)
+    scope_text(period, corps, categories) -> 결론 카드 제목 옆 범위 문구
+app.py 의 conclusion() 은 news_rows + disclosure_rows 를 이어 붙인다.
 """
 import sqlite3
 
 import pandas as pd
 
 from dashboard import data_loader as dl
+
+MIN_YEAR_N = 50       # 화제 이동: 그해 관련 기사가 이보다 적으면 비중이 흔들려 뺀다
+MIN_YEAR_MONTHS = 6   # 그해 기사가 있는 달이 이보다 적은 해(2023 은 10-19 부터 2~3개월)도 뺀다
 
 ALL_CORPS = ["제일기획", "이노션", "플레이디", "인크로스", "KT나스미디어"]
 
@@ -94,11 +104,88 @@ def disclosure_rows(corps: list[str], period: tuple) -> list[tuple[str, str]]:
     return [("공시의 실행", execution), ("판단", judgement)]
 
 
+def news_facts(news: pd.DataFrame, period: tuple) -> dict:
+    """첫 급증 월·배율·이후 최저 월 건수 + 해마다 화제 이슈 (news 는 기업·카테고리만 거른 전체 기간 기사)"""
+    from analysis import trend
+    from dashboard.tabs.q1_issue_trend import MIN_MONTHLY_AI
+    from dashboard.tabs.q2_issues import TREND_ISSUES
+    m = trend.monthly(news) if len(news) else pd.DataFrame(columns=["ai", "partial"])
+    full_all = m[~m["partial"]] if len(m) else m
+    judge = len(full_all) >= 7 and full_all["ai"].mean() >= MIN_MONTHLY_AI   # Q1 과 같은 규칙
+    spike = None
+    if judge:
+        sp = m.join(trend.detect_spikes(m["ai"], m["partial"])[["ratio", "spike"]])
+        lo, hi = period[0].strftime("%Y-%m"), period[1].strftime("%Y-%m")
+        sp = sp[(sp.index >= lo) & (sp.index <= hi)]
+        hits = list(sp.index[sp["spike"]])
+        if hits:
+            after = sp.loc[hits[0]:]
+            after = after[~after["partial"]]
+            spike = {"month": hits[0], "ratio": float(sp.loc[hits[0], "ratio"]), "floor": int(after["ai"].min())}
+    rel = news[(news["is_relevant"] == 1) & (news["date"] >= period[0]) & (news["date"] <= period[1])].copy()
+    path = []
+    if len(rel):
+        rel["year"] = pd.to_datetime(rel["date"]).dt.year
+        n = rel.groupby("year").size()
+        months = rel.groupby("year")["month"].nunique()
+        n = n[(n >= MIN_YEAR_N) & (months.reindex(n.index) >= MIN_YEAR_MONTHS)]
+        e = rel[rel["year"].isin(n.index)][["year", "issues"]].explode("issues")
+        share = (e.groupby(["year", "issues"]).size().unstack(fill_value=0)
+                 .reindex(index=n.index, columns=TREND_ISSUES, fill_value=0).div(n, axis=0) * 100)
+        for i, y in enumerate(share.index):
+            if i == 0:
+                iss = share.loc[y].idxmax()
+                path.append({"year": int(y), "issue": iss, "share": float(share.loc[y, iss]), "rise": None})
+            else:
+                d = share.loc[y] - share.iloc[i - 1]
+                iss = d.idxmax()
+                path.append({"year": int(y), "issue": iss, "share": float(share.loc[y, iss]), "rise": float(d[iss])})
+    return {"judge_spike": judge, "spike": spike, "path": path, "articles": int(len(rel))}
+
+
+def news_rows(news: pd.DataFrame, period: tuple, corps: list[str]) -> list[tuple[str, str]]:
+    """결론 카드의 ('뉴스의 말', 문장). 뉴스 결과가 없는 DB 면 안내 문장"""
+    try:
+        f = news_facts(news, period)
+    except (KeyError, sqlite3.Error, pd.errors.DatabaseError):  # 뉴스 결과(llm_results 등)가 없는 DB
+        return [("뉴스의 말", "뉴스 데이터가 이 DB 에 없어 표시하지 않아요.")]
+    subj = "제공 뉴스의 AI 마케팅 기사" if set(corps) >= set(ALL_CORPS) else f"제목에 {_corp_text(corps)}{_ga(_corp_text(corps))} 나온 AI 기사"
+    if f["spike"]:
+        s = f["spike"]
+        first = (f"{subj}는 <b>{s['month']}</b>에 직전 반년 평균의 {s['ratio']:.1f}배로 급증한 뒤 "
+                 f"월 {s['floor']}건 아래로 내려가지 않았다")
+    elif not f["judge_spike"]:
+        first = f"{subj}는 수가 적어 급증 시점을 판정하지 않는다"
+    else:
+        first = f"{subj}는 선택한 기간에 급증한 달이 없다"
+    p = f["path"]
+    if len(p) >= 2:
+        steps = [f"{x['issue']}({x['year']})" if x["rise"] is None
+                 else f"<b>{x['issue']}</b>({x['year']}, 비중 {x['rise']:+.0f}%p)" for x in p]
+        second = "화제는 " + " → ".join(steps) + " 로 옮겨 가고 있다"
+    elif len(p) == 1:
+        second = f"관련 기사에서 가장 많이 다룬 이슈는 <b>{p[0]['issue']}</b>({p[0]['year']}, {p[0]['share']:.0f}%)이다"
+    elif f["articles"]:
+        second = f"선택한 기간이 {MIN_YEAR_MONTHS}개월보다 짧거나 관련 기사가 적어 화제 이동은 판정하지 않는다"
+    else:
+        second = "관련 기사가 없어 화제 이동은 판정하지 않는다"
+    return [("뉴스의 말", f"{first}, {second}.")]
+
+
+def scope_text(period: tuple, corps: list[str], categories: list[str] | None = None, all_categories: list[str] | None = None) -> str:
+    """결론 카드 제목 옆 범위 문구 (예: '2025-01 – 2026-10 · 이노션·인크로스 기준')"""
+    out = f"{period[0]:%Y-%m} – {period[1]:%Y-%m} · {_corp_text([c for c in ALL_CORPS if c in corps])} 기준"
+    if categories is not None and all_categories is not None and set(categories) != set(all_categories):
+        out += " · 뉴스 카테고리 " + "·".join(categories)
+    return out
+
+
 if __name__ == "__main__":   # 확인용: python -m dashboard.conclusion
     from datetime import date
     full = (date(2023, 10, 19), date(2026, 10, 19))
     for corps, period in [(ALL_CORPS, full), (["이노션", "인크로스"], full), (["제일기획"], full),
                           (ALL_CORPS, (date(2025, 1, 1), date(2025, 12, 31))), (ALL_CORPS, (date(2026, 8, 1), date(2026, 10, 19)))]:
         print(f"\n[{', '.join(corps)} · {period[0]}~{period[1]}]")
-        for k, s in disclosure_rows(corps, period):
+        news = dl.filter_news(dl.news(), full, corps, ["기술 및 트렌드", "시장 및 경쟁", "공급망 및 인프라", "규제 및 정책"], ALL_CORPS)
+        for k, s in news_rows(news, period, corps) + disclosure_rows(corps, period):
             print(f"  {k}: {s}")

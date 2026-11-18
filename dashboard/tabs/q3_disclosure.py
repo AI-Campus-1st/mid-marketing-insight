@@ -146,10 +146,14 @@ def _table(r: pd.DataFrame) -> None:
         st.info("기업을 하나 이상 골라 주세요.")
         return
     t = r.sort_values(["analysis_scope", "corp_name", "official_date"])[
-        ["corp_name", "event_name", "official_date", "판정", "first_report", "first_report_date", "lag_days", "dart_url", "primary_source_url"]]
+        ["corp_name", "event_name", "official_date", "판정", "first_report", "first_report_date", "lag_days", "dart_url", "primary_source_url"]].copy()
+    # 빈 값이 표에 'None' 으로 보이지 않게 (공시에서 미확인·참고용 이벤트는 첫 반영 공시가 없음 — A 리뷰 PR #26)
+    t[["first_report", "first_report_date"]] = t[["first_report", "first_report_date"]].fillna("—")
+    t["lag_days"] = t.lag_days.map(lambda x: "—" if pd.isna(x) else f"{int(x)}일")
+    t[["dart_url", "primary_source_url"]] = t[["dart_url", "primary_source_url"]].fillna("")   # 링크 칸은 빈칸
     st.dataframe(t, hide_index=True, width="stretch", height=min(35 * len(t) + 40, 800), column_config={
         "corp_name": "기업", "event_name": "이벤트", "official_date": "뉴스 발표일", "판정": "판정",
-        "first_report": "첫 반영 공시", "first_report_date": "접수일", "lag_days": st.column_config.NumberColumn("발표 후 일수"),
+        "first_report": "첫 반영 공시", "first_report_date": "접수일", "lag_days": "발표 후 일수",
         "dart_url": st.column_config.LinkColumn("공시 원문", display_text="DART"),
         "primary_source_url": st.column_config.LinkColumn("뉴스 원문", display_text="기사")})
 

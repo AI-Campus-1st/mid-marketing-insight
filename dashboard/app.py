@@ -37,7 +37,8 @@ def _reset():
 with st.sidebar:
     ui.brand()   # 로고 'AA 팩트체커' · 설명 (style.py, preview_b.py 와 같은 모양)
     st.markdown('<div class="sb-label">화면</div>', unsafe_allow_html=True)
-    page = st.radio("화면", PAGES, label_visibility="collapsed", format_func=lambda p: f"{PAGE_ICON[p]}  {p}")
+    page = st.radio("화면", PAGES, label_visibility="collapsed", format_func=lambda p: f"{PAGE_ICON[p]}  {p}",
+                    key="page_sel")   # key: 기획안 검토의 '챗봇에 물어보기'가 화면을 챗봇으로 바꿀 수 있게
     st.markdown('<div class="sb-label">필터</div>', unsafe_allow_html=True)
     chat = page in ("공시 챗봇", "기획안 검토")   # 필터를 쓰지 않는 화면
     for c in CORPS:

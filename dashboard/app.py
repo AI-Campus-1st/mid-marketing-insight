@@ -26,7 +26,7 @@ PAGES = ["공시 챗봇", "기획안 검토", "Q1 기사량·급증", "Q2 화제
 PAGE_ICON = {"공시 챗봇": ":material/forum:", "기획안 검토": ":material/assignment:", "Q1 기사량·급증": ":material/bar_chart:",
              "Q2 화제 이슈": ":material/trending_up:", "Q3 공시 반영": ":material/fact_check:"}
 
-st.set_page_config(page_title="광고대행사 AI, 말과 실행", layout="wide")
+st.set_page_config(page_title=f"{ui.BRAND} · {ui.BRAND_SUB}", layout="wide")
 ui.inject()   # 카드형 UI 공통 CSS (design_test)
 
 
@@ -35,8 +35,7 @@ def _reset():
 
 
 with st.sidebar:
-    st.markdown('<div class="sb-brand"><span class="logo">AI</span>광고대행사 AI, 말과 실행</div>', unsafe_allow_html=True)
-    st.caption("뉴스에 나온 AI 이슈와 5개사의 AI 사업이 사업보고서에서 얼마나 확인되는지 봐요.")
+    ui.brand()   # 로고 'AA 팩트체커' · 설명 (style.py, preview_b.py 와 같은 모양)
     st.markdown('<div class="sb-label">화면</div>', unsafe_allow_html=True)
     page = st.radio("화면", PAGES, label_visibility="collapsed", format_func=lambda p: f"{PAGE_ICON[p]}  {p}")
     st.markdown('<div class="sb-label">필터</div>', unsafe_allow_html=True)

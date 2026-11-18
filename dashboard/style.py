@@ -101,9 +101,13 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label:hover { backgrou
 section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checked) {
   background: #eaf2fb; font-weight: 700;
 }
-.sb-brand { display: flex; gap: .55rem; align-items: center; font-weight: 800; font-size: 1.05rem; margin-bottom: .2rem; }
-.sb-brand .logo { width: 28px; height: 28px; border-radius: 8px; background: #2a78d6; color: #fff; display: flex;
-                  align-items: center; justify-content: center; font-size: .85rem; }
+.sb-brand { display: flex; gap: .65rem; align-items: center; font-weight: 800; font-size: 1.4rem; letter-spacing: -.02em; margin: 11px 0 .35rem; }
+/*   위 11px: 사이드바 로고 줄을 오른쪽 화면 제목(h1, 챗봇·기획안 검토) 줄과 같은 높이로 — 이름 글자 위끝 = 제목 글자 위끝, 로고 가운데 = 제목 가운데 */
+.sb-brand .logo { width: 38px; height: 38px; border-radius: 10px; background: #2a78d6; color: #fff; display: flex;
+                  align-items: center; justify-content: center; font-size: 1.05rem; letter-spacing: -.02em; flex: 0 0 38px; }
+.sb-brand .name { display: flex; flex-direction: column; line-height: 1.2; }
+.sb-brand .sub { font-size: .78rem; font-weight: 600; color: #6b7686; letter-spacing: .01em; }
+.sb-desc { font-size: .82rem; line-height: 1.45; color: #6b7686; margin: .9rem 0 1.1rem; }   /* 이름 밑 설명: 행간 좁게, 이름과 띄움 */
 
 /* 접기 메뉴·표 */
 div[data-testid="stExpander"] details { border-radius: 14px; }
@@ -198,6 +202,10 @@ label[data-baseweb="checkbox"] > span:first-child { border-color: #c4cad4 !impor
 label[data-baseweb="checkbox"]:has(input:checked) > span:first-child { background-color: #2a78d6 !important; border-color: #2a78d6 !important; }
 div[data-baseweb="select"] > div:focus-within, div[data-baseweb="input"]:focus-within { border-color: #2a78d6 !important; }
 a, a:visited { color: #2a78d6; }
+/* 본문의 강조(primary) 버튼은 모두 파랑 — Streamlit 기본 강조색(빨강)이 보이지 않게 (기획안 검토 '검토 시작' 등, 사이드바는 위 옅은 파랑 규칙) */
+.stMain button[data-testid="stBaseButton-primary"] { background: #2a78d6 !important; border-color: #2a78d6 !important; color: #ffffff !important; }
+.stMain button[data-testid="stBaseButton-primary"]:hover { background: #1f66bd !important; border-color: #1f66bd !important; }
+.stMain button[data-testid="stBaseButton-primary"] p { color: #ffffff !important; }
 
 /* ── Q3 하위 탭: 다른 화면과 같은 요소 모양 ── */
 /* 본문 가로 라디오(이벤트 타임라인 기업 선택) → 알약 버튼 */
@@ -240,6 +248,18 @@ div[class*="st-key-hl_"] div[data-testid="stExpanderDetails"] { padding-top: 0; 
 
 def inject() -> None:
     st.markdown(CSS.replace("PRETENDARD_URL", PRETENDARD_CSS).replace("FONT_STACK", FONT), unsafe_allow_html=True)
+
+
+BRAND = "AA 팩트체커"
+BRAND_SUB = "Ad & AI Fact-Checker"
+BRAND_DESC = "뉴스에 나온 AI 이슈와 5개사의 AI 사업이 정기공시(사업·반기·분기보고서)에서 얼마나 확인되는지 봐요."
+
+
+def brand(desc: str = BRAND_DESC) -> None:
+    """사이드바 맨 위 로고·이름·설명 — app.py 와 B 미리보기(preview_b.py)가 같은 모양을 쓰도록 한 곳에"""
+    st.markdown(f'<div class="sb-brand"><span class="logo">AA</span><span class="name">{esc(BRAND)}'
+                f'<span class="sub">{esc(BRAND_SUB)}</span></span></div><div class="sb-desc">{esc(desc)}</div>',
+                unsafe_allow_html=True)
 
 
 def esc(s) -> str:

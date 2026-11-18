@@ -5,6 +5,8 @@ D7 추가 (qa_v4)
     - 뉴스 보조 근거: rag/news_retriever.py 로 관련 기사를 함께 찾아 '공시로 확인된 것'과 '뉴스에 나온 것'을 나눠 답한다
       공시가 우선: answerable·points 는 공시 근거만, 뉴스는 news_points 로 따로 (공시에 없으면 뉴스만 보여 줌)
     - 기획안 사례 찾기: ask_plan(기획안 글) → LLM 이 기획의 AI 활용 영역·검색어를 뽑고, 공시·뉴스에서 관련 사례를 모아 답한다
+    - 기획안 후속 질문: ask_followup(질문, 기획안 상태) → 같은 기획안·앞서 찾은 근거(+ 질문으로 새로 찾은 몇 개)로 이어서 답한다
+      '더 자세히'·'보강할 점'·'기대효과·우려' — 예측은 하지 않고 근거에 적힌 효과·우려만 (회사 주장 / 보도로 표시)
 
 흐름
     1. 검색: rag/retriever.py 하이브리드(임베딩 + BM25) + 기업 필터, 상위 SEARCH_K 개
@@ -29,10 +31,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from config import settings  # noqa: E402
-from rag.retriever import Retriever  # noqa: E402
+from rag.retriever import Retriever, _grams  # noqa: E402
 
 PROMPT_VERSION = "qa_v4"
-PLAN_PROMPT_VERSION = "plan_v2"  # v1 → v2 (B 리뷰 PR #29): 사례를 같은 영역 / 인접 영역으로 나눔
+PLAN_PROMPT_VERSION = "plan_v2"
+FOLLOW_PROMPT_VERSION = "follow_v2"  # v1 → v2: 기획안 검토 사항을 근거처럼 쓰지 않기, 우려 질문엔 뉴스 우려 보도 모두  # 기획안 후속 질문 (테스트에서 질문마다 따로 답해 '보강 추천'에 옥외광고·미수금 보증보험이 나옴)  # v1 → v2 (B 리뷰 PR #29): 사례를 같은 영역 / 인접 영역으로 나눔
 # v1 → v2 (테스트 15개): 1차 MOU 연혁("10개 AI 전문 기업과 손잡고")을 보고 "따라서 AI 얼라이언스는 10개"로 추론한 환각,
 #   정답 청크가 검색 9~22위라 근거 5개에 못 들어감, 여러 가지를 묻는 질문에 일부만 답함
 #   → 고유 이름이 근거에 없으면 답하지 않기·추론 금지, 묻는 것 모두 답하기, 검색 30개 → 근거 8개
@@ -122,6 +125,69 @@ PLAN_SYSTEM = f"""당신은 {CORPS_TEXT}의 DART 정기공시와 광고·마케�
    줄 안에 근거 번호를 쓰지 않는다 (번호는 cite 에만).
 응답 형식: {{"summary": str, "points": [{{"text": str, "cite": int, "match": "same"|"adjacent"}}],
  "news_summary": str, "news_points": [{{"text": str, "cite": int, "match": "same"|"adjacent"}}]}}"""
+
+
+FOLLOW_SYSTEM = f"""당신은 사용자가 올린 기획안과, 그 기획안으로 앞서 찾은 {CORPS_TEXT} 공시·광고 뉴스 사례를 바탕으로
+후속 질문에 답하는 분석가입니다. [기획안 요약]·[이전 답]·[근거]만 사용해 한국어로 답하고 JSON 으로만 답하세요.
+
+질문 종류별
+- 자세히·설명: 이전 답의 사례를 근거에 적힌 내용으로 풀어 설명한다. 질문이 회사를 가리키면 그 회사 근거만. kind="fact".
+- 보강·추천: 기획안에 없거나 약한 요소를, 근거 사례가 실제로 한 것과 비교해 제안한다. "보강할 것: 어떤 회사가 어떻게 했나" 꼴, kind="suggestion".
+  사례에 기대지 않은 일반 조언은 쓰지 않는다. 기획안의 AI 활용과 관련 없는 사업(옥외광고, 미수금 관리, 커머스 브랜드 등)은 쓰지 않는다.
+- 기대효과·우려·리스크: 근거에 적힌 효과(kind="effect")와 우려·리스크·한계(kind="concern")만 쓴다.
+  사용자 기획의 결과를 예측하지 않는다 (수치·성공 여부를 단정하지 않는다). 근거에 우려가 없으면 우려를 만들지 않는다.
+  기획안에 적힌 검토 사항·리스크(예: 저작권, 책임 소재)를 근거에 있는 것처럼 쓰지 않는다 — 그 말이 근거 글에 있을 때만.
+  우려를 묻는 질문이면 '뉴스' 근거 중 논란·불매·반발·우려 조사 같은 보도를 news_points 에 빠짐없이 쓴다.
+- 그 밖: 근거에 있는 사실 (kind="fact").
+
+공통
+1. 공시 칸(summary·points)은 '공시' 근거만, 뉴스 칸(news_summary·news_points)은 '뉴스' 근거만 쓴다. 근거에 없는 사실·추측은 쓰지 않는다.
+2. 줄은 40~60자, 맨 앞 이름은 사례의 주체(회사). 줄마다 근거 번호를 cite 에. 줄 안에 근거 번호를 쓰지 않는다.
+3. summary·news_summary: 질문에 바로 답하는 한 문장. 없으면 "".
+4. 답할 근거가 공시에 없으면 answerable=false, points=[] (뉴스 칸은 따로 채울 수 있다).
+응답 형식: {{"answerable": true|false, "summary": str, "points": [{{"text": str, "cite": int, "kind": "fact"|"suggestion"|"effect"|"concern"}}],
+ "news_summary": str, "news_points": [{{"text": str, "cite": int, "kind": "fact"|"suggestion"|"effect"|"concern"}}]}}"""
+PREDICT_PAT = r"예측|전망|예상|될까|될지|어떻게 될"
+CONCERN_PAT = r"우려|리스크|위험|부작용|문제점|한계"
+EFFECT_PAT = r"효과|이점|장점|성과"
+PREDICT_NOTE = "기획의 결과를 예측하지는 않아요. 비슷한 사례의 근거에 적힌 효과·우려만 보여 드려요."
+KIND_TAG = {"effect": {"d": "회사 주장", "n": "보도"}, "concern": {"d": "공시 기재", "n": "보도"}}
+FOLLOW_EXTRA_N, FOLLOW_EXTRA_NEWS = 4, 2
+# 근거 대조: 줄의 2글자 조각 중 인용 근거에 있는 비율이 이보다 낮으면 버린다 (후속 질문 모드)
+#   시험: 정상 줄 0.40~0.89 / 기획안에 적힌 리스크를 KT나스미디어 공시처럼 쓴 줄 0.00 / '기획안과 유사하게 ~ 줄일 수 있다' 예측 줄 0.33
+GROUND_MIN = 0.35
+# 우려 질문에는 사람이 거른 우려 기사(Q2 화면과 같은 목록, 19건 = 12사건)를 근거 후보에 더한다 — 일반 검색으로는 잘 안 걸림
+CONCERN_CSV = settings.DATA_DIR / "processed" / "q2_concern_articles.csv"
+CONCERN_N = 3
+
+
+# 우려·효과 줄은 더 엄격하게: 줄에 나온 핵심어가 인용 근거에 모두 있어야 한다
+#   (비율 검사만으로는 '이노션은 TF 신설… 저작권 등 법적 문제를 인지 (공시 기재)'처럼 앞은 근거, 뒤는 지어낸 줄이 0.42~0.50 으로 통과)
+KIND_TERMS = {
+    "concern": r"우려|리스크|위험|논란|불매|반발|저작권|초상권|윤리|법적|규제|부작용|한계|악용|딥페이크|허위|불신|신뢰|책임|오류",
+    "effect": r"절감|향상|증대|증가|단축|개선|효율|성장|매출|수익|생산성",
+}
+
+
+def _terms_ok(line: str, text: str, kind: str | None) -> bool:
+    """줄의 우려·효과 핵심어 중 하나 이상이 근거에 있어야 (전부를 요구하면 LLM 이 '불만'을 '반발'로 바꿔 쓴 진짜 보도 줄까지 탈락).
+    우려 줄인데 핵심어가 하나도 없으면 우려 줄이 아니므로 버린다"""
+    pat = KIND_TERMS.get(kind or "")
+    if pat is None:
+        return True
+    found = set(re.findall(pat, line))
+    if not found:
+        return kind != "concern"
+    return any(t in text for t in found)
+
+
+def p_title(state: dict) -> str:
+    return str(state.get("plan", {}).get("title", ""))
+
+
+def _ground(line: str, text: str) -> float:
+    g = set(_grams(line))
+    return len(g & set(_grams(text))) / max(1, len(g))  # 질문으로 새로 찾아 더하는 근거 수 (기획안 근거 + 이만큼)
 
 
 def _norm(s: str) -> str:
@@ -357,6 +423,91 @@ class QA:
             r["answer"] = "공시에서 비슷한 사례를 찾지 못했습니다."
         return {**base, **r, "context_chunk_ids": ctx.chunk_id.tolist(),
                 "context_news_ids": [] if nctx is None else nctx.doc_id.tolist()}
+
+    # ---------- 기획안 후속 질문 ----------
+    def ask_followup(self, question: str, state: dict, prev_answer: str = "") -> dict:
+        """state = {plan, plan_text, chunk_ids, news_ids} (ask_plan 결과에서). 기획안 근거 + 질문으로 새로 찾은 몇 개로 답한다"""
+        import pandas as pd
+        m = self.retriever.meta.set_index("chunk_id")
+        base = m.loc[[c for c in state.get("chunk_ids", []) if c in m.index]].reset_index()
+        extra = _dedupe_chunks(self.retriever.search(question, k=SEARCH_K), FOLLOW_EXTRA_N)
+        ctx = pd.concat([base, extra]).drop_duplicates("chunk_id").reset_index(drop=True)
+        nctx = None
+        if self.news is not None:
+            nm = self.news.meta.set_index("doc_id")
+            nbase = nm.loc[[d for d in state.get("news_ids", []) if d in nm.index]].reset_index()
+            nextra = _dedupe_news(self.news.search(question, k=NEWS_K), FOLLOW_EXTRA_NEWS)
+            parts = [nbase, nextra]
+            if re.search(CONCERN_PAT, question) and CONCERN_CSV.exists():
+                import numpy as np
+                from rag.embeddings import embed_texts
+                cids = set(pd.read_csv(CONCERN_CSV, usecols=["doc_id"]).doc_id)
+                idx = np.flatnonzero(self.news.meta.doc_id.isin(cids).values)
+                if len(idx):
+                    qv = embed_texts([f"{p_title(state)} {question}"])[0]
+                    top = idx[np.argsort(-(self.news.mat[idx] @ qv))]
+                    parts.append(_dedupe_news(self.news.meta.iloc[top].reset_index(drop=True), CONCERN_N))  # 같은 사건(보그 7건)은 하나로
+            nctx = pd.concat(parts).drop_duplicates("doc_id").reset_index(drop=True)
+        p = state.get("plan", {})
+        head = f"제목: {p.get('title', '')}\nAI 활용 영역: {', '.join(p.get('areas', []))}"
+        user = (f"[기획안 요약]\n{head}\n\n[기획안 원문 일부]\n{state.get('plan_text', '')[:1500]}\n\n"
+                f"[이전 답]\n{prev_answer[:1200]}\n\n[질문]\n{question}\n\n[근거]\n" + self._blocks(ctx, nctx))
+        out = self._llm(FOLLOW_SYSTEM, user, max_tokens=1300)
+        nd, nn = len(ctx), 0 if nctx is None else len(nctx)
+        kinds = []  # 출처 번호가 그 칸 범위 안인 줄의 kind 만 (화면에 실제로 나오는 줄)
+        cited_all = {"d": "", "n": ""}  # 칸마다 남은 줄이 인용한 근거 글 (요약 대조용)
+        # 효과·우려를 물으면 그 종류의 줄만 (우려 질문에 'KT나스미디어 DSP 연구' 같은 사실 줄이 섞여 나옴)
+        want = ({"concern"} if re.search(CONCERN_PAT, question) else set()) | ({"effect"} if re.search(EFFECT_PAT, question) else set())
+        for key, src, lo, hi in (("points", "d", 1, nd), ("news_points", "n", nd + 1, nd + nn)):
+            pts = [pt for pt in out.get(key) or [] if isinstance(pt, dict)]
+            kept = []
+            for pt in pts:
+                c = pt.get("cite")
+                c = c[0] if isinstance(c, list) and c else c
+                if not (isinstance(c, int) and lo <= c <= hi):
+                    continue
+                cited = ctx.text[c - 1] if src == "d" else nctx.title[c - nd - 1] + " " + nctx.text[c - nd - 1]
+                if _ground(str(pt.get("text", "")), cited) < GROUND_MIN:  # 근거에 없는 말 (기획안 내용을 근거처럼 씀 등)
+                    continue
+                if not _terms_ok(str(pt.get("text", "")), cited, pt.get("kind")):  # 우려·효과 핵심어가 근거에 없음
+                    continue
+                if want and pt.get("kind") not in want:
+                    continue
+                kinds.append(pt.get("kind"))
+                kept.append(pt)
+                cited_all[src] += " " + cited
+            for pt in kept:
+                tag = KIND_TAG.get(pt.get("kind"), {}).get(src)
+                if tag and pt.get("text"):
+                    pt["text"] = f"{pt['text']} ({tag})"
+                if pt.get("kind") == "suggestion" and pt.get("text") and not str(pt["text"]).startswith("보강"):
+                    pt["text"] = "보강 제안 · " + pt["text"]
+            out[key] = kept
+        for key, src in (("summary", "d"), ("news_summary", "n")):
+            out[key] = re.sub(r"\s*\(\d{1,2}(\s*,\s*\d{1,2})*\)", "", str(out.get(key) or "")).strip()
+            # 요약도 근거 대조: 남은 줄의 근거에 없는 말이면 지운다 (기획안에 적힌 '저작권·초상권 우려'를 요약에 옮겨 씀)
+            if out[key] and _ground(out[key], cited_all[src]) < GROUND_MIN:
+                out[key] = ""
+        # 예측 요청·우려 요청은 코드가 문장을 정한다 (LLM 이 '~가 기대됩니다'처럼 예측처럼 끝맺지 않게)
+        if re.search(PREDICT_PAT, question):
+            # 요약은 코드가 정한다: LLM 요약이 기획안에 적힌 리스크를 근거처럼 옮겨 씀 ('예산 집행 오류 리스크가 존재한다')
+            out["summary"], out["news_summary"] = PREDICT_NOTE, ""
+        if re.search(CONCERN_PAT, question) and "concern" not in kinds:
+            # 요약도 코드가: LLM 요약이 기획안에 적힌 우려(저작권·초상권)를 옮겨 쓴 뒤 '확인된 우려 없음'과 부딪힘
+            note = "앞서 찾은 사례의 근거(공시·뉴스)에는 우려·리스크가 적혀 있지 않아요."
+            out["summary"] = (PREDICT_NOTE + " " + note) if re.search(PREDICT_PAT, question) else note
+            out["news_summary"] = ""
+        if re.search(CONCERN_PAT, question) and "concern" in kinds and out["news_points"]:
+            # 뉴스 요약도 코드가: LLM 요약이 기획안의 '저작권·초상권'을 보도된 우려처럼 섞음 (줄은 근거 대조를 통과한 것만 남음)
+            out["news_summary"] = "뉴스에 보도된 우려·논란이에요."
+        if not out["points"] and re.search(CONCERN_PAT, question) and "concern" in kinds:  # 우려는 뉴스에만 있을 때
+            out["summary"] = (PREDICT_NOTE + " " if re.search(PREDICT_PAT, question) else "") + "공시에는 이런 우려가 적혀 있지 않아요."
+        r = self._assemble(out, ctx, nctx)
+        if not r["answerable"] and out["summary"] and (re.search(PREDICT_PAT, question) or re.search(CONCERN_PAT, question)):
+            r["answer"] = out["summary"]  # 공시 줄이 없어도 안내 문장은 보여 준다 (코드가 정한 문장만 여기 옴)
+        return {"question": question, **r, "followup": True, "plan": p, "context_chunk_ids": ctx.chunk_id.tolist(),
+                "context_news_ids": [] if nctx is None else nctx.doc_id.tolist(),
+                "model": self.model, "prompt_version": FOLLOW_PROMPT_VERSION}
 
 
 def format_answer(r: dict) -> str:

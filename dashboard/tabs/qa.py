@@ -4,6 +4,8 @@
 D7 추가: ① 뉴스 보조 근거 — 공시 답 아래에 '뉴스에서는' 칸을 따로 (공시가 우선, rag/qa_chain.py qa_v4)
          ② 기획안 사례 찾기 — 입력창에 기획안 파일(txt·md·pdf·docx)을 붙이거나 긴 글(PLAN_MIN_CHARS 자 이상)을 넣으면
             기획의 AI 활용 영역을 읽고 공시·뉴스에서 비슷한 사례를 찾아 준다 (QA.ask_plan)
+         ③ 기획안 후속 질문 — 기획안을 올린 대화의 다음 질문은 그 기획안·앞서 찾은 근거로 이어서 답한다 (QA.ask_followup)
+            기획 상태는 기획안 답 메시지의 plan_state 에 저장 → 지난 대화를 다시 열어도 이어진다. 새 주제는 '＋ 새 대화'
 
 render() 를 A 의 app.py 탭에서 부르면 된다. 답변은 rag/qa_chain.py (하이브리드 검색 + LLM, 테스트 15개: 답변 10/10 · 거절 5/5).
 대시보드에서 LLM 을 부르는 유일한 곳 (질문마다 답해야 하므로). 분류·수집은 화면에서 하지 않는다.
@@ -76,15 +78,33 @@ def _bold_first(text: str) -> str:
     return f"**{head}**\n\n{rest}"
 
 
-def _answer(q: str, plan: bool = False) -> dict:
-    """질문(또는 기획안 글) → 대화에 넣을 답 메시지 {role, content, sources, news_sources}"""
+def _plan_state(msgs: list) -> tuple[dict | None, str]:
+    """이 대화에서 가장 최근 기획안 상태와 직전 답 글 (후속 질문용)"""
+    state = next((m["plan_state"] for m in reversed(msgs) if m.get("plan_state")), None)
+    prev = next((m["content"] for m in reversed(msgs) if m["role"] == "assistant"), "")
+    return state, prev
+
+
+def _answer(q: str, plan: bool = False, state: dict | None = None, prev: str = "") -> dict:
+    """질문(또는 기획안 글) → 대화에 넣을 답 메시지 {role, content, sources, news_sources[, plan_state]}"""
     try:
-        r = _qa().ask_plan(q) if plan else _qa().ask(q)
+        if state is not None:
+            r = _qa().ask_followup(q, state, prev)
+        else:
+            r = _qa().ask_plan(q) if plan else _qa().ask(q)
     except Exception as e:  # API 키 없음 등
         return {"role": "assistant", "content": f"답변을 만들지 못했어요 ({type(e).__name__}). `.env` 의 OPENAI_API_KEY 를 확인해 주세요.",
                 "sources": []}
     parts = []
-    if plan:
+    if state is not None:
+        parts.append(f":gray[📎 기획안 '{state['plan'].get('title', '')}' 에 이어서 답해요 · 예측은 하지 않고 근거에 적힌 내용만 · 새 주제는 ＋ 새 대화]")
+        if r["answerable"] or r["answer"] != "공시에서 확인되지 않습니다.":  # 거절이 아니면 (예측·우려 안내 문장 포함)
+            parts.append(_bold_first(r["answer"]))
+        elif r.get("news_answer"):
+            parts.append("**공시 근거에서는 찾지 못했어요.**")
+        else:
+            parts.append("**앞서 찾은 사례와 공시·뉴스에서 답할 근거를 찾지 못했어요.** 질문을 바꾸거나 회사 이름을 넣어 보세요.")
+    elif plan:
         p = r["plan"]
         parts.append(f"**기획안에서 읽은 내용** — {p['title'] or '(제목 없음)'}  \n"
                      f":gray[AI 활용 영역: {', '.join(p['areas']) or '없음'} · 검색어: {', '.join(p['queries']) or '없음'}]")
@@ -98,8 +118,11 @@ def _answer(q: str, plan: bool = False) -> dict:
     if r.get("news_answer"):
         title = "📰 뉴스에 나온 사례" if plan else "📰 뉴스에서는"
         parts.append(f"##### {title}\n:gray[언론 보도·회사 발표 — 공시보다 한 단계 약한 근거예요]\n\n" + _bold_first(r["news_answer"]))
-    return {"role": "assistant", "content": "\n\n".join(parts), "sources": r["sources"],
-            "news_sources": r.get("news_sources", [])}
+    msg = {"role": "assistant", "content": "\n\n".join(parts), "sources": r["sources"], "news_sources": r.get("news_sources", [])}
+    if plan and r.get("plan", {}).get("queries"):  # 후속 질문이 이어 쓸 기획 상태
+        msg["plan_state"] = {"plan": r["plan"], "plan_text": q[:1500], "chunk_ids": r.get("context_chunk_ids", []),
+                             "news_ids": r.get("context_news_ids", [])}
+    return msg
 
 
 def _file_text(f) -> str:
@@ -214,8 +237,11 @@ def render() -> None:
     for m in msgs:
         _show(m)
 
-    v = st.chat_input("회사 이름을 넣어 물어보세요 · 📎 기획안을 붙이면 비슷한 사례를 찾아요",
-                      accept_file=True, file_type=FILE_TYPES)
+    has_plan = _plan_state(msgs)[0] is not None
+    hint = ("이 기획안에 이어서 물어보세요 (더 자세히 · 보강할 점 · 기대효과·우려)" if has_plan
+            else "회사 이름을 넣어 물어보세요 · 📎 기획안을 붙이면 비슷한 사례를 찾아요")
+    v = st.chat_input(hint,
+                      accept_file=True, file_type=FILE_TYPES, key="qa_input")  # key 고정: 안내 문구가 바뀌어도 같은 입력창
     text, fname = "", None
     if v:
         text = (v.text or "").strip()
@@ -236,14 +262,16 @@ def render() -> None:
         text = picked
     if text:
         plan = bool(fname) or isinstance(picked, tuple) or len(text) >= PLAN_MIN_CHARS
+        state, prev = (None, "") if plan else _plan_state(msgs)
         shown = f"📎 {fname}" if fname else (f"**[기획안]**\n\n{text}" if plan else text)
         if fname and v.text:
             shown += f"\n\n{v.text.strip()}"
         msgs.append({"role": "user", "content": shown})
         _show(msgs[-1])
-        spin = "기획안을 읽고 공시·뉴스에서 비슷한 사례를 찾는 중…" if plan else "공시와 뉴스를 찾고 답을 쓰는 중…"
+        spin = ("기획안을 읽고 공시·뉴스에서 비슷한 사례를 찾는 중…" if plan else
+                "기획안과 앞서 찾은 사례로 답을 쓰는 중…" if state else "공시와 뉴스를 찾고 답을 쓰는 중…")
         with st.chat_message("assistant"), st.spinner(spin):
-            a = _answer(text, plan=plan)
+            a = _answer(text, plan=plan, state=state, prev=prev)
         msgs.append(a)
         _save()
         st.rerun()

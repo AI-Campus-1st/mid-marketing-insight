@@ -65,11 +65,12 @@ def disclosure_rows(corps: list[str], period: tuple) -> list[tuple[str, str]]:
     else:
         head = f"{who}{_ga(who)} 발표한 AI 이벤트 {f['judge']}개 중"
         if f["found"] == 0:
-            execution = f"{head} 사업보고서에서 확인된 것은 <b>없다</b>"
+            execution = f"{head} 정기공시(사업·반기·분기보고서)에서 확인된 것은 <b>없다</b>"
         else:
             parts = [f"제때 {f['on_time']}"] + ([f"늦게 {f['delayed']}"] if f["delayed"] else []) \
                 + ([f"공시가 먼저 {f['preceded']}"] if f["preceded"] else [])
-            execution = f"{head} <b>{f['found']}개</b>가 사업보고서에서 확인된다 ({' · '.join(parts)})"
+            execution = (f"{head} <b>{f['found']}개({f['found'] / f['judge']:.0%})</b>가 정기공시(사업·반기·분기보고서)에서 확인된다"
+                         f" ({' · '.join(parts)})")
             if f["median_lag"] is not None:
                 execution += f", 실리기까지 보통 {f['median_lag']}일"
         if f["not_found"]:
@@ -79,7 +80,7 @@ def disclosure_rows(corps: list[str], period: tuple) -> list[tuple[str, str]]:
 
     share, rank = f["l3_share"], f["l3_rank"]
     picked = [c for c in f["corps"] if c in share]
-    base = "대행사의 AI 경쟁력은 기사량이 아니라 <b>사업보고서로 확인되는 자체 개발·상용화(L3)</b>를 기준으로 비교한다"
+    base = "대행사의 AI 경쟁력은 기사량이 아니라 <b>정기공시로 확인되는 자체 개발·상용화(L3)</b>를 기준으로 비교한다"
     if not picked:
         judgement = base + "."
     elif len(picked) == 1:

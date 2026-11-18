@@ -1,5 +1,5 @@
 """
-[B·D6] Q3 공시 반영 — 뉴스에서 말한 AI 가 사업보고서에 언제·얼마나 구체적으로 실렸나
+[B·D6] Q3 공시 반영 — 뉴스에서 말한 AI 가 정기공시(사업·반기·분기보고서)에 언제·얼마나 구체적으로 실렸나
 
 render(corps, period) 를 A 의 app.py 에서 부르면 된다. corps: 기업 목록, period: (시작일, 끝일) 이벤트 발표일 범위
 화면은 하위 탭 4개로 나눈다 (한 화면에 차트 하나):
@@ -31,7 +31,11 @@ def _label(v: str) -> str:
 def _summary(r: pd.DataFrame) -> None:
     j = r[r.analysis_scope == "judge"]
     n = {v: int((j["판정"] == v).sum()) for v in VERDICT_ORDER}
-    st.markdown(f"#### 판정 대상 이벤트 {len(j)}개 중 **{n['제때'] + n['늦게'] + n['공시가 먼저']}개**가 사업보고서에 실렸다")
+    found = n['제때'] + n['늦게'] + n['공시가 먼저']
+    if j.empty:  # 필터에 참고용(최근 발표) 이벤트만 남은 경우
+        st.markdown(f"#### 선택한 기업·기간에 판정 대상 이벤트가 없어요 (참고용 {len(r)}개는 타임라인·표에서 볼 수 있어요)")
+    else:
+        st.markdown(f"#### 판정 대상 이벤트 {len(j)}개 중 **{found}개({found / len(j):.0%})**가 정기공시에 실렸다")
     for col, v in zip(st.columns(4), VERDICT_ORDER):
         col.metric(_label(v), f"{n[v]}개")
 
@@ -110,7 +114,7 @@ def _levels(corps: list[str]) -> None:
     share = t.div(t.sum(axis=1), axis=0)
     order = list(share["L3"].sort_values().index)
     st.markdown("#### 공시에 적힌 AI 는 어느 단계인가")
-    st.markdown("사업보고서에서 AI 를 말한 문단을 4단계로 나눈 비중. **L3(자체 개발·상용화)가 클수록 공시로 확인되는 실행이 많다.**")
+    st.markdown("정기공시(사업·반기·분기보고서)에서 AI 를 말한 문단을 4단계로 나눈 비중. **L3(자체 개발·상용화)가 클수록 공시로 확인되는 실행이 많다.**")
     fig = go.Figure()
     for lvl in LEVEL_ORDER:
         fig.add_bar(y=order, x=share.loc[order, lvl], name=LEVEL_NAME[lvl], orientation="h",
@@ -162,7 +166,7 @@ def render(corps: list[str], period: tuple) -> None:
     r = dl.reflection()
     r = r[r.corp_name.isin(corps) & (r.official_date >= str(period[0])) & (r.official_date <= str(period[1]))].copy()
     r["판정"] = r.verdict.map(verdict_ko)
-    st.header("Q3. 뉴스에서 말한 AI, 사업보고서에도 실렸나")
+    st.header("Q3. 뉴스에서 말한 AI, 정기공시에도 실렸나")
     if r.empty:
         st.info("선택한 기업·기간에 이벤트가 없습니다.")
         return

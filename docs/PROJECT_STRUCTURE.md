@@ -64,7 +64,7 @@ mid-marketing-insight/
 │   ├── plan_review.py         # [A·D7] 기획안 검토: 기획안 → 공시·뉴스 비슷한 AI 사례(같은 영역 / 인접 영역)
 │   ├── eval_retrieval.py      # [B·D5] 테스트 질문으로 검색 정확도·거절 기준 평가
 │   ├── eval_qa.py             # [B·D5] 테스트 질문으로 답변·거절 끝까지 평가 → review/qa_eval.csv
-│   ├── build_index.py         # [B·D5] 임베딩 → Chroma (메타데이터: chunk_id·공시명·제출일·링크)
+│   ├── build_index.py         # [B·D7] 검색 파일(임베딩 캐시) 미리 만들기: 공시 청크·관련 뉴스 → data/vectordb/*.npz (대시보드가 켜질 때 API 안 부르게)
 │   └── test_questions.csv     # [B·D5] 테스트 질문과 기대 결과
 │
 ├── dashboard/                 # ── 화면 계층 (저장된 결과만 조회) ──
@@ -103,7 +103,7 @@ mid-marketing-insight/
 │   │   └── review/            # [B] 공시 사람 검수 엑셀 (DB 반영 원본)
 │   │       ├── ai_level_review_B.xlsx  # 단계 분류 검수 A·B 합의 판정: 1차 50개(v6)·2차 29개(v7), 시트 '1차·2차 안내/판정/LLM 정답' → review_samples
 │   │       └── event_match_B.xlsx      # 이벤트-공시 매칭 검증 204행 (+ 이벤트 요약, Claude 참고 초안) → event_dart_mapping
-│   └── vectordb/              # 공시 청크 임베딩 캐시 chunk_emb_{모델}.npz (매칭·RAG 공용), Chroma 파일
+│   └── vectordb/              # 임베딩 캐시: 공시 청크 chunk_emb_{모델}.npz (매칭·RAG 공용), 관련 뉴스 news_emb_{모델}.npz (기획안 검토)
 │
 └── docs/
     ├── AI 마케팅 이슈 × 공시 분석 대시보드 기획안.md
@@ -144,7 +144,7 @@ flowchart LR
 
     subgraph 공시분석["rag/ (B)"]
         DB --> CH[chunk.py] --> CC[classify_chunks.py] --> DCH[(disclosure_chunks)]
-        CH --> BI[build_index.py] --> VDB[(Chroma)]
+        CH --> BI[build_index.py] --> VDB[(임베딩 캐시 npz)]
         VDB --> QA[qa_chain.py]
     end
 

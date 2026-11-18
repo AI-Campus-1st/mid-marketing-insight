@@ -92,14 +92,15 @@ corps, categories = corps or CORPS, categories or CATEGORIES
 #   공시는 기업·기간(이벤트 발표일)으로 거른다. 카테고리는 뉴스에만 있는 값
 def conclusion(news) -> None:
     from dashboard import conclusion as cc
-    rows = (cc.news_rows(news, period, corps) if news is not None else [("뉴스의 말", "뉴스 데이터가 이 DB 에 없어 표시하지 않아요.")]) \
+    rows = (cc.news_rows(news, period, corps) if news is not None else [("뉴스", "뉴스 데이터가 이 DB 에 없어 표시하지 않아요.")]) \
         + cc.disclosure_rows(corps, period)
-    body = "".join(f'<div style="display:flex;gap:.7rem;align-items:baseline;margin:.45rem 0">'
-                   f'<span style="min-width:5.2rem">{ui.pill(k, "blue")}</span><span style="line-height:1.6">{v}</span></div>'
+    # 섹션(뉴스·공시·판단) 사이를 조금 띄워 구분 (.45rem → .85rem)
+    body = "".join(f'<div style="display:flex;gap:.7rem;align-items:baseline;margin:.85rem 0">'
+                   f'<span style="min-width:3.6rem">{ui.pill(k, "blue")}</span><span style="line-height:1.6">{v}</span></div>'
                    for k, v in rows)
     # 강조 카드 안에 접기 메뉴 — 제목 줄을 누르면 열고 닫힘 (처음엔 펼침). 범위 문구는 제목 옆 회색 (style.py)
     with st.container(key="hl_conclusion"), \
-            st.expander(f"한눈에 보는 결론 :gray[{cc.scope_text(period, corps, categories, CATEGORIES)}]", expanded=True,
+            st.expander(f"리포트 요약 :gray[{cc.scope_text(period, corps, categories, CATEGORIES)}]", expanded=True,
                         icon=":material/star:"):
         st.markdown(body, unsafe_allow_html=True)
 

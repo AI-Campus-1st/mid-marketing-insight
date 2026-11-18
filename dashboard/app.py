@@ -2,7 +2,7 @@
 [공동·D6] 대시보드 진입점 — 광고대행사 AI: 뉴스의 말과 공시의 실행
 
 실행: streamlit run dashboard/app.py → http://localhost:8501
-- 화면: Q1 기사량·급증 / Q2 화제 이슈 / 기획안 검토 (A) · Q3 공시 반영 / 공시 챗봇 (B)
+- 사이드바 메뉴: 공시 챗봇 (B) · 기획안 검토 (A) · 리포트 — 리포트는 맨 위 버튼으로 Q1 기사량·급증 / Q2 화제 이슈 (A) · Q3 공시 반영 (B)
 - 공통 필터(사이드바): 기간 · 기업 · 카테고리 → 모든 차트에 반영 (가이드 필수). 카테고리는 뉴스(Q1·Q2)에만 있는 값
 - 상단 결론 카드: 의사결정 관점의 결론 (가이드 필수) — 분석 화면(Q1·Q2·Q3)에 표시, 챗봇은 대화 영역을 위해 생략
 - 챗봇 화면: 사이드바에 B 의 대화 기록(새 대화·지난 대화, qa.py)이 붙으므로 필터는 접어 둔다 (값은 유지)
@@ -22,9 +22,10 @@ from dashboard.tabs import q1_issue_trend, q2_issues  # noqa: E402
 CORPS = ["제일기획", "이노션", "플레이디", "인크로스", "KT나스미디어"]
 CATEGORIES = ["기술 및 트렌드", "시장 및 경쟁", "공급망 및 인프라", "규제 및 정책"]
 START, END = date(2023, 10, 19), date(2026, 10, 19)
-PAGES = ["공시 챗봇", "기획안 검토", "Q1 기사량·급증", "Q2 화제 이슈", "Q3 공시 반영"]  # 챗봇이 첫 화면
-PAGE_ICON = {"공시 챗봇": ":material/forum:", "기획안 검토": ":material/assignment:", "Q1 기사량·급증": ":material/bar_chart:",
-             "Q2 화제 이슈": ":material/trending_up:", "Q3 공시 반영": ":material/fact_check:"}
+MENU = ["공시 챗봇", "기획안 검토", "리포트"]   # 사이드바 메뉴 (챗봇이 첫 화면)
+MENU_ICON = {"공시 챗봇": ":material/forum:", "기획안 검토": ":material/assignment:", "리포트": ":material/analytics:"}
+REPORT_PAGES = ["Q1 기사량·급증", "Q2 화제 이슈", "Q3 공시 반영"]   # '리포트' 안에서 맨 위 버튼으로 고름
+PAGE_ICON = {"Q1 기사량·급증": ":material/bar_chart:", "Q2 화제 이슈": ":material/trending_up:", "Q3 공시 반영": ":material/fact_check:"}
 
 st.set_page_config(page_title=f"{ui.BRAND} · {ui.BRAND_SUB}", layout="wide")
 ui.inject()   # 카드형 UI 공통 CSS (design_test)
@@ -37,10 +38,10 @@ def _reset():
 with st.sidebar:
     ui.brand()   # 로고 'AA 팩트체커' · 설명 (style.py, preview_b.py 와 같은 모양)
     st.markdown('<div class="sb-label">화면</div>', unsafe_allow_html=True)
-    page = st.radio("화면", PAGES, label_visibility="collapsed", format_func=lambda p: f"{PAGE_ICON[p]}  {p}",
-                    key="page_sel")   # key: 기획안 검토의 '챗봇에 물어보기'가 화면을 챗봇으로 바꿀 수 있게
+    menu = st.radio("화면", MENU, label_visibility="collapsed", format_func=lambda p: f"{MENU_ICON[p]}  {p}",
+                    key="page_sel")   # key: 기획안 검토의 '챗봇에 물어보기'가 화면을 챗봇으로 바꿀 수 있게 (#46)
     st.markdown('<div class="sb-label">필터</div>', unsafe_allow_html=True)
-    chat = page in ("공시 챗봇", "기획안 검토")   # 필터를 쓰지 않는 화면
+    chat = menu != "리포트"   # 필터를 쓰지 않는 화면 (공시 챗봇 · 기획안 검토)
     for c in CORPS:
         st.session_state.setdefault(f"corp_{c}", True)
     for c in CATEGORIES:
@@ -61,6 +62,23 @@ with st.sidebar:
     st.caption("데이터: 제공 뉴스 6,450건 · DART 정기공시 5개사 · 앵커 이벤트 28개 (2023-10-19 ~ 2026-10-19)")
     if chat:   # 아래에 챗봇·기획안 검토가 기록(새 대화·지난 대화 / 새 기획안·지난 기획안)을 붙인다
         st.divider()
+
+
+def _keep_report_page():
+    """리포트 페이지 버튼을 다시 눌러 선택이 풀리면(None) 직전 페이지로 되돌린다 — 빈 화면이 되지 않게"""
+    if st.session_state.get("report_page") is None:
+        st.session_state["report_page"] = st.session_state.get("_report_last", REPORT_PAGES[0])
+    st.session_state["_report_last"] = st.session_state["report_page"]
+
+
+# '리포트' 메뉴: 맨 위에서 Q1·Q2·Q3 중 하나를 고른다 (탭과 달리 고른 페이지만 그려서 빠름). 아래 코드는 page 로 분기
+if menu == "리포트":
+    st.markdown('<div class="report-nav-marker"></div>', unsafe_allow_html=True)
+    page = st.segmented_control("리포트 페이지", REPORT_PAGES, default=REPORT_PAGES[0], key="report_page",
+                                format_func=lambda p: f"{PAGE_ICON[p]}  {p}", label_visibility="collapsed",
+                                on_change=_keep_report_page) or st.session_state.get("_report_last", REPORT_PAGES[0])
+else:
+    page = menu
 
 if not (isinstance(period, tuple) and len(period) == 2):
     st.info("기간의 시작일과 끝일을 모두 골라 주세요.")

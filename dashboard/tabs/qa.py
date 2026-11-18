@@ -140,8 +140,8 @@ def render() -> None:
         clear.button("이 대화 지우기", width="stretch", on_click=_delete)
     st.markdown(TAGLINE)
 
-    picked = None
-    if not msgs:  # 첫 화면: 소개 + 질문 종류별 예시
+    picked = st.session_state.pop("qa_pending", None)   # 다른 화면(기획안 검토)에서 넘어온 질문 — 바로 답한다
+    if not msgs and not picked:  # 첫 화면: 소개 + 질문 종류별 예시
         with st.chat_message("assistant"):
             st.markdown(WELCOME)
         st.markdown("##### 이런 걸 물어볼 수 있어요")

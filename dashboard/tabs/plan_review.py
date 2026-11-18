@@ -242,6 +242,36 @@ def _conclusion(r: dict) -> None:
         st.markdown(f'<div class="pr-concl">{lead + ", ".join(bits)}.{"".join(rows)}{note}</div>', unsafe_allow_html=True)
 
 
+def _to_chatbot(q: str) -> None:
+    """버튼 콜백: 공시 챗봇 새 대화로 넘어가 이 질문에 바로 답하게 (qa.render 가 qa_pending 을 받음). 기획안 결과는 그대로 남음"""
+    st.session_state.pop("qa_id", None)
+    st.session_state.qa_msgs = []
+    st.session_state.qa_pending = q
+    st.session_state.page_sel = "공시 챗봇"
+
+
+def _ask_chatbot(r: dict) -> None:
+    """공시 사례마다 '공시 챗봇에 물어보기' 버튼 (B 제안 ①) — 이미 검증한 공시 챗봇이 답한다.
+    뉴스 사례는 넣지 않음: 챗봇은 공시로만 답해서 5개사 밖 회사는 거절됨"""
+    kw = r["disclosure"].get("keywords") or {}
+    seen, qs = set(), []
+    for rows in (r["disclosure"]["same"], r["disclosure"]["adjacent"]):
+        for t, n, _ in rows:
+            corp = t.split(":")[0].strip()
+            k = (kw.get(n) or kw.get(str(n)) or "").strip()
+            if not corp or not k or (corp, k) in seen:
+                continue
+            seen.add((corp, k))
+            qs.append((corp, k, f"{corp}의 {k}에 대해 알려주세요."))
+    if not qs:
+        return
+    st.markdown("##### 💬 이 사례를 공시 챗봇에 물어보기")
+    st.caption("누르면 공시 챗봇 새 대화에서 바로 답해요 (정기공시 근거 · 출처 링크). 기획안 검토 결과는 그대로 남아 있어요.")
+    for col, (i, (corp, k, q)) in zip(st.columns(2) * ((len(qs) + 1) // 2), enumerate(qs)):
+        col.button(f"{corp} · {k}", key=f"pr_ask_{i}", width="stretch", icon=":material/forum:",
+                   on_click=_to_chatbot, args=(q,), help=q)
+
+
 def _report(r: dict, label: str) -> None:
     p = r["plan"]
     st.markdown(f"##### {p['title'] or '(제목 없음)'}")
@@ -251,6 +281,7 @@ def _report(r: dict, label: str) -> None:
         return
     st.markdown(DOC_CSS, unsafe_allow_html=True)
     _conclusion(r)
+    _ask_chatbot(r)
     by, gaps = _items(r), set(r.get("gaps") or [])
     with st.container(key="pr_doc", gap=None):
         head_l, head_r = st.columns([3, 2], gap="large")

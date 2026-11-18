@@ -206,6 +206,18 @@ a, a:visited { color: #2a78d6; }
 .stMain button[data-testid="stBaseButton-primary"] { background: #2a78d6 !important; border-color: #2a78d6 !important; color: #ffffff !important; }
 .stMain button[data-testid="stBaseButton-primary"]:hover { background: #1f66bd !important; border-color: #1f66bd !important; }
 .stMain button[data-testid="stBaseButton-primary"] p { color: #ffffff !important; }
+/* 리포트 페이지 선택 버튼(segmented control) · 탭 · 제목 옆 링크 — 테마가 늦게 오거나 기본 테마로 바뀌어도 빨강(#ff4b4b)이 보이지 않게
+   (강조색을 빨강으로 띄운 서버에서 화면마다 빨간 요소를 찾아 확인) */
+button[data-testid="stBaseButton-segmented_controlActive"] { background: #eef4fc !important; border-color: #2a78d6 !important; color: #2a78d6 !important; }
+button[data-testid="stBaseButton-segmented_controlActive"] * { color: #2a78d6 !important; fill: #2a78d6 !important; }
+button[data-testid="stBaseButton-segmented_controlActive"]:hover { background: #e0ecfa !important; }
+button[data-testid="stBaseButton-segmented_control"]:hover { border-color: #2a78d6 !important; color: #2a78d6 !important; }
+button[data-testid="stBaseButton-segmented_control"]:hover * { color: #2a78d6 !important; fill: #2a78d6 !important; }
+button[data-testid^="stBaseButton-segmented"]:focus-visible, button[data-testid="stTab"]:focus-visible { outline-color: #2a78d6 !important; }
+button[data-testid="stTab"]:hover, button[data-testid="stTab"]:hover *,
+button[data-testid="stTab"][aria-selected="true"], button[data-testid="stTab"][aria-selected="true"] * { color: #2a78d6 !important; }
+[data-testid="stHeaderActionElements"] a, [data-testid="stHeaderActionElements"] a * { color: #8592a3 !important; border-color: transparent !important; }
+[data-testid="stHeaderActionElements"] a:hover, [data-testid="stHeaderActionElements"] a:hover * { color: #2a78d6 !important; }
 
 /* ── Q3 하위 탭: 다른 화면과 같은 요소 모양 ── */
 /* 본문 가로 라디오(이벤트 타임라인 기업 선택) → 알약 버튼 */

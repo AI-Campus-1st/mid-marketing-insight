@@ -67,45 +67,41 @@ if not (isinstance(period, tuple) and len(period) == 2):
 corps, categories = corps or CORPS, categories or CATEGORIES
 
 
-# ── 상단 결론 카드 (필터와 무관한 전체 기준) ─────────────────────────
-# 결론이 어떤 범위로 계산됐는지 (제목 옆 회색 글씨). 지금은 필터와 무관한 전체 기준
-CONCLUSION_SCOPE = "전체 기간 · 5개사 기준 (필터 무관)"
-# TODO(Day 7, A·B): 결론을 공통 필터(기간·기업·뉴스 카테고리)에 맞춰 다시 계산
-#   - 뉴스의 말: trend.detect_spikes(필터 뉴스) 의 첫 급증 월·배율, q2 의 '가장 많이 오른 이슈' 계산을 함수로 빼서 재사용
-#   - 공시의 실행: dl.reflection() 을 corps·period(이벤트 발표일)로 걸러 판정 대상 수·반영 수
-#   - 판단: 필터 기업의 L3 비중(dl.chunk_levels) 순위 등 데이터 문장으로
-#   - 범위 문구: CONCLUSION_SCOPE 를 필터 값으로 (예: "2025-01 – 2026-10 · 이노션·인크로스 기준")
-#   - 기업 필터 시 뉴스는 제목 기준 137건뿐 → 급증 판정 생략 규칙(q1 MIN_MONTHLY_AI)을 결론에도 적용
-def conclusion() -> None:
-    rows = [("뉴스의 말", "제공 뉴스의 AI 마케팅 기사는 <b>2024-04</b> 에 직전 반년 평균의 2.3배로 급증한 뒤 그 수준을 유지했고, "
-                      "화제는 생성형 콘텐츠(2024) → <b>AI 에이전트</b>(2025) → <b>AI 검색·GEO</b>(2026) 로 옮겨 가고 있다.")]
-    try:
-        r = dl.reflection()
-        j = r[r["analysis_scope"] == "judge"]
-        shown = int((j["verdict"] != "not_found").sum())
-        rows.append(("공시의 실행", f"5개사가 발표한 AI 이벤트 {len(j)}개 중 <b>{shown}개</b>가 사업보고서에서 확인된다 "
-                                  f"(공시에서 미확인 {len(j) - shown}개 — 제휴·외부 솔루션 도입은 공시에 실을 칸이 마땅치 않음)."))
-    except Exception:
-        rows.append(("공시의 실행", "공시 데이터가 이 DB 에 없어 표시하지 않아요."))
-    rows.append(("판단", "대행사의 AI 경쟁력은 기사량이 아니라 <b>사업보고서로 확인되는 자체 개발·상용화(L3)</b> 를 기준으로 비교한다."))
+# ── 상단 결론 카드 (공통 필터 반영) ─────────────────────────────────
+# 문장은 dashboard/conclusion.py: 뉴스의 말(A) news_rows · 공시의 실행·판단(B) disclosure_rows — 필터(기간·기업·카테고리)로 다시 계산
+#   뉴스는 기업·카테고리만 거른 전체 기간 기사를 넘긴다 (급증 기준선은 Q1 처럼 전체 기간, 문장은 선택 기간)
+#   공시는 기업·기간(이벤트 발표일)으로 거른다. 카테고리는 뉴스에만 있는 값
+def conclusion(news) -> None:
+    from dashboard import conclusion as cc
+    rows = (cc.news_rows(news, period, corps) if news is not None else [("뉴스의 말", "뉴스 데이터가 이 DB 에 없어 표시하지 않아요.")]) \
+        + cc.disclosure_rows(corps, period)
     body = "".join(f'<div style="display:flex;gap:.7rem;align-items:baseline;margin:.45rem 0">'
                    f'<span style="min-width:5.2rem">{ui.pill(k, "blue")}</span><span style="line-height:1.6">{v}</span></div>'
                    for k, v in rows)
     # 강조 카드 안에 접기 메뉴 — 제목 줄을 누르면 열고 닫힘 (처음엔 펼침). 범위 문구는 제목 옆 회색 (style.py)
     with st.container(key="hl_conclusion"), \
-            st.expander(f"한눈에 보는 결론 :gray[{CONCLUSION_SCOPE}]", expanded=True, icon=":material/star:"):
+            st.expander(f"한눈에 보는 결론 :gray[{cc.scope_text(period, corps, categories, CATEGORIES)}]", expanded=True,
+                        icon=":material/star:"):
         st.markdown(body, unsafe_allow_html=True)
 
 
+# 기업·카테고리로 거른 전체 기간 뉴스 — 결론 카드와 Q1·Q2 가 같이 쓴다 (뉴스 결과가 없는 DB 면 None)
+news_all, news_err = None, None
 if not chat:
-    conclusion()
+    try:
+        news_all = dl.filter_news(dl.news(), (START, END), corps, categories, CORPS)
+    except Exception as e:  # 뉴스 결과(news_preprocessed.csv·llm_results)가 없는 DB
+        news_err = e
+
+if not chat:
+    conclusion(news_all)
 
 # ── 화면 ─────────────────────────────────────────────────────────────
 if page in ("Q1 기사량·급증", "Q2 화제 이슈"):
-    try:
-        news = dl.filter_news(dl.news(), (START, END), corps, categories, CORPS)   # 기업·카테고리 (기간은 화면에서)
-    except Exception as e:  # 뉴스 결과(news_preprocessed.csv·llm_results)가 없는 DB — Q3·챗봇과 같게 안내 문구 (B 리뷰, PR #22)
-        st.warning(f"이 화면에 필요한 뉴스 데이터가 없어요 — `analysis/handoff.py import` 로 A 의 뉴스 결과를 넣어 주세요. ({type(e).__name__}: {e})")
+    news = news_all   # 기업·카테고리 (기간은 화면에서), 위에서 결론 카드와 같이 읽음
+    if news is None:  # 뉴스 결과(news_preprocessed.csv·llm_results)가 없는 DB — Q3·챗봇과 같게 안내 문구 (B 리뷰, PR #22)
+        st.warning(f"이 화면에 필요한 뉴스 데이터가 없어요 — `analysis/handoff.py import` 로 A 의 뉴스 결과를 넣어 주세요. "
+                   f"({type(news_err).__name__}: {news_err})")
         st.stop()
     if set(corps) != set(CORPS):
         n = int(((news["date"] >= period[0]) & (news["date"] <= period[1])).sum())

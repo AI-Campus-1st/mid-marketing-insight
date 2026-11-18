@@ -84,7 +84,20 @@ class QA:
         return hits.sort_index().head(CONTEXT_N).reset_index(drop=True)  # 검색 순위대로
 
     def ask(self, question: str) -> dict:
-        ctx = self.context(question)
+        return self._answer(question, self.context(question))
+
+    def ask_with_chunks(self, question: str, chunk_ids: list[str]) -> dict:
+        """다른 화면이 이미 찾은 공시 문단(chunk_ids)을 근거 맨 앞에 넣고, 나머지는 질문으로 검색해 답한다 (프롬프트·규칙은 ask 와 같음).
+        기획안 검토의 '챗봇에 물어보기'(#46): 버튼 질문의 키워드가 실행마다 달라 긴 청크 속 한 줄(이노션 GEO)을 다시 못 찾던 문제
+        (A 리뷰 PR #49, B 수정 #48 에서 이 부분만 가져옴 — #48 의 '기획안 안 질문'(ask_about_plan)은 넣지 않음)"""
+        import pandas as pd
+        m = self.retriever.meta.set_index("chunk_id")
+        base = m.loc[[c for c in chunk_ids if c in m.index]].reset_index()
+        ctx = pd.concat([base, self.context(question)]).drop_duplicates("chunk_id").head(CONTEXT_N).reset_index(drop=True)
+        return self._answer(question, ctx)
+
+    def _answer(self, question: str, ctx) -> dict:
+        """근거 ctx 로 답 (ask · ask_with_chunks 공용 — 예전 ask 와 같은 입력)"""
         blocks = [f"[{i + 1}] {r.corp_name} | {r.report_name} (접수 {r.report_date}) | {r.section}\n{r.text[:CONTEXT_CHARS].replace('**', '')}"
                   for i, r in enumerate(ctx.itertuples())]
         msgs = [{"role": "system", "content": SYSTEM},
@@ -117,7 +130,8 @@ class QA:
             "section": ctx.section[c - 1], "ai_level": None if ctx.ai_level.isna()[c - 1] else int(ctx.ai_level[c - 1]),
             "url": DART_URL.format(ctx.rcept_no[c - 1]), "chunk_id": ctx.chunk_id[c - 1]} for c in order]
         return {"question": question, "answerable": answerable, "answer": answer, "sources": sources,
-                "context_chunk_ids": ctx.chunk_id.tolist(), "corp_filter": ctx.corp_filter.iloc[0] if len(ctx) else None,
+                "context_chunk_ids": ctx.chunk_id.tolist(),
+                "corp_filter": ctx.corp_filter.iloc[0] if "corp_filter" in ctx and len(ctx) else None,   # 넘겨받은 문단엔 이 칸이 없을 수 있음
                 "model": self.model, "prompt_version": PROMPT_VERSION}
 
 

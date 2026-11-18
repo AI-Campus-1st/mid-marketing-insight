@@ -114,6 +114,7 @@ mid-marketing-insight/
     ├── PROJECT_STRUCTURE.md   # [공동] 이 문서
     ├── design/references/     # [공동·D6] 대시보드 디자인 레퍼런스 (이미지는 저장소 제외, README 의 목록만)
     └── report/                # [공동·D7] 리포트, 발표 자료
+        └── report_B.md        # [B·D7] 리포트 B 파트 원고: 공시 데이터·단계 분류·반영 판정·공시 Q&A·B 화면·한계·회고
 ```
 
 ## 2. 데이터 흐름

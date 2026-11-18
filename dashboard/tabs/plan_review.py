@@ -35,12 +35,20 @@ MIN_CHARS = 30
 
 @st.cache_resource(show_spinner="공시·뉴스 검색기를 준비하는 중…", max_entries=1)
 def _reviewer_cached(code_version: str):
-    from rag.plan_review import PlanReview
-    return PlanReview()
+    # 모듈도 다시 읽는다: Streamlit 은 바뀐 dashboard/ 코드만 다시 읽고 rag/ 는 처음 읽은 옛 모듈을 계속 써서,
+    #   객체만 새로 만들면 옛 코드로 만들어짐 → 새 화면 코드와 결과 모양이 달라 'expected 3, got 2' (plan_v3 → v4 때)
+    import importlib
+
+    import rag.news_retriever
+    import rag.plan_review
+    import rag.retriever
+    for m in (rag.retriever, rag.news_retriever, rag.plan_review):  # 의존 순서대로
+        importlib.reload(m)
+    return rag.plan_review.PlanReview()
 
 
 def _reviewer():
-    """rag/ 코드가 바뀌면(파일 수정 시각) 새로 만든다 — 서버를 켠 채 코드를 고치면 옛 객체가 남는 문제 (qa.py 와 같음)"""
+    """rag/ 코드가 바뀌면(파일 수정 시각) 모듈을 다시 읽고 새로 만든다 — 서버를 켠 채 코드를 고쳐도 새 코드로"""
     rag = settings.ROOT / "rag"
     return _reviewer_cached("|".join(str((rag / f).stat().st_mtime_ns)
                                      for f in ("plan_review.py", "news_retriever.py", "retriever.py")))
@@ -217,6 +225,12 @@ def render() -> None:
             except Exception as e:  # API 키 없음 등
                 st.error(f"사례를 찾지 못했어요 ({type(e).__name__}). `.env` 의 OPENAI_API_KEY 를 확인해 주세요.")
                 return
+    if "pr_result" in st.session_state and "paras" not in st.session_state["pr_result"][0]:
+        del st.session_state["pr_result"]   # 옛 버전 코드로 만든 결과 (문단 정보 없음) — 다시 찾아야 함
     if "pr_result" in st.session_state:
         st.divider()
-        _report(*st.session_state["pr_result"])
+        try:
+            _report(*st.session_state["pr_result"])
+        except Exception as e:  # 결과 모양이 화면 코드와 다름 등 — app.py 의 '공시 데이터 없음' 안내로 새지 않게
+            del st.session_state["pr_result"]
+            st.error(f"결과를 그리지 못했어요 ({type(e).__name__}: {e}). '사례 찾기'를 다시 눌러 주세요.")

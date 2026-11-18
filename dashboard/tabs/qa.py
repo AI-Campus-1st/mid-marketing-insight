@@ -34,8 +34,14 @@ REFUSE = "**공시에서 확인되지 않습니다.**\n\n질문한 내용이 정
 
 @st.cache_resource(show_spinner="공시 검색기를 준비하는 중…", max_entries=1)  # 최신 코드의 검색기 하나만 (B 리뷰 PR #29)
 def _qa_cached(code_version: str):
-    from rag.qa_chain import QA
-    return QA()
+    # 모듈도 다시 읽는다 (Streamlit 은 rag/ 의 바뀐 코드를 다시 읽지 않음 — dashboard/tabs/plan_review.py 와 같음)
+    import importlib
+
+    import rag.qa_chain
+    import rag.retriever
+    for m in (rag.retriever, rag.qa_chain):
+        importlib.reload(m)
+    return rag.qa_chain.QA()
 
 
 def _qa():

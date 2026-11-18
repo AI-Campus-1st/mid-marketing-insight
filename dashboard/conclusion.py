@@ -1,0 +1,104 @@
+"""
+[B·D7] 상단 결론 카드의 공시 쪽 문장 — 공통 필터(기업·기간)에 맞춰 다시 계산
+
+app.py 의 conclusion() TODO 중 B 몫 (decisions.md Day 6 '결론 카드 범위'):
+    - 공시의 실행: reflection() 을 기업·이벤트 발표일로 걸러 판정 대상 수·반영 수
+    - 판단: 필터 기업의 L3 비중 순위 (chunk_levels, Q3 '공시 AI 단계'와 같은 기준 — 플레이디 제품 근거 문단 제외, 기간은 걸지 않음)
+
+    disclosure_rows(corps, period) -> [("공시의 실행", 문장), ("판단", 문장)]   # 문장은 app.py 카드처럼 <b> 쓰는 HTML
+    disclosure_facts(corps, period) -> 숫자 dict (문장 없이 값만, 리포트·시험용)
+
+'뉴스의 말'(A 몫)은 이 파일에 없다. A 가 같은 꼴(news_rows)로 더하면 conclusion() 은 두 함수를 이어 붙이기만 하면 된다.
+"""
+import sqlite3
+
+import pandas as pd
+
+from dashboard import data_loader as dl
+
+ALL_CORPS = ["제일기획", "이노션", "플레이디", "인크로스", "KT나스미디어"]
+
+
+def _corp_text(corps: list[str]) -> str:
+    return "5개사" if set(corps) >= set(ALL_CORPS) else "·".join(c for c in ALL_CORPS if c in corps)
+
+
+def _ga(word: str) -> str:
+    """주격 조사: 받침 있으면 '이', 없으면 '가' (제일기획이 · 이노션이 · 인크로스가)"""
+    ch = word[-1]
+    return "이" if "가" <= ch <= "힣" and (ord(ch) - 0xAC00) % 28 else "가"
+
+
+def disclosure_facts(corps: list[str], period: tuple) -> dict:
+    """필터 기업·기간(이벤트 발표일)의 반영 판정 개수 + 기업별 L3 비중 (L3 비중은 5개사 모두 계산해 순위를 낸다)"""
+    r = dl.reflection()
+    r = r[r.corp_name.isin(corps) & (r.official_date >= str(period[0])) & (r.official_date <= str(period[1]))]
+    j = r[r.analysis_scope == "judge"]
+    v = j.verdict.fillna("")
+    lag = j[v.eq("on_time") | v.str.startswith("delayed")].lag_days.dropna()
+    lv = dl.chunk_levels()
+    lv = lv[lv.level.notna()]
+    l3 = lv.groupby("corp_name")["level"].apply(lambda s: (s == "L3").mean()).reindex(ALL_CORPS).dropna().sort_values(ascending=False)
+    return {
+        "judge": len(j), "reference": int((r.analysis_scope == "reference").sum()),
+        "found": int((v != "not_found").sum()), "on_time": int((v == "on_time").sum()),
+        "delayed": int(v.str.startswith("delayed").sum()), "preceded": int((v == "preceded").sum()),
+        "not_found": int((v == "not_found").sum()),
+        "median_lag": None if lag.empty else int(lag.median()),
+        "l3_share": l3.to_dict(),                                   # 5개사 모두 (순위용)
+        "l3_rank": {c: i + 1 for i, c in enumerate(l3.index)},
+        "corps": [c for c in ALL_CORPS if c in corps],
+    }
+
+
+def disclosure_rows(corps: list[str], period: tuple) -> list[tuple[str, str]]:
+    """결론 카드의 ('공시의 실행', 문장), ('판단', 문장). 공시 데이터가 없으면 안내 문장"""
+    try:
+        f = disclosure_facts(corps, period)
+    except (sqlite3.Error, pd.errors.DatabaseError):  # 공시 테이블이 없는 DB (다른 오류는 숨기지 않음)
+        return [("공시의 실행", "공시 데이터가 이 DB 에 없어 표시하지 않아요.")]
+    who = _corp_text(f["corps"])
+
+    if f["judge"] == 0:
+        ref = f" (발표가 최근이라 아직 판정하지 않은 참고용 이벤트 {f['reference']}개)" if f["reference"] else ""
+        execution = f"선택한 기업·기간에 반영을 판정할 AI 이벤트가 없어요{ref}."
+    else:
+        head = f"{who}{_ga(who)} 발표한 AI 이벤트 {f['judge']}개 중"
+        if f["found"] == 0:
+            execution = f"{head} 정기공시(사업·반기·분기보고서)에서 확인된 것은 <b>없다</b>"
+        else:
+            parts = [f"제때 {f['on_time']}"] + ([f"늦게 {f['delayed']}"] if f["delayed"] else []) \
+                + ([f"공시가 먼저 {f['preceded']}"] if f["preceded"] else [])
+            execution = (f"{head} <b>{f['found']}개({f['found'] / f['judge']:.0%})</b>가 정기공시(사업·반기·분기보고서)에서 확인된다"
+                         f" ({' · '.join(parts)})")
+            if f["median_lag"] is not None:
+                execution += f", 실리기까지 보통 {f['median_lag']}일"
+        if f["not_found"]:
+            execution += (f". 공시에서 미확인 {f['not_found']}개 — 제휴·외부 솔루션 도입은 공시에 실을 칸이 마땅치 않아, "
+                          "미확인이 곧 실행 안 함은 아니다")
+        execution += "."
+
+    share, rank = f["l3_share"], f["l3_rank"]
+    picked = [c for c in f["corps"] if c in share]
+    base = "대행사의 AI 경쟁력은 기사량이 아니라 <b>정기공시로 확인되는 자체 개발·상용화(L3)</b>를 기준으로 비교한다"
+    if not picked:
+        judgement = base + "."
+    elif len(picked) == 1:
+        c = picked[0]
+        judgement = (f"{base} — {c}의 공시 속 AI 문단 중 L3 비중은 <b>{share[c]:.0%}</b>"
+                     f"(5개사 중 {rank[c]}위)이다.")
+    else:
+        top, low = max(picked, key=share.get), min(picked, key=share.get)
+        judgement = (f"{base} — 선택한 기업 중 L3 비중이 가장 높은 곳은 <b>{top}({share[top]:.0%})</b>, "
+                     f"가장 낮은 곳은 {low}({share[low]:.0%})이다.")
+    return [("공시의 실행", execution), ("판단", judgement)]
+
+
+if __name__ == "__main__":   # 확인용: python -m dashboard.conclusion
+    from datetime import date
+    full = (date(2023, 10, 19), date(2026, 10, 19))
+    for corps, period in [(ALL_CORPS, full), (["이노션", "인크로스"], full), (["제일기획"], full),
+                          (ALL_CORPS, (date(2025, 1, 1), date(2025, 12, 31))), (ALL_CORPS, (date(2026, 8, 1), date(2026, 10, 19)))]:
+        print(f"\n[{', '.join(corps)} · {period[0]}~{period[1]}]")
+        for k, s in disclosure_rows(corps, period):
+            print(f"  {k}: {s}")

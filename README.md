@@ -79,15 +79,6 @@ cp .env.example .env                # .env 에 DART_API_KEY, OPENAI_API_KEY 입�
     - 공시 챗봇과 기획안 검토는 `.env` 의 `OPENAI_API_KEY` 가 있어야 답합니다 (챗봇 질문 1개당 검색 + LLM 1회, 기획안 1개당 LLM 2회). 키가 없으면 두 화면만 안내 문구가 나오고 Q1·Q2·Q3 는 그대로 동작해요
     - B 화면(공시 챗봇 · Q3)만 미리 보기: `streamlit run dashboard/preview_b.py --server.port 8502`
 
-### 두 사람의 DB 합치기
-
-뉴스 결과는 A, 공시 결과는 B 의 DB 에서 만들어집니다. 한 DB 로 모으려면:
-
-- A: `python analysis/handoff.py export` → `data/handoff/A_to_B_<날짜>/` (+ .zip) 를 B 에게 전달
-- B: 받은 폴더를 `data/handoff/` 에 두고 `python analysis/handoff.py import data/handoff/A_to_B_<날짜>`
-  - 먼저 제공 뉴스 목록을 대조하고 다르면 아무것도 바꾸지 않고 멈춥니다. 공시 테이블은 건드리지 않아요
-  - 뉴스 본문이 들어 있으니 `data/handoff/` 는 저장소에 올리지 않습니다
-
 ## 역할
 
 | 담당 | 범위 |

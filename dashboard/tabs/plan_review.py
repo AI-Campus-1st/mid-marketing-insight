@@ -399,6 +399,59 @@ def _input() -> tuple[str, str] | None:
     return body, label
 
 
+# ---------- 이 기획안에 대해 묻기 (B 제안 ③) ----------
+QA_HINTS = ["이 기획과 가장 비슷한 공시 사례를 더 자세히 알려줘", "이노션의 GEO 사업은 공시에 어떻게 적혀 있어?", "이 기획의 기대효과를 예측해줘"]
+
+
+def _qa_show(q: str, a: dict) -> None:
+    with st.chat_message("user"):
+        st.markdown(q)
+    with st.chat_message("assistant"):
+        if a.get("note"):
+            st.caption(a["note"])
+        if a["answerable"]:
+            head, _, rest = a["answer"].partition("\n\n")
+            st.markdown(f"**{head}**\n\n{rest}")
+        else:
+            st.markdown("**공시에서 확인되지 않습니다.** 기획안 검토가 찾은 사례와 질문으로 새로 찾은 정기공시에 답할 근거가 없어요.")
+        how = "질문에 회사가 있어 공시 챗봇과 같은 방식으로 답했어요." if a.get("route") == "company" \
+            else "기획안 검토가 찾은 공시 사례 + 질문으로 새로 찾은 정기공시로 답했어요."
+        st.caption(how)
+        if a.get("sources"):
+            from dashboard.theme import LEVEL_NAME
+            with st.expander(f"출처 공시 {len(a['sources'])}건"):
+                for s in a["sources"]:
+                    lv = "" if s["ai_level"] is None else f" · AI 단계: {LEVEL_NAME[f'L{s['ai_level']}']}"
+                    st.markdown(f"[{s['n']}] **{s['corp']}** {s['report']} · 접수 {s['report_date']} · "
+                                f"{s['section'].split('>')[-1].strip()}{lv} — [DART 원문]({s['url']})")
+
+
+def _plan_qa(r: dict, rid: str) -> None:
+    """검토 결과 아래 질문 칸. 답은 공시 챗봇과 같은 기준(정기공시 근거만, 없으면 거절)이고 기획의 결과는 예측하지 않는다.
+    회사를 콕 집은 질문은 공시 챗봇과 똑같이 답한다 (rag/qa_chain.py ask_about_plan)"""
+    from dashboard.tabs.qa import _qa
+    st.divider()
+    st.markdown("##### 💬 이 기획안에 대해 묻기")
+    st.caption("정기공시에 적힌 내용으로만 답해요 (없으면 '공시에서 확인되지 않습니다'). 기획의 결과는 예측하지 않아요. "
+               "예: " + " · ".join(f"'{h}'" for h in QA_HINTS))
+    log = st.session_state.setdefault("pr_qa", {}).setdefault(rid, [])
+    for q, a in log:
+        _qa_show(q, a)
+    with st.form(key=f"pr_qa_form_{rid}", clear_on_submit=True, border=False):
+        left, right = st.columns([6, 1], vertical_alignment="bottom")
+        q = left.text_input("질문", placeholder="이 기획안이나 사례에 대해 물어보세요", label_visibility="collapsed")
+        ok = right.form_submit_button("질문하기", width="stretch")
+    if ok and q.strip():
+        with st.spinner("공시를 찾고 답을 쓰는 중…"):
+            try:
+                a = _qa().ask_about_plan(q.strip(), r["plan"], r.get("context_chunk_ids") or [])
+            except Exception as e:  # API 키 없음 등
+                st.error(f"답을 만들지 못했어요 ({type(e).__name__}). `.env` 의 OPENAI_API_KEY 를 확인해 주세요.")
+                return
+        log.append((q.strip(), a))
+        st.rerun()
+
+
 def render() -> None:
     st.markdown(BTN_CSS, unsafe_allow_html=True)
     _sidebar()
@@ -431,3 +484,5 @@ def render() -> None:
         _report(*res)
     except Exception as e:  # 결과 모양이 화면 코드와 다름 등 — app.py 의 '공시 데이터 없음' 안내로 새지 않게
         st.error(f"결과를 그리지 못했어요 ({type(e).__name__}: {e}). '＋ 새 기획안'으로 다시 검토해 주세요.")
+    if res[0].get("ok"):
+        _plan_qa(res[0], st.session_state.get("pr_id") or res[1])

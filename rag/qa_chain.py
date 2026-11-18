@@ -37,6 +37,10 @@ PROMPT_VERSION = "qa_v3"
 DEFAULT_MODEL = "gpt-4.1-mini"
 SEARCH_K, CONTEXT_N, CONTEXT_CHARS = 30, 8, 1000
 REFUSAL = "공시에서 확인되지 않습니다."
+# 기획안 검토 화면의 질문 (ask_about_plan)
+PLAN_CONTEXT_N = 12   # 기획안 검토가 찾은 공시 근거(최대 8) + 질문으로 새로 찾은 공시
+PREDICT_PAT = r"예측|전망|예상|될까|될지|어떻게 될|효과|성공|우려|리스크|위험"
+PREDICT_NOTE = "기획의 결과(효과·성공·위험)는 예측하지 않아요. 비슷한 사례의 정기공시에 적힌 내용만 보여 드려요."
 DART_URL = "https://dart.fss.or.kr/dsaf001/main.do?rcpNo={}"
 
 SYSTEM = f"""당신은 광고대행사 5개사(제일기획, 이노션, 플레이디, 인크로스, KT나스미디어)의 DART 정기공시(사업·반기·분기보고서)를 근거로
@@ -84,11 +88,36 @@ class QA:
         return hits.sort_index().head(CONTEXT_N).reset_index(drop=True)  # 검색 순위대로
 
     def ask(self, question: str) -> dict:
-        ctx = self.context(question)
+        return self._answer(question, self.context(question))
+
+    def ask_about_plan(self, question: str, plan: dict, chunk_ids: list[str]) -> dict:
+        """기획안 검토 화면의 질문 (B 제안 ③). 예전 후속 질문 모드(#29)의 두 문제를 피한다:
+        ① 회사를 콕 집은 질문은 일반 챗봇과 똑같이 ask() — 기획안 근거에 묶여 공시 답을 놓치던 문제
+        ② 효과·우려를 따로 분류해 요약을 고정하지 않음 — 일반 챗봇과 같은 '공시 근거만' 답, 예측 질문엔 안내 문장만 덧붙임
+        그 밖의 질문은 기획안 검토가 찾은 공시 근거 + 질문으로 새로 찾은 공시로 답한다 (기획안 글은 참고용, 근거 아님)"""
+        import pandas as pd
+        from rag.retriever import detect_corp
+        if detect_corp(question):
+            return {**self.ask(question), "route": "company"}
+        m = self.retriever.meta.set_index("chunk_id")
+        base = m.loc[[c for c in chunk_ids if c in m.index]].reset_index()
+        ctx = pd.concat([base, self.context(question)]).drop_duplicates("chunk_id").head(PLAN_CONTEXT_N).reset_index(drop=True)
+        head = f"제목: {plan.get('title') or ''}\nAI 활용 영역: {', '.join(plan.get('areas') or [])}"
+        r = self._answer(question, ctx, head)
+        if re.search(PREDICT_PAT, question):
+            r["note"] = PREDICT_NOTE
+        return {**r, "route": "plan"}
+
+    def _answer(self, question: str, ctx, plan_head: str = "") -> dict:
+        """근거 ctx 로 답 (ask 와 ask_about_plan 공용). plan_head 가 없으면 예전 ask 와 같은 입력"""
         blocks = [f"[{i + 1}] {r.corp_name} | {r.report_name} (접수 {r.report_date}) | {r.section}\n{r.text[:CONTEXT_CHARS].replace('**', '')}"
                   for i, r in enumerate(ctx.itertuples())]
-        msgs = [{"role": "system", "content": SYSTEM},
-                {"role": "user", "content": f"[질문]\n{question}\n\n[근거]\n" + "\n\n".join(blocks)}]
+        user = f"[질문]\n{question}\n\n[근거]\n" + "\n\n".join(blocks)
+        if plan_head:   # 기획안은 질문의 맥락일 뿐 — 답의 근거로 쓰지 않게 표시
+            user = (f"[사용자의 기획안 요약 — 질문 맥락, 근거 아님]\n{plan_head}\n\n"
+                    "[이 질문의 추가 규칙] 기획에 대한 추천·평가·예측 문장('~하면 효과적', '~가 기대된다', '~를 보강해야')을 쓰지 않는다. "
+                    "summary 와 points 는 근거에 적힌 회사 사례를 그대로 요약한다. 질문이 추천을 물어도 '근거에 이런 사례가 있다'까지만.\n\n") + user
+        msgs = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}]
         out = {}
         for _ in range(2):  # JSON 이 중간에 끊기면 한 번 더
             res = self.client.chat.completions.create(model=self.model, temperature=0, max_tokens=900,
@@ -117,7 +146,8 @@ class QA:
             "section": ctx.section[c - 1], "ai_level": None if ctx.ai_level.isna()[c - 1] else int(ctx.ai_level[c - 1]),
             "url": DART_URL.format(ctx.rcept_no[c - 1]), "chunk_id": ctx.chunk_id[c - 1]} for c in order]
         return {"question": question, "answerable": answerable, "answer": answer, "sources": sources,
-                "context_chunk_ids": ctx.chunk_id.tolist(), "corp_filter": ctx.corp_filter.iloc[0] if len(ctx) else None,
+                "context_chunk_ids": ctx.chunk_id.tolist(),
+                "corp_filter": ctx.corp_filter.iloc[0] if "corp_filter" in ctx and len(ctx) else None,
                 "model": self.model, "prompt_version": PROMPT_VERSION}
 
 

@@ -14,6 +14,8 @@ app.py 의 conclusion() TODO 중 B 몫 (decisions.md Day 6 '결론 카드 범위
     - 급증: Q1 과 같은 규칙 (trend.detect_spikes, 월평균 AI 기사 MIN_MONTHLY_AI 미만이면 판정 안 함)
     - 화제 이동: 관련 기사(news_v4)의 해마다 이슈 비중 — 첫해는 비중 1위, 다음 해부터는 전년보다 비중이 가장 많이 오른 이슈
       (전체 기준 2024 생성형 AI 콘텐츠 제작 → 2025 AI 에이전트 +19%p → 2026 AI 검색·GEO +10%p, 기존 고정 문장과 같음)
+    - 기업을 고르면 (C안, 기업 제목 기사는 5개사 합쳐 137건이라 급증·화제 이동을 판정할 수 없음):
+      그 기업 보도량 · 가장 많이 보도된 해(한 해 안이면 달) · 관련 기사의 주요 이슈 1~2개 (company_news_facts)
     scope_text(period, corps, categories) -> 결론 카드 제목 옆 범위 문구
 app.py 의 conclusion() 은 news_rows + disclosure_rows 를 이어 붙인다.
 """
@@ -143,13 +145,51 @@ def news_facts(news: pd.DataFrame, period: tuple) -> dict:
     return {"judge_spike": judge, "spike": spike, "path": path, "articles": int(len(rel))}
 
 
+def company_news_facts(news: pd.DataFrame, period: tuple) -> dict:
+    """기업 필터일 때: 선택 기간 기사 수, 가장 많이 보도된 해(기간이 한 해 안이면 달), 관련 기사의 주요 이슈 (Q2 내용 이슈 기준)"""
+    from dashboard.tabs.q2_issues import TREND_ISSUES
+    d = news[(news["date"] >= period[0]) & (news["date"] <= period[1])].copy()
+    out = {"articles": int(len(d)), "peak": None, "peak_n": 0, "issues": [], "relevant": 0}
+    if d.empty:
+        return out
+    d["year"] = pd.to_datetime(d["date"]).dt.year
+    if d["year"].nunique() > 1:
+        c = d.groupby("year").size()
+        out["peak"], out["peak_n"] = f"{int(c.idxmax())}년", int(c.max())
+    else:
+        c = d.groupby("month").size()
+        y, mo = str(c.idxmax()).split("-")
+        out["peak"], out["peak_n"] = f"{y}년 {int(mo)}월", int(c.max())   # '2025-11가' 대신 '2025년 11월이
+    rel = d[d["is_relevant"] == 1]
+    out["relevant"] = int(len(rel))
+    if len(rel):
+        share = rel["issues"].explode().value_counts().reindex(TREND_ISSUES).dropna() / len(rel) * 100
+        out["issues"] = [(i, float(v)) for i, v in share.sort_values(ascending=False).head(2).items() if v > 0]
+    return out
+
+
 def news_rows(news: pd.DataFrame, period: tuple, corps: list[str]) -> list[tuple[str, str]]:
-    """결론 카드의 ('뉴스의 말', 문장). 뉴스 결과가 없는 DB 면 안내 문장"""
+    """결론 카드의 ('뉴스의 말', 문장). 뉴스 결과가 없는 DB 면 안내 문장
+    5개사 전체 = 급증 + 화제 이동 / 기업을 고르면 = 그 기업 보도량 · 많이 보도된 때 · 주요 이슈 (C안)"""
+    if not set(corps) >= set(ALL_CORPS):
+        try:
+            g = company_news_facts(news, period)
+        except (KeyError, sqlite3.Error, pd.errors.DatabaseError):
+            return [("뉴스의 말", "뉴스 데이터가 이 DB 에 없어 표시하지 않아요.")]
+        who = _corp_text(corps)
+        if not g["articles"]:
+            return [("뉴스의 말", f"선택한 기간에는 제목에 {who}{_ga(who)} 나온 기사가 없다.")]
+        text = f"제목에 {who}{_ga(who)} 나온 기사 <b>{g['articles']}건</b> 중 {g['peak']}{_ga(g['peak'])} {g['peak_n']}건으로 가장 많았"
+        if g["issues"]:
+            text += "고, 주로 " + "·".join(f"<b>{i}</b>({v:.0f}%)" for i, v in g["issues"]) + " 이슈를 다뤘다"
+        else:
+            text += "다"
+        return [("뉴스의 말", text + ".")]
     try:
         f = news_facts(news, period)
     except (KeyError, sqlite3.Error, pd.errors.DatabaseError):  # 뉴스 결과(llm_results 등)가 없는 DB
         return [("뉴스의 말", "뉴스 데이터가 이 DB 에 없어 표시하지 않아요.")]
-    subj = "제공 뉴스의 AI 마케팅 기사" if set(corps) >= set(ALL_CORPS) else f"제목에 {_corp_text(corps)}{_ga(_corp_text(corps))} 나온 AI 기사"
+    subj = "제공 뉴스의 AI 마케팅 기사"
     if f["spike"]:
         s = f["spike"]
         first = (f"{subj}는 <b>{s['month']}</b>에 직전 반년 평균의 {s['ratio']:.1f}배로 급증한 뒤 "

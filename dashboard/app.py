@@ -59,8 +59,8 @@ with st.sidebar:
         st.caption("수집 키워드 카테고리 — 뉴스 화면(Q1·Q2)에만 적용")
         st.button("필터 초기화", on_click=_reset, width="stretch", key="reset_filters", icon=":material/restart_alt:")
     st.caption("데이터: 제공 뉴스 6,450건 · DART 정기공시 5개사 · 앵커 이벤트 28개 (2023-10-19 ~ 2026-10-19)")
-    if page == "공시 챗봇":
-        st.divider()   # 아래에 qa.render() 가 대화 기록(새 대화·지난 대화)을 붙인다
+    if chat:   # 아래에 챗봇·기획안 검토가 기록(새 대화·지난 대화 / 새 기획안·지난 기획안)을 붙인다
+        st.divider()
 
 if not (isinstance(period, tuple) and len(period) == 2):
     st.info("기간의 시작일과 끝일을 모두 골라 주세요.")

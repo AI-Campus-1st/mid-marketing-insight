@@ -29,13 +29,20 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from config import settings  # noqa: E402
 from rag.retriever import Retriever  # noqa: E402
 
-PROMPT_VERSION = "plan_v4"
+PROMPT_VERSION = "plan_v6"
 # v1 (A·D7): 기획안 → 공시·뉴스 사례 한 목록
 # v1 → v2 (B 리뷰 PR #29): GEO 기획안에 공시 4개사가 한 목록으로 나와 '4곳이 GEO 를 한다'로 읽힘 → 같은 영역 / 인접 영역으로 나눔
 # v2 → v3 (B 리뷰 PR #29): '한 회사 한 줄' 이라 플레이디 '스파이더'(GEO)와 '크레파스'(광고 소재)가 같은 영역 한 줄에 묶임
 #   → 한 회사는 '영역마다' 한 줄 (같은 영역 줄과 인접 영역 줄을 따로), 같은 영역 줄에는 기획과 같은 일 사례만
 # v3 → v4 (화면 개편): 리포트가 목록뿐이라 기획안의 어느 부분에 대한 사례인지 안 보임 → 문단 번호를 붙여 넣고
 #   검색어·사례 줄마다 para(문단 번호)를 받는다. 번호가 없거나 범위 밖이면 0(기획 전체)
+# v4 → v5 (화면 피드백): 사례만 나열돼 '그래서 우리 기획은?'이 안 보임 → 같은 호출에서 결론(conclusion) 2~3문장
+#   (예측·권고 없이 '이미 한 곳 / 보도만 / 비슷한 기술' 위치만). 예측 표현이 든 문장·근거와 겹침이 적은 문장은 코드가 지우고,
+#   사례가 하나도 안 붙은 실행 방안 문단(검색어를 뽑은 문단)은 코드가 gaps 로 따로 계산한다
+# v5 → v6 (화면 피드백): 결론이 '어느 회사가 했다'만 말하고 기획의 어느 부분이 그 회사의 어떤 사업과 같은지 안 보임
+#   → 사례 줄마다 keyword(사업 이름 짧게), 사례가 붙은 문단마다 para_labels(기획 부분 이름 짧게)를 받고,
+#   '기획 부분 ↔ 회사 · 사업 키워드' 짝 목록과 결론 문장은 이미 문단과 이어 둔 사례 줄로 화면 코드가 만든다.
+#   LLM 결론 문장(v5)은 뺐다: 근거 대조를 통과해도 '플레이디·이노션 등도 뉴스에서'처럼 공시 사례를 뉴스로 바꿔 씀 (출처 혼동은 단어 겹침으로 못 잡음)
 DEFAULT_MODEL = "gpt-4.1-mini"
 CONTEXT_CHARS, NEWS_CHARS = 1000, 700
 NEWS_K = 12
@@ -90,8 +97,11 @@ PLAN_SYSTEM = f"""당신은 {CORPS_TEXT}의 DART 정기공시와 광고·마케�
    줄 안에 근거 번호를 쓰지 않는다 (번호는 cite 에만).
 6. 줄마다 para 에 그 사례와 가장 맞는 [기획안 문단] 번호(P 뒤 숫자)를 단다. 사례가 한 일과 같은·비슷한 일이 적힌 문단
    (보통 실행 방안·서비스 개요 문단). 특정 문단과 맞지 않고 기획 전체와 관련되면 0.
-응답 형식: {{"summary": str, "points": [{{"text": str, "cite": int, "match": "same"|"adjacent", "para": int}}],
- "news_summary": str, "news_points": [{{"text": str, "cite": int, "match": "same"|"adjacent", "para": int}}]}}"""
+7. 줄마다 keyword: 그 회사가 한 사업을 15자 안팎 명사구로, 줄에 적힌 말 그대로 (서비스 이름이 있으면 넣는다. 예: "GEO 솔루션 '스파이더'", "영상 광고 소재 생성 서비스").
+8. para_labels: 사례가 붙은 문단마다 기획안의 그 부분을 12자 안팎 명사구로 ({{"3": "GEO 컨설팅 상품"}} 꼴, 기획안 문단에 적힌 말로).
+응답 형식: {{"para_labels": {{"문단 번호": str}}, "summary": str,
+ "points": [{{"text": str, "cite": int, "match": "same"|"adjacent", "para": int, "keyword": str}}],
+ "news_summary": str, "news_points": [{{"text": str, "cite": int, "match": "same"|"adjacent", "para": int, "keyword": str}}]}}"""
 
 CITE_IN_TEXT = r"\s*\(\d{1,2}(\s*,\s*\d{1,2})*\)"  # 줄 안 근거 번호 '(1)' '(4,6)'
 
@@ -130,6 +140,17 @@ def _para(pt, n: int) -> int:
         v = re.sub(r"\D", "", v)
         v = int(v) if v else 0
     return v if isinstance(v, int) and 1 <= v <= n else 0
+
+
+def _keyword(kw, line: str, cut: int = 24) -> str:
+    """LLM 의 짧은 이름이 줄(또는 문단)에 적힌 말과 충분히 겹치면 그대로, 아니면 줄 앞부분을 잘라 쓴다 (지어낸 이름 방지)"""
+    from rag.retriever import _grams
+    kw, line = str(kw or "").strip(), str(line).strip()
+    g = set(_grams(kw))
+    if kw and g and len(g & set(_grams(line))) / len(g) >= 0.6:
+        return kw
+    line = re.sub(r"\s*\(\d{4}[^)]*\)\s*$", "", line.splitlines()[0] if line else "")
+    return line if len(line) <= cut else line[:cut].rstrip() + "…"
 
 
 def _norm(s: str) -> str:
@@ -254,6 +275,8 @@ class PlanReview:
         pat = re.compile("|".join(pats)) if pats else None
         medias = set() if nctx is None else set(nctx.media)
 
+        kws: dict[int, str] = {}  # 근거 번호 → 사업 키워드 (줄과 겹침이 충분할 때만)
+
         def _col(key: str, lo: int, hi: int, text_of) -> list[tuple[str, int, str, int]]:
             rows, seen = [], set()
             for pt in out.get(key) or []:
@@ -276,6 +299,7 @@ class PlanReview:
                     continue
                 seen.add((name.strip(), match))
                 rows.append((text, c, match, _para(pt, len(paras))))
+                kws[c] = _keyword(pt.get("keyword"), rest if sep else text)
             return sorted(rows, key=lambda x: x[2] == "adjacent")  # same 먼저 (안정 정렬)
 
         def _summary(key: str, rows) -> str:
@@ -293,7 +317,8 @@ class PlanReview:
             return {"summary": summary,
                     "same": [(t, new[c], pa) for t, c, m, pa in rows if m == "same"],
                     "adjacent": [(t, new[c], pa) for t, c, m, pa in rows if m == "adjacent"],
-                    "sources": [{"n": new[c], **source_of(c)} for c in order]}
+                    "sources": [{"n": new[c], **source_of(c)} for c in order],
+                    "keywords": {new[c]: kws.get(c, "") for c in order}}
 
         drows = _col("points", 1, nd, lambda c: ctx.text[c - 1])
         nrows = _col("news_points", nd + 1, nd + nn, lambda c: nctx.title[c - nd - 1] + " " + nctx.text[c - nd - 1])
@@ -304,7 +329,15 @@ class PlanReview:
         news = _pack(nrows, _summary("news_summary", nrows), lambda c: {
             "media": nctx.media[c - nd - 1], "date": nctx.date[c - nd - 1], "title": nctx.title[c - nd - 1],
             "url": nctx.url[c - nd - 1], "doc_id": nctx.doc_id[c - nd - 1]})
+        hit = {pa for *_, pa in drows + nrows}
+        gaps = sorted({n for n in p["query_paras"] if n and n not in hit})  # AI 를 쓰는 방식이 적혔는데 사례가 하나도 안 붙은 문단
+        labels = {}
+        for k, v in (out.get("para_labels") or {}).items():
+            n = _para({"para": k}, len(paras))
+            if n and n in hit and isinstance(v, str) and v.strip():
+                labels[n] = _keyword(v, paras[n - 1], 20)
         return {**base, "ok": True, "message": "" if drows else NO_CASE, "disclosure": disc, "news": news,
+                "gaps": gaps, "plan_paras": sorted((hit | set(gaps)) - {0}), "para_labels": labels,
                 "context_chunk_ids": ctx.chunk_id.tolist(), "context_news_ids": [] if nctx is None else nctx.doc_id.tolist()}
 
 
@@ -314,6 +347,8 @@ def format_review(r: dict) -> str:
     lines += [f"  P{i + 1} {t.splitlines()[0][:50]}" for i, t in enumerate(r.get("paras", []))]
     if r["message"]:
         lines.append(r["message"])
+    if r.get("gaps"):
+        lines.append("[사례 없는 실행 방안] " + ", ".join(f"P{n}" for n in r["gaps"]))
     for label, col, ref in (("공시", r["disclosure"], "{}"), ("뉴스", r["news"], "뉴스 {}")):
         if not (col["same"] or col["adjacent"]):
             continue

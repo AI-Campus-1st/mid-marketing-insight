@@ -52,10 +52,18 @@ REFUSE = "**공시에서 확인되지 않습니다.**\n\n질문한 내용이 정
 REFUSE_SHORT = "**공시에서 확인되지 않습니다.** 질문한 내용이 정기공시에 적혀 있지 않거나, 분석 대상 5개사가 아니에요."
 
 
-@st.cache_resource(show_spinner="공시 검색기를 준비하는 중…")
-def _qa():
+@st.cache_resource(show_spinner="공시·뉴스 검색기를 준비하는 중…")
+def _qa_cached(code_version: str):
     from rag.qa_chain import QA
     return QA()
+
+
+def _qa():
+    """검색기는 한 번만 만든다. 단 rag/ 코드가 바뀌면(파일 수정 시각) 새로 만든다
+    — 서버를 켠 채 코드를 고치면 옛 객체가 남아 새 메서드(ask_plan)가 없다는 AttributeError 가 났음"""
+    rag = settings.ROOT / "rag"
+    version = "|".join(str((rag / f).stat().st_mtime_ns) for f in ("qa_chain.py", "news_retriever.py", "retriever.py"))
+    return _qa_cached(version)
 
 
 def _bold_first(text: str) -> str:

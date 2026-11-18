@@ -59,7 +59,8 @@ mid-marketing-insight/
 │   ├── embeddings.py          # [B·D4] 공시 청크 임베딩 캐시 (text-embedding-3-small, 매칭 후보·RAG 공용)
 │   ├── match_candidates.py    # [B·D4] 이벤트 ↔ 공시 매칭 후보(키워드 전부 + 임베딩 top-5) → event_dart_mapping, 검증 시트 / 판정 반영(apply)
 │   ├── retriever.py           # [B·D5] 하이브리드 검색(임베딩 + BM25 + 두 단어 구 가산점) + 기업 필터
-│   ├── qa_chain.py            # [B·D5] 공시 Q&A: 근거로만 답하고 없으면 거절, 출처(공시명·접수일·DART 링크·AI 단계)
+│   ├── qa_chain.py            # [B·D5] 공시 Q&A: 근거로만 답하고 없으면 거절, 출처(공시명·접수일·DART 링크·AI 단계) + [A·D7] 뉴스 보조 칸·기획안 사례 찾기(ask_plan)
+│   ├── news_retriever.py      # [A·D7] 제공 뉴스(관련 2,492건) 하이브리드 검색 — 챗봇의 보조 근거
 │   ├── eval_retrieval.py      # [B·D5] 테스트 질문으로 검색 정확도·거절 기준 평가
 │   ├── eval_qa.py             # [B·D5] 테스트 질문으로 답변·거절 끝까지 평가 → review/qa_eval.csv
 │   ├── build_index.py         # [B·D5] 임베딩 → Chroma (메타데이터: chunk_id·공시명·제출일·링크)

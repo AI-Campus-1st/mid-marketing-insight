@@ -70,7 +70,7 @@ def _show(msg: dict) -> None:
         if msg.get("sources"):
             with st.expander(f"출처 공시 {len(msg['sources'])}건"):
                 for s in msg["sources"]:
-                    lv = "" if s["ai_level"] is None else f" · {LEVEL_NAME[f'L{s['ai_level']}']}"
+                    lv = "" if s["ai_level"] is None else f" · AI 단계: {LEVEL_NAME[f'L{s['ai_level']}']}"
                     st.markdown(f"[{s['n']}] **{s['corp']}** {s['report']} · 접수 {s['report_date']} · "
                                 f"{s['section'].split('>')[-1].strip()}{lv} — [DART 원문]({s['url']})")
 

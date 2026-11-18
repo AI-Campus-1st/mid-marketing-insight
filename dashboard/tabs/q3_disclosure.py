@@ -10,10 +10,10 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from dashboard import data_loader as dl
-from dashboard.theme import LEVEL_NAME, LEVEL_ORDER, VERDICT_ORDER, colors, style, verdict_ko
+from dashboard.theme import LEVEL_NAME, LEVEL_ORDER, VERDICT_ORDER, colors, style, verdict_ko, verdict_label
 
 HOW_TO_READ = """
-- **판정 기준:** 뉴스 발표일 이후 처음 끝나는 분기의 정기보고서(기대 보고서)에 실렸으면 *제때*, 그 뒤 보고서에서 처음이면 *늦게*,
+- **판정 기준:** 뉴스 발표일 이후 처음 끝나는 분기의 정기보고서(기대 보고서)에 실렸으면 *다음 공시에 반영*, 그 뒤 보고서에서 처음이면 *늦게 반영*,
   발표 전 보고서에 이미 있었으면 *공시가 먼저*, 수집 기간(~2026-10) 끝까지 없으면 *공시에서 미확인*.
 - **'공시에서 미확인' ≠ 실행 안 함.** 제휴·외부 솔루션 도입은 정기보고서에 실을 칸이 마땅치 않다.
 - 분기보고서에는 회사 연혁이 없어서, 연혁에만 실리는 이벤트는 반기·사업보고서를 기대 보고서로 본다.
@@ -25,7 +25,7 @@ EVENT_TYPE_KO = {"partnership": "제휴", "adoption": "도입", "launch": "출�
 
 
 def _label(v: str) -> str:
-    return "공시에서 미확인" if v == "미확인" else v
+    return verdict_label(v)   # 화면 이름: 제때 → 다음 공시에 반영, 늦게 → 늦게 반영 (theme.VERDICT_LABEL)
 
 
 def _summary(r: pd.DataFrame) -> None:
@@ -89,12 +89,12 @@ def _timeline(r: pd.DataFrame) -> None:
                         line=dict(color=c["grid"], width=3), hoverinfo="skip", showlegend=False)
     fig.add_scatter(x=d.official_date, y=d.label, mode="markers", name="뉴스 발표일",
                     marker=dict(symbol="circle-open", size=12, color=c["news"], line=dict(width=2)),
-                    customdata=d[["event_name", "판정"]],
+                    customdata=d[["event_name", "판정명"]],
                     hovertemplate="%{customdata[0]}<br>뉴스 발표 %{x|%Y-%m-%d}<br>판정: %{customdata[1]}<extra></extra>")
     for v in VERDICT_ORDER + ["참고용"]:
         s = d[(d["판정"] == v) & d.first_report_date.notna()]
         if len(s):
-            fig.add_scatter(x=s.first_report_date, y=s.label, mode="markers", name=f"첫 반영 공시 · {v}",
+            fig.add_scatter(x=s.first_report_date, y=s.label, mode="markers", name=f"첫 반영 공시 · {_label(v)}",
                             marker=dict(size=13, color=c["verdict"][v], line=dict(color=c["surface"], width=2)),
                             customdata=s[["event_name", "first_report", "lag_days"]],
                             hovertemplate="%{customdata[0]}<br>%{customdata[1]} · 접수 %{x|%Y-%m-%d}<br>발표 후 %{customdata[2]}일<extra></extra>")
@@ -116,7 +116,7 @@ def _levels(corps: list[str]) -> None:
     share = t.div(t.sum(axis=1), axis=0)
     order = list(share["L3"].sort_values().index)
     st.markdown("#### 공시에 적힌 AI 는 어느 단계인가")
-    st.markdown("정기공시(사업·반기·분기보고서)에서 AI 를 말한 문단을 4단계로 나눈 비중. **L3(자체 개발·상용화)가 클수록 공시로 확인되는 실행이 많다.**")
+    st.markdown("정기공시(사업·반기·분기보고서)에서 AI 를 말한 문단을 4단계로 나눈 비중. **'자체 개발·상용화'가 클수록 공시로 확인되는 실행이 많다.**")
     fig = go.Figure()
     for lvl in LEVEL_ORDER:
         fig.add_bar(y=order, x=share.loc[order, lvl], name=LEVEL_NAME[lvl], orientation="h",
@@ -128,7 +128,7 @@ def _levels(corps: list[str]) -> None:
     st.plotly_chart(style(fig, 300), width="stretch")   # 기업별 L3 비중 표는 뺐다 — 차트에 마우스를 올리면 비중·문단 수가 나옴
     with st.expander("분류 방법과 한계"):
         st.markdown("- AI 용어가 있는 공시 문단만 LLM 으로 분류 (프롬프트 chunk_v7). 처음 보는 표본 29개를 A·B 가 합의 판정한 기준 **가중 정확도 87%**.\n"
-                    "- L3·L0 은 표본에서 100% 맞았지만 **L2(외부 AI 도입) 정확도는 25%로 낮다** — L3 비중 중심으로 볼 것.\n"
+                    "- '자체 개발·상용화'·'언급'은 표본에서 모두 맞았지만 **'도입·적용'(외부 AI 도입)은 4개 중 1개만 맞아** 믿기 어렵다 — '자체 개발·상용화' 비중 중심으로 볼 것.\n"
                     "- KT나스미디어는 연결 자회사였던 플레이디 제품을 근거로 한 문단(2025-04 매각 전)을 뺐다.")
 
 
@@ -148,13 +148,13 @@ def _table(r: pd.DataFrame) -> None:
         st.info("기업을 하나 이상 골라 주세요.")
         return
     t = r.sort_values(["analysis_scope", "corp_name", "official_date"])[
-        ["corp_name", "event_name", "official_date", "판정", "first_report", "first_report_date", "lag_days", "dart_url", "primary_source_url"]].copy()
+        ["corp_name", "event_name", "official_date", "판정명", "first_report", "first_report_date", "lag_days", "dart_url", "primary_source_url"]].copy()
     # 빈 값이 표에 'None' 으로 보이지 않게 (공시에서 미확인·참고용 이벤트는 첫 반영 공시가 없음 — A 리뷰 PR #26)
     t[["first_report", "first_report_date"]] = t[["first_report", "first_report_date"]].fillna("—")
     t["lag_days"] = t.lag_days.map(lambda x: "—" if pd.isna(x) else f"{int(x)}일")
     t[["dart_url", "primary_source_url"]] = t[["dart_url", "primary_source_url"]].fillna("")   # 링크 칸은 빈칸
     st.dataframe(t, hide_index=True, width="stretch", height=min(35 * len(t) + 40, 800), column_config={
-        "corp_name": "기업", "event_name": "이벤트", "official_date": "뉴스 발표일", "판정": "판정",
+        "corp_name": "기업", "event_name": "이벤트", "official_date": "뉴스 발표일", "판정명": "판정",
         "first_report": "첫 반영 공시", "first_report_date": "접수일", "lag_days": "발표 후 일수",
         "dart_url": st.column_config.LinkColumn("공시 원문", display_text="DART"),
         "primary_source_url": st.column_config.LinkColumn("뉴스 원문", display_text="기사")})
@@ -163,7 +163,8 @@ def _table(r: pd.DataFrame) -> None:
 def render(corps: list[str], period: tuple) -> None:
     r = dl.reflection()
     r = r[r.corp_name.isin(corps) & (r.official_date >= str(period[0])) & (r.official_date <= str(period[1]))].copy()
-    r["판정"] = r.verdict.map(verdict_ko)
+    r["판정"] = r.verdict.map(verdict_ko)          # 안쪽 이름 (색·계산용)
+    r["판정명"] = r["판정"].map(verdict_label)   # 화면 이름
     st.header("Q3. 뉴스에서 말한 AI, 정기공시에도 실렸나")
     if r.empty:
         st.info("선택한 기업·기간에 이벤트가 없습니다.")

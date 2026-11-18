@@ -19,7 +19,7 @@
 ├── collect/          # 데이터 수집·적재 (제공·보강 뉴스 적재, DART 공시 수집)
 ├── analysis/         # 전처리, EDA, 뉴스 LLM 분류, 앵커 이벤트, 반영 시차·지표 계산
 ├── rag/              # 공시 청킹, AI 단계·영역 분류, Chroma, 질의응답 체인
-├── dashboard/        # Streamlit 앱 (저장된 결과만 조회)
+├── dashboard/        # Streamlit 앱 (저장된 결과만 조회, 예외: 챗봇 질문·기획안 검토의 LLM 호출)
 ├── data/
 │   ├── raw/          # 제공 뉴스, 보강 기사, DART 응답 원본 (저장소 제외)
 │   └── processed/    # DB 파일 (저장소 제외)
@@ -51,13 +51,13 @@ cp .env.example .env   # .env 에 DART_API_KEY, LLM API 키 입력
    - 네이버 검색 API 약관상 네이버 기사는 LLM 에 넣지 않고, 원본은 수집 후 21일 안에 정리합니다 ([decisions.md](docs/decisions.md))
 7. 뉴스 LLM 분류: `python analysis/classify_news.py`
 8. 반영 시차·지표: `python analysis/lag.py` → `python analysis/metrics.py`
-9. VectorDB 구축: `python rag/build_index.py`
+9. 검색 파일(임베딩 캐시) 미리 만들기: `python rag/build_index.py` → `data/vectordb/` (공시 청크 + 관련 뉴스, 이미 있으면 바뀐 것만). 이 단계를 하면 대시보드는 켜질 때 임베딩 API 를 부르지 않아요
 10. 대시보드 실행: `streamlit run dashboard/app.py`
    - 화면: Q1 기사량·급증 / Q2 화제 이슈 (A) · Q3 공시 반영 / 공시 챗봇 (B). 사이드바 공통 필터(기간·기업·카테고리)가 모든 화면에 적용
    - 한 DB 에 뉴스 결과(`llm_results`·`news_company`, `data/processed/news_preprocessed.csv`)와 공시 결과(`disclosure_chunks`·`event_dart_mapping`)가 모두 있어야 모든 화면이 나옵니다. 없는 쪽 화면은 안내 문구만 나와요
    - B 화면(Q3 공시 반영·공시 Q&A)만 미리 보기: `streamlit run dashboard/preview_b.py` → 브라우저에서 http://localhost:8501
    - 공시 Q&A 는 `.env` 의 `OPENAI_API_KEY` 가 있어야 답합니다 (질문 1개당 검색 + LLM 1회)
-   - '기획안 검토' 화면: 기획안(txt·md·pdf·docx 또는 붙여 넣기)을 넣으면 공시·뉴스에서 비슷한 AI 활용 사례를 찾아, 왼쪽 기획안 문서 옆에 문단별 사례 카드(같은 영역 / 인접 영역)로 보여 줍니다 (기획안 1개당 LLM 2회). 처음 실행할 때 뉴스 임베딩을 한 번 만듭니다 (약 2,500건, $0.1 미만)
+   - '기획안 검토' 화면: 기획안(txt·md·pdf·docx 또는 붙여 넣기)을 넣으면 공시·뉴스에서 비슷한 AI 활용 사례를 찾아, 왼쪽 기획안 문서 옆에 문단별 사례 카드(같은 영역 / 인접 영역)로 보여 줍니다 (기획안 1개당 LLM 2회). 뉴스 임베딩은 9번 단계에서 미리 만들어 둡니다 (약 2,500건, $0.1 미만)
 
 > 파일명은 기획안 기준 초안이며 구현하면서 업데이트합니다.
 

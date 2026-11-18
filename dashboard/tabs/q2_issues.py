@@ -135,7 +135,9 @@ def _topn_chart(rel: pd.DataFrame):
 
 
 def _concerns(period) -> None:
-    ui.section("우려 기사", "!", badge="사람 검수", badge_kind="orange", sub="카드를 누르면 원문")
+    # #28 보강 5 (A·B 합의 PR #32): 새 화면 대신 이 목록을 광고주 관점 '도입 전 주의할 점'으로 (영역별 활용 사례는 기획안 검토 화면)
+    ui.section("도입 전 주의할 점 — 우려 기사", "!", badge="사람 검수", badge_kind="orange",
+               sub="AI 마케팅에서 실제로 논란·반발이 된 사례 · 카드를 누르면 원문")
     df = dl.concern_articles()
     if df is None:
         st.info("우려 기사 목록은 사람 검수 후 표시돼요 (`analysis/q2_concerns.py`).")

@@ -60,6 +60,8 @@ mid-marketing-insight/
 │   ├── match_candidates.py    # [B·D4] 이벤트 ↔ 공시 매칭 후보(키워드 전부 + 임베딩 top-5) → event_dart_mapping, 검증 시트 / 판정 반영(apply)
 │   ├── retriever.py           # [B·D5] 하이브리드 검색(임베딩 + BM25 + 두 단어 구 가산점) + 기업 필터
 │   ├── qa_chain.py            # [B·D5] 공시 Q&A: 근거로만 답하고 없으면 거절, 출처(공시명·접수일·DART 링크·AI 단계)
+│   ├── news_retriever.py      # [A·D7] 제공 뉴스(관련 2,492건) 하이브리드 검색 — 기획안 검토의 뉴스 사례
+│   ├── plan_review.py         # [A·D7] 기획안 검토: 기획안 → 공시·뉴스 비슷한 AI 사례(같은 영역 / 인접 영역)
 │   ├── eval_retrieval.py      # [B·D5] 테스트 질문으로 검색 정확도·거절 기준 평가
 │   ├── eval_qa.py             # [B·D5] 테스트 질문으로 답변·거절 끝까지 평가 → review/qa_eval.csv
 │   ├── build_index.py         # [B·D5] 임베딩 → Chroma (메타데이터: chunk_id·공시명·제출일·링크)
@@ -75,6 +77,7 @@ mid-marketing-insight/
 │       ├── q1_issue_trend.py  # [A·D6] Q1 월별 기사량 + 급증 시점(기준선은 전체 기간으로 계산) — render(df, period)
 │       ├── q2_issues.py       # [A·D6] Q2 이슈별 분기 비중 추이·이슈 순위·우려 기사 목록(사람 검수), 감성은 한 줄 — render(df, period)
 │       ├── q3_disclosure.py   # [B·D6] Q3 반영 판정 요약·기업별 반영 결과·AI 단계 분포(L3 비중)·이벤트 타임라인·이벤트 표 — render(corps, period)
+│       ├── plan_review.py     # [A·D7] 기획안 검토 화면 (rag/plan_review) — render()
 │       └── qa.py              # [B·D6] 공시 Q&A 화면 (rag/qa_chain) — render()
 │
 ├── data/                      # (저장소 제외)
@@ -165,13 +168,13 @@ flowchart LR
 | `analysis/`, `rag/` | LLM 분류, 지표 계산, 임베딩을 **미리** 만들어 저장 | 화면 표시 |
 | `dashboard/` | 저장된 결과를 조회해 보여줌 | DART 호출, LLM 분류 |
 
-- 대시보드에서 예외로 실행되는 것은 `qa.py`의 RAG 답변 생성 하나뿐이다. 질문이 들어와야 답할 수 있기 때문이다.
+- 대시보드에서 예외로 실행되는 것은 `qa.py`의 RAG 답변 생성과 `plan_review.py`의 기획안 사례 찾기뿐이다. 질문·기획안이 들어와야 답할 수 있기 때문이다.
 - Q1·Q2 집계는 `news_origin = 'provided'`만 사용한다. 보강 기사는 앵커 이벤트 근거로만 쓴다.
 
 ## 4. 담당별 파일 요약
 
 | 담당 | 주요 파일 |
 |---|---|
-| A (뉴스·이슈 분석) | `anchor_queries.csv`, `load_news.py`, `supplement_search.py`, `supplement_fetch.py`, `load_news_supplement.py`, `preprocess.py`, `eda.ipynb`, `event_review_sheet.py`, `event_classify.py`, `classify_news.py`, `anchor_events.py`, `q1_issue_trend.py`, `q2_issues.py` |
+| A (뉴스·이슈 분석) | `anchor_queries.csv`, `load_news.py`, `supplement_search.py`, `supplement_fetch.py`, `load_news_supplement.py`, `preprocess.py`, `eda.ipynb`, `event_review_sheet.py`, `event_classify.py`, `classify_news.py`, `anchor_events.py`, `q1_issue_trend.py`, `q2_issues.py`, `news_retriever.py`, `plan_review.py` (rag·화면) |
 | B (공시·RAG) | `companies.csv`, `dart_corp_code.py`, `dart_collect.py`, `dart_document.py`, `disclosure_eda.ipynb`, `chunk.py`, `classify_chunks.py`, `level_review_sheet.py`, `embeddings.py`, `match_candidates.py`, `retriever.py`, `qa_chain.py`, `eval_qa.py`, `q3_disclosure.py`, `qa.py` |
 | 공동 | `schema.sql`, `settings.py`, `review.py`, `lag.py`, `metrics.py`, `app.py`, `data_loader.py`, `decisions.md` |

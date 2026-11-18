@@ -32,10 +32,17 @@ HIST_SHOW = 30  # 사이드바에 보여 줄 지난 대화 수
 REFUSE = "**공시에서 확인되지 않습니다.**\n\n질문한 내용이 정기공시에 적혀 있지 않거나, 분석 대상 5개사가 아니에요."
 
 
-@st.cache_resource(show_spinner="공시 검색기를 준비하는 중…")
-def _qa():
+@st.cache_resource(show_spinner="공시 검색기를 준비하는 중…", max_entries=1)  # 최신 코드의 검색기 하나만 (B 리뷰 PR #29)
+def _qa_cached(code_version: str):
     from rag.qa_chain import QA
     return QA()
+
+
+def _qa():
+    """검색기는 한 번만 만든다. 단 rag/ 코드가 바뀌면(파일 수정 시각) 새로 만든다
+    — 서버를 켠 채 코드를 고치면 옛 객체가 남아 새 메서드가 없다는 AttributeError 가 났음"""
+    rag = settings.ROOT / "rag"
+    return _qa_cached("|".join(str((rag / f).stat().st_mtime_ns) for f in ("qa_chain.py", "retriever.py")))
 
 
 def _answer(q: str) -> dict:

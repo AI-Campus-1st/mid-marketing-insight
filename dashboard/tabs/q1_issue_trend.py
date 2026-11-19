@@ -62,9 +62,16 @@ def _chart(m: pd.DataFrame, show_spikes: bool):
                         text=[f"×{r:.1f}" for r in s["ratio"]], textposition="top center", textfont=dict(color=blue, size=13))
     fig.update_yaxes(title=None, rangemode="tozero", showgrid=True)
     fig = style(fig, height=360)
-    # 날짜를 기울이면 Plotly automargin 이 왼쪽 여백을 크게 잡아 차트가 오른쪽으로 밀림 → 6개월 간격·수평 라벨
-    fig.update_xaxes(title=None, dtick="M6", tickformat="%Y-%m", tickangle=0, showgrid=False, automargin=False)
-    fig.update_layout(bargap=.28, legend=dict(x=1, xanchor="right"), margin=dict(l=10, r=10, t=40, b=30))
+    # 아래 날짜: 3개월마다 '1월 · 4월 · 7월 · 10월', 그 밑 줄에 연도는 해가 바뀔 때(와 맨 처음)만 → 시기가 한눈에
+    #   날짜를 기울이면 Plotly automargin 이 왼쪽 여백을 크게 잡아 차트가 오른쪽으로 밀림 → 수평 라벨·automargin 끔
+    ticks = [d for d in x if d.month in (1, 4, 7, 10)]
+    text = [f"{d.month}월<br>{d.year}년" if (d.month == 1 or i == 0) else f"{d.month}월" for i, d in enumerate(ticks)]
+    fig.update_xaxes(title=None, tickvals=ticks, ticktext=text, tickangle=0, showgrid=False, automargin=False)
+    # 매년 1월 막대 바로 앞(12월과 1월 사이)에 옅은 세로선 → 연도 칸 나누기
+    for d in x:
+        if d.month == 1 and d != x[0]:
+            fig.add_vline(x=d - pd.Timedelta(days=15), line=dict(color=c["grid"], width=1.5), layer="below")
+    fig.update_layout(bargap=.28, legend=dict(x=1, xanchor="right"), margin=dict(l=10, r=10, t=40, b=52))
     return fig
 
 

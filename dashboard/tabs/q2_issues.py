@@ -181,7 +181,7 @@ def _concerns(period) -> None:
     opened = st.session_state.get("q2_concerns_all", False)
     ui.mini_cards(cards if opened else cards[:CONCERN_SHOW])
     if len(cards) > CONCERN_SHOW:
-        st.button("접기" if opened else f"더보기 ({len(cards) - CONCERN_SHOW}건)", key="q2_concerns_more",
+        st.button("접기" if opened else f"더보기 ({len(cards) - CONCERN_SHOW}건)", key="q2_concerns_more", width="stretch",   # 카드 줄 폭만큼 길게, 글자 가운데
                   icon=":material/expand_less:" if opened else ":material/expand_more:",
                   on_click=lambda: st.session_state.update(q2_concerns_all=not opened))
 

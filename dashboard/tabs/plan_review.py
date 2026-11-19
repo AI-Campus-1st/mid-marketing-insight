@@ -319,7 +319,7 @@ def _report(r: dict, label: str) -> None:
     with st.container(key="pr_doc", gap=None):
         head_l, head_r = st.columns([3, 2], gap="large")
         head_l.markdown('<div class="pr-col-head">📄 기획안</div>', unsafe_allow_html=True)
-        head_r.markdown('<div class="pr-col-head">🔎 비슷한 사례</div>', unsafe_allow_html=True)
+        head_r.markdown('<div class="pr-col-head">🔎 매칭 사례</div>', unsafe_allow_html=True)
         if by.get(0):  # 특정 문단이 아니라 기획 전체와 관련된 사례는 문서 위에
             l0, r0 = st.columns([3, 2], gap="large")
             l0.markdown('<div class="pr-whole">기획 전체와 관련된 사례 →</div>', unsafe_allow_html=True)

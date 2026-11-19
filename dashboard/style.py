@@ -58,6 +58,9 @@ div[class*="st-key-kpi_"] [data-testid="stMarkdownContainer"] { margin-bottom: 0
 /* 리포트 Q1 카드(월별 기사량 · 급증 타임라인) 안 제목: 카드 위 여백이 커 보여서 줄임 */
 .st-key-card_q1_chart .sec, .st-key-card_q1_timeline .sec { margin-top: .6rem; }
 .st-key-card_q1_timeline .tl { margin-top: calc(.3rem + 7px); }   /* 첫 체크 표시를 옆 차트 범례 줄과 같은 높이로 */
+/* 급증 타임라인 카드를 옆 월별 기사량 카드와 같은 높이로 (내용은 그대로, 상자만 칸 높이까지 늘림) */
+div[data-testid="stLayoutWrapper"]:has(> .st-key-card_q1_timeline) { flex: 1 1 auto; }
+.st-key-card_q1_timeline { flex: 1 1 auto; }
 .pill { display: inline-block; padding: .12rem .55rem; border-radius: 999px; font-size: .72rem; font-weight: 700;
         letter-spacing: .02em; vertical-align: middle; }
 .pill-gray { background: #ebecef; color: #5b6575; }

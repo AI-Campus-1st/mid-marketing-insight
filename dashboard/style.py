@@ -57,6 +57,7 @@ div[class*="st-key-kpi_"] [data-testid="stMarkdownContainer"] { margin-bottom: 0
 .sec-sub { margin-left: auto; font-size: .8rem; color: #8a93a3; font-style: italic; }
 /* 리포트 Q1 카드(월별 기사량 · 급증 타임라인) 안 제목: 카드 위 여백이 커 보여서 줄임 */
 .st-key-card_q1_chart .sec, .st-key-card_q1_timeline .sec { margin-top: .6rem; }
+.st-key-card_q1_timeline .tl { margin-top: calc(.3rem + 7px); }   /* 첫 체크 표시를 옆 차트 범례 줄과 같은 높이로 */
 .pill { display: inline-block; padding: .12rem .55rem; border-radius: 999px; font-size: .72rem; font-weight: 700;
         letter-spacing: .02em; vertical-align: middle; }
 .pill-gray { background: #ebecef; color: #5b6575; }
@@ -84,6 +85,8 @@ div[class*="st-key-kpi_"] [data-testid="stMarkdownContainer"] { margin-bottom: 0
 .tl .t { font-weight: 800; }
 .tl .now .t { color: #2a78d6; }
 .tl .d { font-size: .82rem; color: #5b6575; }
+.tl .tl-badge { display: inline-block; vertical-align: 2px; margin-left: .3rem; padding: .05rem .45rem; border-radius: 999px;
+  background: #fff3c4; color: #8a6100; font-size: .72rem; font-weight: 700; }   /* 급증 배수 (×2.3) 노랑 배지 */
 
 /* 작은 카드 그리드 (레퍼런스 2) */
 .mc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: .75rem; }
@@ -339,12 +342,15 @@ def kpis(items: list[tuple[str, str, str]], key: str) -> None:
                         + (f'<div class="kpi-note">{esc(note)}</div>' if note else ""), unsafe_allow_html=True)
 
 
-def timeline(steps: list[tuple[str, str, str]]) -> None:
-    """세로 단계: (상태 done/now/next, 제목, 설명)"""
+def timeline(steps: list[tuple]) -> None:
+    """세로 단계: (상태 done/now/next, 제목, 설명[, 배지]) — 설명은 글 하나 또는 줄 목록(줄마다 줄바꿈), 배지는 제목 옆 작은 노랑 배지"""
     mark = {"done": "✓", "now": "•", "next": ""}
-    lis = "".join(f'<li class="{s}"><span class="dot">{mark[s]}</span><div class="t">{esc(t)}</div><div class="d">{esc(d)}</div></li>'
-                  for s, t, d in steps)
-    st.markdown(f'<ul class="tl">{lis}</ul>', unsafe_allow_html=True)
+    lis = []
+    for s, t, d, *rest in steps:
+        badge = f' <span class="tl-badge">{esc(rest[0])}</span>' if rest and rest[0] else ""
+        desc = "<br>".join(esc(x) for x in ([d] if isinstance(d, str) else d) if x)
+        lis.append(f'<li class="{s}"><span class="dot">{mark[s]}</span><div class="t">{esc(t)}{badge}</div><div class="d">{desc}</div></li>')
+    st.markdown(f'<ul class="tl">{"".join(lis)}</ul>', unsafe_allow_html=True)
 
 
 def mini_cards(cards: list[dict]) -> None:

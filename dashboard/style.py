@@ -215,7 +215,8 @@ button[role="tab"]:hover p { color: #2a78d6 !important; }
 div[data-baseweb="tab-highlight"] { background-color: #2a78d6 !important; }
 label[data-baseweb="checkbox"] > span:first-child { border-color: #c4cad4 !important; background-color: #ffffff !important; }   /* 체크 안 됨 = 회색 테두리 */
 label[data-baseweb="checkbox"]:has(input:checked) > span:first-child { background-color: #2a78d6 !important; border-color: #2a78d6 !important; }
-div[data-baseweb="select"] > div:focus-within, div[data-baseweb="input"]:focus-within { border-color: #2a78d6 !important; }
+div[data-baseweb="select"] > div:focus-within, div[data-baseweb="input"]:focus-within,
+div[data-baseweb="textarea"]:focus-within { border-color: #2a78d6 !important; }   /* textarea: 기획안 검토 '직접 입력' 칸 */
 a, a:visited { color: #2a78d6; }
 /* 본문의 강조(primary) 버튼은 모두 파랑 — Streamlit 기본 강조색(빨강)이 보이지 않게 (기획안 검토 '검토 시작' 등, 사이드바는 위 옅은 파랑 규칙) */
 .stMain button[data-testid="stBaseButton-primary"] { background: #2a78d6 !important; border-color: #2a78d6 !important; color: #ffffff !important; }

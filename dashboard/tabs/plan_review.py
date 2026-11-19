@@ -95,9 +95,9 @@ div[class*="st-key-pr_row_"] [data-testid="stColumn"]:first-child {
   box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 12px rgba(16,24,40,.05); position: relative; font-size: .86rem; line-height: 1.5; }
 .pr-card::before { content: ""; position: absolute; left: -1.05rem; top: 1.1rem; width: 1.05rem; border-top: 2px solid #2a78d6; }  /* 문단과 잇는 선 */
 .pr-card.adj { border-color: #f0d3ad; } .pr-card.adj::before { border-top-color: #e0a458; }   /* 비슷한 기술만 있는 카드 = 주황 */
-.pr-sec + .pr-sec { border-top: 1px dashed #c9d2df; margin-top: .55rem; padding-top: .5rem; }   /* 같은 일 / 비슷한 기술 나누는 선 */
+.pr-sec + .pr-sec { border-top: 1px solid #dfe4ec; margin-top: .9rem; padding-top: .85rem; }   /* 일치 / 유사 나누는 선 (위아래 여백) */
 /* 일치·유사 제목: 검정 글자 + 형광펜(글자 아래쪽 절반을 칠함). 일치 = 파랑, 유사 = 주황 */
-.pr-sec .head { display: inline-block; font-size: .8rem; font-weight: 800; color: #1f2733; padding: 0 .2rem; margin-left: -.2rem;
+.pr-sec .head { display: inline-block; font-size: .95rem; font-weight: 800; color: #1f2733; padding: 0 .2rem; margin-left: -.2rem;
   background: linear-gradient(transparent 50%, #c9defa 50%, #c9defa 92%, transparent 92%); }
 .pr-sec .sub { font-size: .7rem; color: #8592a3; margin-bottom: .25rem; }
 .pr-sec.adj .head { background: linear-gradient(transparent 50%, #fbd9a8 50%, #fbd9a8 92%, transparent 92%); }
@@ -264,7 +264,7 @@ def _conclusion(r: dict) -> None:
             if ys:
                 cells.append(f'<span class="tag {kind}">{src}</span>' + " · ".join(ys))
         if adj:
-            cells.append('<span class="sim">비슷한 기술</span>' + " · ".join(case(x) for x in adj))
+            cells.append('<span class="sim">유사 기술</span>' + " · ".join(case(x) for x in adj))
         if not xs:
             cells.append('<span class="none">공시·뉴스에서 같은 사례를 찾지 못했어요</span>')
         rows.append(f'<div class="map"><div class="part">{html.escape(_label(r, n))}</div><div class="cases">{"<br>".join(cells)}</div></div>')

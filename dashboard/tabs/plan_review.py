@@ -298,8 +298,8 @@ def _ask_chatbot(r: dict) -> None:
             qs.append((corp, k, f"{corp}의 {k}에 대해 알려주세요.", [c for c in [cid.get(n) or cid.get(str(n))] if c]))
     if not qs:
         return
-    st.markdown("##### 💬 이 사례를 공시 챗봇에 물어보기")
-    st.caption("누르면 공시 챗봇 새 대화에서 바로 답해요 (정기공시 근거 · 출처 링크). 기획안 검토 결과는 그대로 남아 있어요.")
+    st.markdown("##### 💬 구체적인 사례 물어보기")
+    st.caption("누르면 **공시 챗봇 새 대화에서 바로 답해요.** 기획안 검토 결과는 그대로 남아요.")
     for col, (i, (corp, k, q, ids)) in zip(st.columns(2) * ((len(qs) + 1) // 2), enumerate(qs)):
         col.button(f"{corp} · {k}", key=f"pr_ask_{i}", width="stretch", icon=":material/forum:",
                    on_click=_to_chatbot, args=(q, ids), help=q)
@@ -312,8 +312,8 @@ def _report(r: dict, label: str) -> None:
         return
     st.markdown(DOC_CSS, unsafe_allow_html=True)
     _conclusion(r)
-    _ask_chatbot(r)
     by, gaps = _items(r), set(r.get("gaps") or [])
+    st.markdown("##### 🔍 매칭 결과")   # 왼쪽 기획안 ↔ 오른쪽 매칭 사례
     with st.container(key="pr_doc", gap=None):
         head_l, head_r = st.columns([3, 2], gap="large")
         head_l.markdown('<div class="pr-col-head">📄 기획안</div>', unsafe_allow_html=True)
@@ -344,6 +344,7 @@ def _report(r: dict, label: str) -> None:
                 elif i in gaps:
                     right.markdown(GAP_CARD, unsafe_allow_html=True)
     st.caption("문서는 올린 파일에서 읽은 글자로 다시 그린 것이라 원본의 표·그림·글꼴은 보이지 않아요.")
+    _ask_chatbot(r)   # 맨 아래: 공시 사례를 챗봇에 물어보는 버튼
 
 
 # ---------- 기록 (파일 하나 = 기획안 하나, 챗봇 대화 기록과 같은 방식) ----------

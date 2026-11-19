@@ -206,8 +206,9 @@ def render(df: pd.DataFrame, period) -> None:
                 big=True)
     neutral = (rel["sentiment"] == "neutral").mean()
     ui.kpis([("관련 기사", f"{len(rel):,}건", f"전체 기사의 {len(rel) / len(df):.0%}"),
-             ("논조 중립 (사실 전달)", f"{neutral:.0%}", "출시·제휴·실적 발표 위주"),
-             ("우려 논조 (LLM)", f"{int((rel['sentiment'] == 'negative').sum())}건", "사람이 거른 목록은 아래")], key="q2")
+             ("AI 활용 중립 반응", f"{neutral:.0%}", "출시·제휴·실적 발표 위주"),
+             # 우려 기사(사람 검수 목록)에서 많이 나온 주제: 일자리 대체 · 과장·허위 홍보 · 보안·조작
+             ("AI 활용 우려 반응", f"{int((rel['sentiment'] == 'negative').sum())}건", "일자리 대체 · 과장·허위 홍보 · 보안·조작 위주")], key="q2")
 
     with st.container(border=True, key="card_q2_trend"):
         ui.section("분기별 이슈 비중", ui.ICON_TREND)

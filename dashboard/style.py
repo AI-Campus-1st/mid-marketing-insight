@@ -339,7 +339,7 @@ _SVG = ('<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="cur
 ICON_CALENDAR = _SVG.format('<rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>')
 ICON_CLOCK = _SVG.format('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/>')
 ICON_TREND = _SVG.format('<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>')                        # 꺾은선 차트
-ICON_RANK = _SVG.format('<path d="M4 6h16M4 12h11M4 18h6"/>')                                         # 순위 막대
+ICON_RANK = _SVG.format('<circle cx="12" cy="15" r="6"/><path d="M8.5 10.2 6 2.5h4l2 5 2-5h4l-2.5 7.7"/><path d="M12 12.5v5"/>')   # 메달 (순위)
 ICON_ALERT = _SVG.format('<path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.3"/>')            # 주의
 
 

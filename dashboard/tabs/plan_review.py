@@ -120,6 +120,7 @@ div[class*="st-key-pr_row_"] [data-testid="stColumn"]:first-child {
 .st-key-hl_pr_concl [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }   /* 안내 문구가 상자 밖으로 나가지 않게 */
 /* '매칭 결과'·'구체적인 사례 물어보기' 소제목: 다른 소제목(16.8px)보다 크게 */
 .st-key-pr_h_match h5, .st-key-pr_h_ask h5 { font-size: 1.3rem !important; }
+.st-key-pr_h_match, .st-key-pr_h_ask { margin-top: 2rem; }   /* 섹션 사이를 넉넉히 띄워 구분 (결과 요약 ↔ 매칭 결과 ↔ 사례 물어보기) */
 .pr-ask-sub { font-size: .875rem; color: #1f2733; margin-bottom: 1.1rem; }   /* 챗봇 버튼 설명: 검정. 아래 버튼과 띄움 */
 /* 챗봇 물어보기 버튼: 말풍선 모양 (왼쪽 아래 꼬리). 기본 흰 바탕 + 회색 테두리 → 마우스를 대면 옅은 파랑 + 파랑 테두리('＋ 새 기획안'과 같은 색) */
 div[class*="st-key-pr_ask_"] button { background: #ffffff !important; border: 1px solid #d5dbe5 !important;

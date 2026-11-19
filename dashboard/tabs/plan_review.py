@@ -124,7 +124,7 @@ div[class*="st-key-pr_row_"] [data-testid="stColumn"]:first-child {
 /* 챗봇 물어보기 버튼: 결과 요약 상자와 같은 옅은 파랑 바탕 + 파랑 테두리 + 둥근 모서리, 글자는 소제목처럼 굵게 */
 div[class*="st-key-pr_ask_"] button { background: #f2f7fd !important; border: 1px solid #b4d0f1 !important; border-radius: 16px !important; }
 div[class*="st-key-pr_ask_"] button:hover { background: #e3eefb !important; border-color: #8fb8ea !important; }
-div[class*="st-key-pr_ask_"] button p { font-weight: 800 !important; letter-spacing: normal; color: #1f2733 !important; }
+div[class*="st-key-pr_ask_"] button p { font-weight: 800 !important; letter-spacing: normal; color: #2a78d6 !important; }   /* 글자 파랑 */
 /* 결과 요약 상자 안 여백: 양옆과 아래를 위(상자 위 → '결과 요약' 글자, 약 29px)와 같게 */
 div.st-key-hl_pr_concl { padding: 5.6px 28px 28px 28px !important; }
 </style>"""
@@ -310,7 +310,7 @@ def _ask_chatbot(r: dict) -> None:
     st.markdown('<div class="pr-ask-sub">누르면 <b>공시 챗봇 새 대화에서 바로 답해요.</b> 기획안 검토 결과는 그대로 남아요.</div>',
                 unsafe_allow_html=True)
     for col, (i, (corp, k, q, ids)) in zip(st.columns(2) * ((len(qs) + 1) // 2), enumerate(qs)):
-        col.button(f"{corp} · {k}", key=f"pr_ask_{i}", width="stretch", icon=":material/forum:",
+        col.button(f"{corp} · {k}", key=f"pr_ask_{i}", width="stretch", icon="💬",   # 소제목 '💬 구체적인 사례 물어보기'와 같은 아이콘
                    on_click=_to_chatbot, args=(q, ids), help=q)
 
 

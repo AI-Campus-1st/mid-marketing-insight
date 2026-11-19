@@ -128,7 +128,7 @@ div[class*="st-key-pr_ask_"] button { background: #f2f7fd !important; border: 1p
 div[class*="st-key-pr_ask_"] button::before { content: ""; position: absolute; left: -10px; bottom: -1px; width: 12px; height: 14px;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='14' viewBox='0 0 12 14'%3E%3Cpath d='M11 0 L11 13.5 L0.5 13.5 Q8 12 11 0 Z' fill='%23f2f7fd'/%3E%3Cpath d='M11 0 Q8 12 0.5 13.5 L12 13.5' fill='none' stroke='%23b4d0f1' stroke-width='1'/%3E%3C/svg%3E") no-repeat; }
 div[class*="st-key-pr_ask_"] button:hover { border-color: #8fb8ea !important; box-shadow: 0 2px 8px rgba(42, 120, 214, .15); }
-div[class*="st-key-pr_ask_"] button p { font-size: .875rem !important; font-weight: 800 !important; letter-spacing: normal; color: #2a78d6 !important; }   /* 글자 파랑, 본문보다 작게 */
+div[class*="st-key-pr_ask_"] button p { font-size: .875rem !important; font-weight: 800 !important; letter-spacing: normal; color: #1f2733 !important; }   /* 글자 검정, 본문보다 작게 */
 /* 결과 요약 상자 안 여백: 양옆과 아래를 위(상자 위 → '결과 요약' 글자, 약 29px)와 같게 */
 div.st-key-hl_pr_concl { padding: 5.6px 28px 28px 28px !important; }
 </style>"""

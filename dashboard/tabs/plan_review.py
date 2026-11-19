@@ -134,6 +134,11 @@ BTN_CSS = """<style>
   85% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
 @keyframes pr-toast-b { 0% { opacity: 0; transform: translateY(-4px); } 6% { opacity: 1; transform: none; }
   85% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+/* 결과 화면 맨 위: 첨부 파일(작은 회색) · AI 활용 영역 해시태그 필(사이드바 '＋ 새 기획안'과 같은 옅은 파랑) */
+.pr-meta { font-size: .9rem; color: #6b7686; }
+.pr-tags { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .6rem; }
+.pr-tag { display: inline-block; padding: .28rem .75rem; border-radius: 999px; background: #eaf2fb; border: 1px solid #aac9ef;
+  color: #2a78d6; font-size: .85rem; font-weight: 600; }
 /* '직접 입력' 소제목 옆 작고 흐린 보충 글 */
 .pr-hint { font-size: .82rem; font-weight: 400; color: #8a93a3; margin-left: .35rem; }
 /* 제목과 설명 사이를 조금 띄움 */
@@ -295,9 +300,7 @@ def _ask_chatbot(r: dict) -> None:
 
 
 def _report(r: dict, label: str) -> None:
-    p = r["plan"]
-    st.markdown(f"##### {p['title'] or '(제목 없음)'}")
-    st.caption(f"{label} · AI 활용 영역: {', '.join(p['areas']) or '없음'}")
+    # 기획안 제목·첨부 파일·AI 활용 영역은 화면 맨 위(render)에서 그림
     if not r["ok"]:
         st.warning(r["message"] + " AI 를 어디에 어떻게 쓰려는지가 드러나게 써 주세요.")
         return
@@ -439,11 +442,20 @@ def render() -> None:
         st.session_state.pop("pr_result")   # 옛 버전 코드로 만든 결과 (문단 정보 없음) — 다시 검토해야 함
         res = None
     head, clear = st.columns([5, 1], vertical_alignment="bottom")
-    head.title(TITLE)
+    # 맨 위: 입력 화면은 '기획안 검토' + 설명, 결과 화면은 그 자리에 기획안 제목 + 첨부 파일 + AI 활용 영역 해시태그
+    plan = res[0].get("plan", {}) if res is not None else {}
+    head.title(TITLE if res is None else (plan.get("title") or "(제목 없음)"))
     if res is not None and st.session_state.get("pr_id"):
         clear.button("이 기획안 지우기", width="stretch", on_click=_delete)
     with st.container(key="pr_tagline"):   # key: 제목과의 간격 (BTN_CSS)
-        st.markdown(TAGLINE)
+        if res is None:
+            st.markdown(TAGLINE)
+        else:
+            # 해시태그는 띄어쓰기 없이 (#AI에이전트), 영역 하나 = 필 하나
+            tags = "".join(f'<span class="pr-tag">#{html.escape(a.replace(" ", ""))}</span>' for a in plan.get("areas") or [])
+            tags = tags or '<span class="pr-meta">AI 활용 영역 없음</span>'
+            st.markdown(f'<div class="pr-meta">{html.escape(res[1])}</div><div class="pr-tags">{tags}</div>',
+                        unsafe_allow_html=True)
 
     if res is None:  # 결과가 나오면 입력 칸은 숨긴다 (다시 하려면 '＋ 새 기획안')
         got = _input()

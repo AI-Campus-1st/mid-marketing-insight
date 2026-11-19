@@ -55,6 +55,8 @@ div[class*="st-key-kpi_"] [data-testid="stMarkdownContainer"] { margin-bottom: 0
             background: #e5effa; color: #2a78d6; font-size: 1rem; }
 .sec-title { font-size: 1.12rem; font-weight: 800; letter-spacing: -.01em; }
 .sec-sub { margin-left: auto; font-size: .8rem; color: #8a93a3; font-style: italic; }
+/* 리포트 Q1 카드(월별 기사량 · 급증 타임라인) 안 제목: 카드 위 여백이 커 보여서 줄임 */
+.st-key-card_q1_chart .sec, .st-key-card_q1_timeline .sec { margin-top: .6rem; }
 .pill { display: inline-block; padding: .12rem .55rem; border-radius: 999px; font-size: .72rem; font-weight: 700;
         letter-spacing: .02em; vertical-align: middle; }
 .pill-gray { background: #ebecef; color: #5b6575; }

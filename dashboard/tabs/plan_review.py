@@ -3,7 +3,7 @@
 
 사용자: 5개사 밖 중견 대행사 신사업기획팀장 (메인 페르소나, 이슈 #28) — "우리 기획과 같은 일을 경쟁사가 실제로 했나?"
 - 입력: 파일(txt·md·pdf·docx) 또는 붙여 넣기, 예시 기획안 버튼 → '검토 시작'. 결과가 나오면 입력 칸은 숨긴다 ('＋ 새 기획안'으로 다시)
-- 결과: 검토 결론(실행 부분 몇 곳에 같은 일 사례가 있는지 + 기획 부분 ↔ 회사 · 사업 키워드 짝) → 왼쪽 기획안 문서(사례가 붙은 문단을 칠함) ·
+- 결과: 결과 요약(실행 부분 몇 곳에 같은 일 사례가 있는지 + 기획 부분 ↔ 회사 · 사업 키워드 짝) → 왼쪽 기획안 문서(사례가 붙은 문단을 칠함) ·
   오른쪽 그 문단의 사례 카드('같은 일을 이미 한 곳' / '비슷한 기술을 다른 일에 쓴 곳', 공시·뉴스 배지)
   (문단은 rag/plan_review.split_paras, 사례 ↔ 문단 연결은 LLM 의 para, 결론은 코드가 사례로 만든 짝 목록 — plan_v6)
 - 사례 없는 문단이 COLLAPSE_MIN 개 이상 이어지면 앞뒤만 두고 가운데는 '⋯ 중략'으로 접는다 (눌러서 펼침)
@@ -111,11 +111,13 @@ div[class*="st-key-pr_row_"] [data-testid="stColumn"]:first-child {
 .pr-concl .cases { flex: 1; }
 .pr-concl .tag { display: inline-block; font-size: .7rem; font-weight: 700; border-radius: 5px; padding: 0 .35rem; margin-right: .35rem; }
 .pr-concl .tag.d { background: #e3eefc; color: #1d5fae; } .pr-concl .tag.n { background: #fdf0e1; color: #a35a00; }
-.pr-concl .sim { display: inline-block; font-size: .7rem; font-weight: 700; color: #5b6676; background: #eef1f5; border-radius: 5px; padding: 0 .35rem; margin-right: .35rem; }
+.pr-concl .sim { display: inline-block; font-size: .7rem; font-weight: 700; color: #b0336f; background: #fce8f1;   /* 핑크: 파랑 상자 배경과 구분 */ border-radius: 5px; padding: 0 .35rem; margin-right: .35rem; }
 .pr-concl .yr { color: #8592a3; font-size: .78rem; }
 .pr-concl .none { color: #8592a3; }
 .pr-concl .note { margin-top: .5rem; font-size: .75rem; color: #8592a3; }
 .st-key-hl_pr_concl [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }   /* 안내 문구가 상자 밖으로 나가지 않게 */
+/* 결과 요약 상자 안 여백: 양옆과 아래를 위(상자 위 → '결과 요약' 글자, 약 29px)와 같게 */
+div.st-key-hl_pr_concl { padding: 5.6px 28px 28px 28px !important; }
 </style>"""
 
 
@@ -220,7 +222,7 @@ def _label(r: dict, n: int) -> str:
 
 
 def _conclusion(r: dict) -> None:
-    """검토 결론 — 모두 코드가 만든다 (LLM 은 기획 부분 이름·사업 키워드만):
+    """결과 요약(옛 이름 검토 결론) — 모두 코드가 만든다 (LLM 은 기획 부분 이름·사업 키워드만):
     한 줄 요약(실행 방안 몇 개 중 몇 개에 같은 일 사례) + 기획 부분마다 '회사 · 사업 키워드'"""
     by, gaps = _items(r), set(r.get("gaps") or [])
     kw = {"d": r["disclosure"].get("keywords") or {}, "n": r["news"].get("keywords") or {}}
@@ -264,7 +266,7 @@ def _conclusion(r: dict) -> None:
         rows.append(f'<div class="map"><div class="part">{html.escape(_label(r, n))}</div><div class="cases">{"<br>".join(cells)}</div></div>')
     note = '<div class="note">기획 부분 이름과 사업 키워드만 AI 가 줄였고, 짝은 찾은 사례(공시·뉴스) 그대로예요. 기획의 결과는 예측하지 않아요.</div>'
     with st.container(key="hl_pr_concl"):
-        st.markdown("##### 🧭 검토 결론")
+        st.markdown("##### 🧭 결과 요약")
         st.markdown(f'<div class="pr-concl">{lead + ", ".join(bits)}.{"".join(rows)}{note}</div>', unsafe_allow_html=True)
 
 

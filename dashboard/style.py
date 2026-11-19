@@ -67,7 +67,7 @@ div[class*="st-key-kpi_"] [data-testid="stMarkdownContainer"] { margin-bottom: 0
 .page-sub { color: #5b6575; margin-bottom: 1rem; }
 .lead { font-size: 1.12rem; font-weight: 700; line-height: 1.5; margin: .4rem 0 1rem; }
 .lead b { color: #2a78d6; }
-.lead.lead-lg { font-size: 1.45rem; letter-spacing: -.01em; }   /* 페이지 제목(2.15rem)보다 작고 보통 결론(1.12rem)보다 크게 */
+.lead.lead-lg { font-size: 1.45rem; letter-spacing: -.01em; word-break: keep-all; }   /* 페이지 제목(2.15rem)보다 작고 보통 결론(1.12rem)보다 크게. keep-all: 단어 중간에서 줄이 바뀌지 않게 */
 
 /* 세로 타임라인 (레퍼런스 로드맵) */
 .tl { list-style: none; padding: 0; margin: .3rem 0 0; }

@@ -175,7 +175,7 @@ def _concerns(period) -> None:
     g = df.sort_values("published_date").groupby("group", sort=False).agg(
         date=("date", "first"), title=("title", "first"), media=("media", "first"), url=("url", "first"),
         n=("doc_id", "size"), name=("event_group", "first")).sort_values("date", ascending=False)
-    cards = [{"tag": f"같은 사건 기사 {r.n}건" if r.n > 1 else "우려 논조", "title": r.title,
+    cards = [{"title": r.title,   # 카드 윗줄 꼬리표('우려 논조'·'같은 사건 기사 n건')는 없앰 — 같은 사건 기사는 여전히 하나로 묶음
               "meta": f"{r.media} · {r.date}", "url": r.url} for r in g.itertuples()]
     # 처음엔 최근 5개만, 나머지는 '더보기'로 펼침 (다시 누르면 접힘)
     opened = st.session_state.get("q2_concerns_all", False)

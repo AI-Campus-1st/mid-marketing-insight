@@ -88,20 +88,20 @@ div[class*="st-key-pr_row_"] [data-testid="stColumn"]:first-child {
 .pr-para { white-space: pre-wrap; font-size: .93rem; line-height: 1.65; color: #1f2733; padding: .25rem .6rem; margin: .15rem -.6rem .35rem;
   border-radius: 6px; border-left: 3px solid transparent; }
 .pr-para.hl { background: #e3eefc; border-left-color: #2a78d6; }          /* 같은 영역 사례가 붙은 문단 */
-.pr-para.hl-adj { background: #f1f4f8; border-left-color: #9aa8bb; }      /* 인접 영역 사례만 붙은 문단 */
+.pr-para.hl-adj { background: #fdf5ea; border-left-color: #e0a458; }      /* 인접 영역(비슷한 기술) 사례만 붙은 문단 = 주황 */
 .pr-card { background: #ffffff; border: 1px solid #b4d0f1; border-radius: 12px; padding: .65rem .85rem; margin: .1rem 0 .55rem;
   box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 12px rgba(16,24,40,.05); position: relative; font-size: .86rem; line-height: 1.5; }
 .pr-card::before { content: ""; position: absolute; left: -1.05rem; top: 1.1rem; width: 1.05rem; border-top: 2px solid #2a78d6; }  /* 문단과 잇는 선 */
-.pr-card.adj { border-color: #d5dbe5; } .pr-card.adj::before { border-top-color: #9aa8bb; }
+.pr-card.adj { border-color: #f0d3ad; } .pr-card.adj::before { border-top-color: #e0a458; }   /* 비슷한 기술만 있는 카드 = 주황 */
 .pr-sec + .pr-sec { border-top: 1px dashed #c9d2df; margin-top: .55rem; padding-top: .5rem; }   /* 같은 일 / 비슷한 기술 나누는 선 */
 .pr-sec .head { font-size: .78rem; font-weight: 800; color: #1d5fae; }
 .pr-sec .sub { font-size: .7rem; color: #8592a3; margin-bottom: .25rem; }
-.pr-sec.adj .head { color: #5b6676; }
+.pr-sec.adj .head { color: #a35a00; }
 .pr-card.gap { border: 1px dashed #c9d2df; box-shadow: none; background: transparent; color: #6b7686; font-size: .8rem; }
 .pr-card.gap::before { border-top: 2px dashed #c9d2df; }
 .pr-item { margin: .3rem 0; }
 .pr-item .tag { display: inline-block; font-size: .7rem; font-weight: 700; border-radius: 5px; padding: 0 .35rem; margin-right: .3rem; }
-.pr-item .tag.d { background: #e3eefc; color: #1d5fae; } .pr-item .tag.n { background: #fdf0e1; color: #a35a00; }
+.pr-item .tag.d { background: #e3eefc; color: #1d5fae; } .pr-item .tag.n { background: #fce8f1; color: #b0336f; }   /* 뉴스 = 핑크 */
 .pr-item a { font-size: .74rem; color: #6b7686; text-decoration: none; margin-left: .25rem; }
 .pr-col-head { font-size: .8rem; font-weight: 700; color: #6b7686; letter-spacing: .02em; margin-bottom: .6rem; }
 .pr-concl { font-size: .95rem; line-height: 1.7; color: #1f2733; }
@@ -110,8 +110,8 @@ div[class*="st-key-pr_row_"] [data-testid="stColumn"]:first-child {
 .pr-concl .part { flex: 0 0 11rem; font-weight: 800; color: #1d5fae; }
 .pr-concl .cases { flex: 1; }
 .pr-concl .tag { display: inline-block; font-size: .7rem; font-weight: 700; border-radius: 5px; padding: 0 .35rem; margin-right: .35rem; }
-.pr-concl .tag.d { background: #e3eefc; color: #1d5fae; } .pr-concl .tag.n { background: #fdf0e1; color: #a35a00; }
-.pr-concl .sim { display: inline-block; font-size: .7rem; font-weight: 700; color: #b0336f; background: #fce8f1;   /* 핑크: 파랑 상자 배경과 구분 */ border-radius: 5px; padding: 0 .35rem; margin-right: .35rem; }
+.pr-concl .tag.d { background: #e3eefc; color: #1d5fae; } .pr-concl .tag.n { background: #fce8f1; color: #b0336f; }
+.pr-concl .sim { display: inline-block; font-size: .7rem; font-weight: 700; color: #a35a00; background: #fdf0e1;   /* 비슷한 기술 = 주황 (사례 카드의 비슷한 기술 구역과 같은 색) */ border-radius: 5px; padding: 0 .35rem; margin-right: .35rem; }
 .pr-concl .yr { color: #8592a3; font-size: .78rem; }
 .pr-concl .none { color: #8592a3; }
 .pr-concl .note { margin-top: .5rem; font-size: .75rem; color: #8592a3; }

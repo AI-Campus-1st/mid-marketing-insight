@@ -44,7 +44,7 @@ LIGHT_BAR = {"light": "#d6e2f3", "dark": "#2b3a52"}   # 급증이 아닌 달 (�
 
 
 def _chart(m: pd.DataFrame, show_spikes: bool):
-    """AI 언급 기사 월별 막대 — 급증 월만 진한 파랑, 미완 월은 빗금. 전체 기사는 옅은 선, 급증 기준선은 점선"""
+    """AI 언급 기사 월별 막대 — 급증 월만 진한 파랑, 미완 월은 빗금. 급증 기준선은 옅은 실선 (전체 기사 선은 뺌)"""
     c = colors()
     blue = c["verdict"]["제때"]
     x = pd.to_datetime(m.index)
@@ -54,11 +54,9 @@ def _chart(m: pd.DataFrame, show_spikes: bool):
     fig.add_bar(x=x, y=m["ai"], name="AI 언급 기사", marker=dict(color=colors_, cornerradius=6,
                 pattern=dict(shape=["/" if p else "" for p in m["partial"]], fgcolor=blue, solidity=.25)),
                 customdata=(m["ai_share"] * 100).round(0), hovertemplate="%{x|%Y-%m} AI 언급 기사 %{y}건 (전체의 %{customdata:.0f}%)<extra></extra>")
-    fig.add_scatter(x=x, y=m["total"], name="전체 기사", mode="lines", line=dict(color=c["muted"], width=1.5),
-                    hovertemplate="%{x|%Y-%m} 전체 %{y}건<extra></extra>")
     if show_spikes and "spike" in m:
         fig.add_scatter(x=x, y=m["baseline"] * trend.SPIKE_RATIO, name="급증 기준선", mode="lines",
-                        line=dict(color=c["text2"], width=1.2, dash="dot"), hovertemplate="%{x|%Y-%m} 기준선 %{y:.0f}건<extra></extra>")
+                        line=dict(color=c["muted"], width=1.5), opacity=.6, hovertemplate="%{x|%Y-%m} 기준선 %{y:.0f}건<extra></extra>")
         s = m[m["spike"]]
         fig.add_scatter(x=pd.to_datetime(s.index), y=s["ai"], mode="text", showlegend=False, hoverinfo="skip",
                         text=[f"×{r:.1f}" for r in s["ratio"]], textposition="top center", textfont=dict(color=blue, size=13))
@@ -119,7 +117,7 @@ def render(df: pd.DataFrame, period) -> None:
     with left, st.container(border=True, key="card_q1_chart"):
         ui.section("월별 AI 언급 기사", "▮", badge="급증 월만 진하게", badge_kind="blue")
         st.plotly_chart(_chart(m, show_spikes), width="stretch", config={"displayModeBar": False})
-        st.caption("빗금 = 미완 월(2023-10·2026-10, 19일 기준) · 점선 = 급증 기준선 · 선 = 전체 기사")
+        st.caption("빗금 = 미완 월(2023-10·2026-10, 19일 기준) · 옅은 선 = 급증 기준선")
     with right, st.container(border=True, key="card_q1_timeline"):
         ui.section("급증 타임라인", "⏱")
         if spikes or show_spikes:

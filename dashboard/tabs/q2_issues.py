@@ -135,6 +135,7 @@ def _trend_html(share: pd.DataFrame, n: pd.Series, height: int = 430) -> str:
 </script>"""
 
 
+CONCERN_SHOW = 5   # 우려 기사: 처음에 보여 줄 카드 수 (나머지는 '더보기')
 FORMAT_ISSUES = {"제휴·협력", "실적·투자·상장", "행사·시상"}   # 형식 이슈 (내용 이슈와 구분해 옅게)
 LIGHT_BAR = {"light": "#d6e2f3", "dark": "#2b3a52"}
 
@@ -159,7 +160,7 @@ def _topn_chart(rel: pd.DataFrame):
 
 def _concerns(period) -> None:
     # #28 보강 5 (A·B 합의 PR #32): 새 화면 대신 이 목록을 광고주 관점 '도입 전 주의할 점'으로 (영역별 활용 사례는 기획안 검토 화면)
-    ui.section("도입 전 주의할 점 — 우려 기사", ui.ICON_ALERT, badge="사람 검수", badge_kind="orange")
+    ui.section("도입 전 주의할 점 — 우려 기사", ui.ICON_ALERT)
     st.caption("AI 마케팅에서 실제로 논란·반발이 된 사례예요. 카드를 누르면 원문이 열려요.")
     df = dl.concern_articles()
     if df is None:
@@ -174,8 +175,15 @@ def _concerns(period) -> None:
     g = df.sort_values("published_date").groupby("group", sort=False).agg(
         date=("date", "first"), title=("title", "first"), media=("media", "first"), url=("url", "first"),
         n=("doc_id", "size"), name=("event_group", "first")).sort_values("date", ascending=False)
-    ui.mini_cards([{"tag": f"같은 사건 기사 {r.n}건" if r.n > 1 else "우려 논조", "title": r.title,
-                    "meta": f"{r.media} · {r.date}", "url": r.url} for r in g.itertuples()])
+    cards = [{"tag": f"같은 사건 기사 {r.n}건" if r.n > 1 else "우려 논조", "title": r.title,
+              "meta": f"{r.media} · {r.date}", "url": r.url} for r in g.itertuples()]
+    # 처음엔 최근 5개만, 나머지는 '더보기'로 펼침 (다시 누르면 접힘)
+    opened = st.session_state.get("q2_concerns_all", False)
+    ui.mini_cards(cards if opened else cards[:CONCERN_SHOW])
+    if len(cards) > CONCERN_SHOW:
+        st.button("접기" if opened else f"더보기 ({len(cards) - CONCERN_SHOW}건)", key="q2_concerns_more",
+                  icon=":material/expand_less:" if opened else ":material/expand_more:",
+                  on_click=lambda: st.session_state.update(q2_concerns_all=not opened))
 
 
 def render(df: pd.DataFrame, period) -> None:

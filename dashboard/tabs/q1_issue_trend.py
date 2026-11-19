@@ -55,13 +55,22 @@ def _chart(m: pd.DataFrame, show_spikes: bool):
     if show_spikes and "spike" in m:
         fig.add_scatter(x=x, y=m["baseline"] * trend.SPIKE_RATIO, name="급증 기준선", mode="lines",
                         line=dict(color=c["muted"], width=1.5), opacity=.6, hovertemplate="%{x|%Y년 %m월} 기준선 %{y:.0f}건<extra></extra>")
-    fig.add_bar(x=x, y=m["ai"], name="AI 언급 기사", yaxis="y2", marker=dict(color=colors_, cornerradius=6,
+    fig.add_bar(x=x, y=m["ai"], name="AI 언급 기사", yaxis="y2", showlegend=False, marker=dict(color=colors_, cornerradius=6,
                 pattern=dict(shape=["/" if p else "" for p in m["partial"]], fgcolor=blue, solidity=.25)),
                 customdata=(m["ai_share"] * 100).round(0), hovertemplate="%{x|%Y년 %m월} AI 언급 기사 %{y}건 (전체의 %{customdata:.0f}%)<extra></extra>")
     if show_spikes and "spike" in m:
         s = m[m["spike"]]
         fig.add_scatter(x=pd.to_datetime(s.index), y=s["ai"], yaxis="y2", mode="text", showlegend=False, hoverinfo="skip",
                         text=[f"×{r:.1f}" for r in s["ratio"]], textposition="top center", textfont=dict(color=blue, size=13))
+    # 범례는 빈 막대로 따로: 실제 막대를 쓰면 Plotly 가 첫 막대(빗금 있는 미완 월) 모양을 아이콘으로 써서 'AI 언급 기사 = 빗금'처럼 보임
+    legend = [("AI 언급 기사", LIGHT_BAR[mode()], "")]
+    if show_spikes and "spike" in m:
+        legend.append(("급증한 달", blue, ""))
+    if m["partial"].any():
+        legend.append(("일부만 수집된 달", LIGHT_BAR[mode()], "/"))
+    for name, col, shape in legend:
+        fig.add_bar(x=[None], y=[None], name=name, yaxis="y2", hoverinfo="skip",
+                    marker=dict(color=col, pattern=dict(shape=shape, fgcolor=blue, solidity=.25)))
     fig.update_yaxes(title=None, rangemode="tozero", showgrid=True)
     fig = style(fig, height=360)
     fig.update_layout(yaxis2=dict(overlaying="y", matches="y", visible=False, showgrid=False))
@@ -81,8 +90,10 @@ def _chart(m: pd.DataFrame, show_spikes: bool):
     if sum(d.year == x[0].year for d in x) > 4:
         fig.add_annotation(x=x[0] - half, xref="x", y=-.14, yref="paper", text=f"{x[0].year}년", showarrow=False,
                            xanchor="left", yanchor="top", font=dict(color=c["text2"], size=12))
-    # 범례: 막대(AI 언급 기사)를 먼저 — 기준선을 아래층에 그리려고 먼저 넣어서 순서가 뒤집힘
-    fig.update_layout(bargap=.28, legend=dict(x=1, xanchor="right", traceorder="reversed"), margin=dict(l=10, r=10, t=40, b=70))
+    # 범례 순서: AI 언급 기사 · 급증한 달 · 일부만 수집된 달 · 급증 기준선 (기준선은 아래층에 그리려고 먼저 넣었으므로 맨 뒤로)
+    if fig.data and fig.data[0].name == "급증 기준선":
+        fig.data[0].legendrank = 2000
+    fig.update_layout(bargap=.28, barmode="overlay", legend=dict(x=1, xanchor="right"), margin=dict(l=10, r=10, t=40, b=70))
     return fig
 
 
@@ -133,9 +144,9 @@ def render(df: pd.DataFrame, period) -> None:
 
     left, right = st.columns([5, 2], gap="medium")
     with left, st.container(border=True, key="card_q1_chart"):
-        ui.section("월별 AI 언급 기사", "▮", badge="급증 월만 진하게", badge_kind="blue")
+        ui.section("월별 AI 언급 기사량", "▮")
         st.plotly_chart(_chart(m, show_spikes), width="stretch", config={"displayModeBar": False})
-        st.caption("빗금 = 미완 월(2023-10·2026-10, 19일 기준) · 옅은 선 = 급증 기준선")
+        st.caption("빗금 = 일부만 수집된 달 (2023년 10월은 19일부터, 2026년 10월은 19일까지)")
     with right, st.container(border=True, key="card_q1_timeline"):
         ui.section("급증 타임라인", "⏱")
         if spikes or show_spikes:

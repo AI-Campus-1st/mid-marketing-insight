@@ -209,6 +209,9 @@ def render(df: pd.DataFrame, period) -> None:
              ("AI 활용 중립 반응", f"{neutral:.0%}", "출시·제휴·실적 발표 위주"),
              # 우려 기사(사람 검수 목록)에서 많이 나온 주제: 일자리 대체 · 과장·허위 홍보 · 보안·조작
              ("AI 활용 우려 반응", f"{int((rel['sentiment'] == 'negative').sum())}건", "일자리 대체 · 과장·허위 홍보 · 보안·조작 위주")], key="q2")
+    # 긍정(기대) 반응은 카드에서 뺀 이유 (decisions.md Day 5: 새 표본에서 LLM 기대 2건 모두 틀림 · 사람 기대 3건 모두 놓침)
+    pos = int((rel["sentiment"] == "positive").sum())
+    st.caption(f"AI 활용 긍정 반응({pos:,}건, {pos / len(rel):.0%})은 사람이 검수한 표본에서 AI 판정이 맞은 적이 없어 믿기 어려워 카드에서 뺐어요.")
 
     with st.container(border=True, key="card_q2_trend"):
         ui.section("분기별 이슈 비중", ui.ICON_TREND)

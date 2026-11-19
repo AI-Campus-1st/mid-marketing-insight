@@ -96,11 +96,9 @@ div[class*="st-key-pr_row_"] [data-testid="stColumn"]:first-child {
 .pr-card::before { content: ""; position: absolute; left: -1.05rem; top: 1.1rem; width: 1.05rem; border-top: 2px solid #2a78d6; }  /* 문단과 잇는 선 */
 .pr-card.adj { border-color: #f0d3ad; } .pr-card.adj::before { border-top-color: #e0a458; }   /* 비슷한 기술만 있는 카드 = 주황 */
 .pr-sec + .pr-sec { border-top: 1px solid #dfe4ec; margin-top: .9rem; padding-top: .85rem; }   /* 일치 / 유사 나누는 선 (위아래 여백) */
-/* 일치·유사 제목: 검정 글자 + 형광펜(글자 아래쪽 절반을 칠함). 일치 = 파랑, 유사 = 주황 */
-.pr-sec .head { display: inline-block; font-size: .95rem; font-weight: 800; color: #1f2733; padding: 0 .2rem; margin-left: -.2rem;
-  background: linear-gradient(transparent 50%, #c9defa 50%, #c9defa 92%, transparent 92%); }
+/* 일치·유사 제목: 검정 굵은 글자 (사례 글자보다 크게) */
+.pr-sec .head { font-size: .95rem; font-weight: 800; color: #1f2733; }
 .pr-sec .sub { font-size: .7rem; color: #8592a3; margin-bottom: .25rem; }
-.pr-sec.adj .head { background: linear-gradient(transparent 50%, #fbd9a8 50%, #fbd9a8 92%, transparent 92%); }
 .pr-card.gap { border: 1px dashed #c9d2df; box-shadow: none; background: transparent; color: #6b7686; font-size: .8rem; }
 .pr-card.gap::before { border-top: 2px dashed #c9d2df; }
 .pr-item { margin: .3rem 0; }

@@ -118,6 +118,13 @@ div[class*="st-key-pr_row_"] [data-testid="stColumn"]:first-child {
 .pr-concl .none { color: #8592a3; }
 .pr-concl .note { margin-top: .5rem; font-size: .75rem; color: #8592a3; }
 .st-key-hl_pr_concl [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }   /* 안내 문구가 상자 밖으로 나가지 않게 */
+/* '매칭 결과'·'구체적인 사례 물어보기' 소제목: 다른 소제목(16.8px)보다 크게 */
+.st-key-pr_h_match h5, .st-key-pr_h_ask h5 { font-size: 1.3rem !important; }
+.pr-ask-sub { font-size: .875rem; color: #1f2733; margin-bottom: 1.1rem; }   /* 챗봇 버튼 설명: 검정. 아래 버튼과 띄움 */
+/* 챗봇 물어보기 버튼: 결과 요약 상자와 같은 옅은 파랑 바탕 + 파랑 테두리 + 둥근 모서리, 글자는 소제목처럼 굵게 */
+div[class*="st-key-pr_ask_"] button { background: #f2f7fd !important; border: 1px solid #b4d0f1 !important; border-radius: 16px !important; }
+div[class*="st-key-pr_ask_"] button:hover { background: #e3eefb !important; border-color: #8fb8ea !important; }
+div[class*="st-key-pr_ask_"] button p { font-weight: 800 !important; letter-spacing: normal; color: #1f2733 !important; }
 /* 결과 요약 상자 안 여백: 양옆과 아래를 위(상자 위 → '결과 요약' 글자, 약 29px)와 같게 */
 div.st-key-hl_pr_concl { padding: 5.6px 28px 28px 28px !important; }
 </style>"""
@@ -298,8 +305,10 @@ def _ask_chatbot(r: dict) -> None:
             qs.append((corp, k, f"{corp}의 {k}에 대해 알려주세요.", [c for c in [cid.get(n) or cid.get(str(n))] if c]))
     if not qs:
         return
-    st.markdown("##### 💬 구체적인 사례 물어보기")
-    st.caption("누르면 **공시 챗봇 새 대화에서 바로 답해요.** 기획안 검토 결과는 그대로 남아요.")
+    with st.container(key="pr_h_ask"):   # key: 소제목 크게 (DOC_CSS)
+        st.markdown("##### 💬 구체적인 사례 물어보기")
+    st.markdown('<div class="pr-ask-sub">누르면 <b>공시 챗봇 새 대화에서 바로 답해요.</b> 기획안 검토 결과는 그대로 남아요.</div>',
+                unsafe_allow_html=True)
     for col, (i, (corp, k, q, ids)) in zip(st.columns(2) * ((len(qs) + 1) // 2), enumerate(qs)):
         col.button(f"{corp} · {k}", key=f"pr_ask_{i}", width="stretch", icon=":material/forum:",
                    on_click=_to_chatbot, args=(q, ids), help=q)
@@ -313,7 +322,8 @@ def _report(r: dict, label: str) -> None:
     st.markdown(DOC_CSS, unsafe_allow_html=True)
     _conclusion(r)
     by, gaps = _items(r), set(r.get("gaps") or [])
-    st.markdown("##### 🔍 매칭 결과")   # 왼쪽 기획안 ↔ 오른쪽 매칭 사례
+    with st.container(key="pr_h_match"):   # 왼쪽 기획안 ↔ 오른쪽 매칭 사례. key: 소제목 크게 (DOC_CSS)
+        st.markdown("##### 🔍 매칭 결과")
     with st.container(key="pr_doc", gap=None):
         head_l, head_r = st.columns([3, 2], gap="large")
         head_l.markdown('<div class="pr-col-head">📄 기획안</div>', unsafe_allow_html=True)
@@ -332,7 +342,7 @@ def _report(r: dict, label: str) -> None:
                 left, right = st.columns([3, 2], gap="large")
                 if i in hidden:   # 사례 없는 문단이 길게 이어지는 곳: '중략'으로 접고 눌러서 펼침
                     run = [j for j in range(i, n + 1) if all(k in hidden for k in range(i, j + 1))]
-                    with left.expander(f"⋯ 중략 · 사례가 없는 문단 {len(run)}개 ⋯"):
+                    with left.expander("⋯ 중략 ⋯"):
                         st.markdown("".join(f'<div class="pr-para">{html.escape(r["paras"][j - 1])}</div>' for j in run),
                                     unsafe_allow_html=True)
                     continue

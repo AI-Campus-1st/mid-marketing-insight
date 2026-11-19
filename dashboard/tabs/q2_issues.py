@@ -23,11 +23,19 @@ PARTIAL_Q = {"2023Q4", "2026Q4"}   # 수집 기간이 분기 중간에 시작·�
 MIN_QUARTER_N = 20                  # 분기 관련 기사가 이보다 적으면 비중이 흔들려 점을 흐리게
 
 ACCURACY = """
-- **관련 기사** = LLM(`news_v4`)이 '광고·마케팅 산업 주체의 산업 활동'으로 분류한 기사. 새 표본 30건(A·B 합의 판정) 기준 관련 정확도 77%, 관련으로 고른 기사의 정밀도 약 73%.
-- **이슈** = 고정 목록 15개 중 기사마다 1~3개. 새 표본 기준 사람이 고른 이슈와 하나 이상 겹침 90%, LLM 이 고른 이슈의 정밀도 63% · 재현율 64%.
-- 비중 = 그 분기 관련 기사 중 그 이슈가 붙은 기사 비율 (한 기사에 이슈가 여럿이라 합이 100% 를 넘음).
-- 2023Q4(10-19부터)·2026Q4(10-19까지)는 일부 기간만 들어간 분기라 빈 점으로 표시.
+- **관련 기사** 분류 (LLM `news_v4`): 새 표본 30건(A·B 합의 판정) 기준 관련 정확도 77%, 관련으로 고른 기사의 정밀도 약 73%.
+- **이슈** 분류 (고정 목록 15개 중 기사마다 1~3개): 사람이 고른 이슈와 하나 이상 겹침 90%, LLM 이 고른 이슈의 정밀도 63% · 재현율 64%.
 """
+
+
+def _yq(q: str) -> str:
+    """'2024Q1' → '2024년 1분기'"""
+    return f"{q[:4]}년 {q[-1]}분기"
+
+
+def _yq_range(a: str, b: str) -> str:
+    """'2024Q1', '2024Q3' → '2024년 1~3분기' (해가 다르면 '2024년 4분기~2025년 2분기')"""
+    return f"{a[:4]}년 {a[-1]}~{b[-1]}분기" if a[:4] == b[:4] else f"{_yq(a)}~{_yq(b)}"
 
 
 def _issue_colors() -> dict:
@@ -48,17 +56,29 @@ def _trend_chart(share: pd.DataFrame, n: pd.Series):
     for iss in TREND_ISSUES:
         col = ic[iss]
         fig.add_scatter(x=full, y=share.loc[full, iss], name=iss, mode="lines+markers", line=dict(color=col, width=2),
-                        marker=dict(size=7, color=col), customdata=n.loc[full],
-                        hovertemplate=f"%{{x}} {iss} %{{y:.0f}}% (관련 기사 %{{customdata}}건)<extra></extra>")
+                        marker=dict(size=7, color=col), customdata=[[n[q], _yq(q)] for q in full],
+                        hovertemplate=f"%{{customdata[1]}} {iss} %{{y:.0f}}% (관련 기사 %{{customdata[0]}}건)<extra></extra>")
         part = [q for q in share.index if q in PARTIAL_Q]
         if part:
             fig.add_scatter(x=part, y=share.loc[part, iss], mode="markers", showlegend=False,
-                            marker=dict(size=8, color="rgba(0,0,0,0)", line=dict(color=col, width=2)),
-                            hovertemplate=f"%{{x}} {iss} %{{y:.0f}}% (일부 기간)<extra></extra>")
+                            marker=dict(size=8, color="rgba(0,0,0,0)", line=dict(color=col, width=2)), customdata=[_yq(q) for q in part],
+                            hovertemplate=f"%{{customdata}} {iss} %{{y:.0f}}% (일부 수집)<extra></extra>")
     # 선이 5개라 끝 라벨 대신 범례(위쪽) + 마우스 올리면 이슈 이름 (끝 값이 비슷해 라벨이 겹침)
     fig.update_yaxes(title=None, ticksuffix="%", rangemode="tozero")
-    fig.update_xaxes(title=None, categoryorder="array", categoryarray=list(share.index), showgrid=False)
-    return style(fig, height=420)
+    qs = list(share.index)
+    fig.update_xaxes(title=None, categoryorder="array", categoryarray=qs, showgrid=False,
+                     tickvals=qs, ticktext=[f"{q[-1]}분기" for q in qs], tickangle=0)
+    fig = style(fig, height=420)
+    # 연도 칸 (Q1 월별 차트와 같은 형식): 4분기와 1분기 사이에 옅은 세로선(날짜 줄 아래까지) + 선과 선 사이 가운데에 연도
+    for k, q in enumerate(qs):
+        if q.endswith("Q1") and k > 0:
+            fig.add_shape(type="line", xref="x", yref="paper", x0=k - .5, x1=k - .5, y0=-.09, y1=1,
+                          line=dict(color=c["grid"], width=1.5), layer="below")
+    for y in sorted({q[:4] for q in qs}):
+        ks = [k for k, q in enumerate(qs) if q[:4] == y]
+        fig.add_annotation(x=(ks[0] + ks[-1]) / 2, xref="x", y=-.1, yref="paper", text=f"{y}년", showarrow=False,
+                           xanchor="center", yanchor="top", font=dict(color=c["text2"], size=12))
+    return fig
 
 
 DIM, FOCUS_OTHERS = 0.28, 0.1   # 평소 선 투명도 / 한 이슈에 마우스를 올렸을 때 나머지 선
@@ -75,7 +95,7 @@ def _trend_html(share: pd.DataFrame, n: pd.Series, height: int = 430) -> str:
     for i, (tr, iss) in enumerate(zip(fig.data, names)):
         tr.opacity = DIM
         groups[iss].append(i)
-    fig.update_layout(showlegend=False, height=height - 40, margin=dict(l=10, r=10, t=10, b=10),
+    fig.update_layout(showlegend=False, height=height - 40, margin=dict(l=10, r=10, t=10, b=56),
                       font=dict(family=FONT))
     plot = fig.to_html(full_html=False, include_plotlyjs="cdn", div_id="q2trend",
                        config={"displayModeBar": False, "responsive": True}, default_width="100%")
@@ -136,8 +156,8 @@ def _topn_chart(rel: pd.DataFrame):
 
 def _concerns(period) -> None:
     # #28 보강 5 (A·B 합의 PR #32): 새 화면 대신 이 목록을 광고주 관점 '도입 전 주의할 점'으로 (영역별 활용 사례는 기획안 검토 화면)
-    ui.section("도입 전 주의할 점 — 우려 기사", "!", badge="사람 검수", badge_kind="orange",
-               sub="AI 마케팅에서 실제로 논란·반발이 된 사례 · 카드를 누르면 원문")
+    ui.section("도입 전 주의할 점 — 우려 기사", ui.ICON_ALERT, badge="사람 검수", badge_kind="orange")
+    st.caption("AI 마케팅에서 실제로 논란·반발이 된 사례예요. 카드를 누르면 원문이 열려요.")
     df = dl.concern_articles()
     if df is None:
         st.info("우려 기사 목록은 사람 검수 후 표시돼요 (`analysis/q2_concerns.py`).")
@@ -156,7 +176,7 @@ def _concerns(period) -> None:
 
 
 def render(df: pd.DataFrame, period) -> None:
-    ui.page_title("Q2. 무엇이 화제인가 — AI 마케팅 이슈의 이동", "LLM 이 광고·마케팅 관련으로 분류한 기사의 이슈 (news_v4)")
+    ui.page_title("Q2. AI 마케팅 화제 이슈의 변화", "광고·마케팅 관련 기사를 이슈별로 나눠 분기마다 어떤 이슈가 화제였는지 정리했어요.")
     rel = df[df["is_relevant"] == 1]
     if rel.empty:
         st.info("선택한 필터에 해당하는 광고·마케팅 관련 기사가 없어요.")
@@ -170,27 +190,35 @@ def render(df: pd.DataFrame, period) -> None:
         rise = (late - early).sort_values(ascending=False)
         top = rise.index[0]
         ui.lead(f'{ui.pill("NEXT", "line")} 광고·마케팅 관련 기사에서 <b>{ui.esc(top)}</b> 비중이 '
-                f'{early[top]:.0f}% → <b>{late[top]:.0f}%</b> 로 가장 많이 늘었다 '
-                f'<span style="font-weight:500;opacity:.6;font-size:.9rem">({full[0]}–{full[2]} 평균 → {full[-3]}–{full[-1]} 평균)</span>')
+                f'{early[top]:.0f}% → <b>{late[top]:.0f}%</b>로 가장 많이 늘었어요. '
+                f'<span style="display:block;font-weight:500;opacity:.6;font-size:.9rem">({_yq_range(full[0], full[2])} 평균 → {_yq_range(full[-3], full[-1])} 평균)</span>',   # 괄호는 다음 줄에 (중간에서 줄바뀜 방지)
+                big=True)
     neutral = (rel["sentiment"] == "neutral").mean()
     ui.kpis([("관련 기사", f"{len(rel):,}건", f"전체 기사의 {len(rel) / len(df):.0%}"),
              ("논조 중립 (사실 전달)", f"{neutral:.0%}", "출시·제휴·실적 발표 위주"),
              ("우려 논조 (LLM)", f"{int((rel['sentiment'] == 'negative').sum())}건", "사람이 거른 목록은 아래")], key="q2")
 
     with st.container(border=True, key="card_q2_trend"):
-        ui.section("이슈별 비중 (분기)", "◔", badge="내용 이슈 5개", badge_kind="blue", sub="빈 점 = 일부 기간만 들어간 분기")
+        ui.section("분기별 이슈 비중", ui.ICON_TREND)
         import streamlit.components.v1 as components
         components.html(_trend_html(share, n), height=440)
-        st.caption("관련 기사 중 각 이슈가 붙은 기사 비율 (한 기사에 이슈가 여럿이라 합이 100% 를 넘음)")
+        st.caption("* 관련 기사 : AI(LLM)가 광고·마케팅 산업 활동으로 분류한 기사\n"
+                   "* 이슈 비중 : 관련 기사 중 각 이슈가 붙은 기사 비율 (한 기사에 이슈가 여럿이라 합이 100%를 넘어요)\n"
+                   "* 일부 수집 (빈 점) : 날짜 제한으로 일부만 수집된 분기 (2023년 4분기는 10월 19일부터, 2026년 4분기는 10월 19일까지)")
 
     left, right = st.columns([2, 3], gap="large")
     with left, st.container(border=True, key="card_q2_rank"):
-        ui.section("이슈 순위", "▤", sub="파랑 = 내용 · 옅음 = 형식")
+        ui.section("이슈 순위", ui.ICON_RANK)
         st.plotly_chart(_topn_chart(rel), width="stretch", config={"displayModeBar": False})
+        st.caption("* 파랑 : 내용 이슈 (무엇을 했나)\n"
+                   "* 옅은 파랑 : 형식 이슈 (제휴·협력 · 실적·투자·상장 · 행사·시상)")
     with right:
         _concerns(period)
 
-    with st.expander("읽는 법 · 정확도"):
-        st.markdown(ACCURACY)
-    with st.expander("표로 보기 (분기별 이슈 비중 %)"):
-        st.dataframe(share.round(0).assign(관련기사=n), width="stretch")
+    with st.container(key="q2_more"):   # 아래 접기 메뉴: Q1 과 같은 제목 글꼴 (style.py)
+        with st.expander("분류 정확도"):
+            st.markdown(ACCURACY)
+        with st.expander("엑셀 형식의 표로 보기"):
+            t = share.round(0).assign(관련기사=n)
+            t.index = [_yq(q) for q in t.index]
+            st.dataframe(t, width="stretch")

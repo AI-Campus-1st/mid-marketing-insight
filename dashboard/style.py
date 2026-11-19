@@ -66,6 +66,7 @@ div[class*="st-key-kpi_"] {
 .page-sub { color: #5b6575; margin-bottom: 1rem; }
 .lead { font-size: 1.12rem; font-weight: 700; line-height: 1.5; margin: .4rem 0 1rem; }
 .lead b { color: #2a78d6; }
+.lead.lead-lg { font-size: 1.45rem; letter-spacing: -.01em; }   /* 페이지 제목(2.15rem)보다 작고 보통 결론(1.12rem)보다 크게 */
 
 /* 세로 타임라인 (레퍼런스 로드맵) */
 .tl { list-style: none; padding: 0; margin: .3rem 0 0; }
@@ -308,9 +309,9 @@ def page_title(title: str, sub: str = "") -> None:
                 unsafe_allow_html=True)
 
 
-def lead(html_text: str) -> None:
-    """한 줄 결론 (html_text 안의 <b> 는 파랑 강조). 호출하는 쪽에서 값은 esc() 로"""
-    st.markdown(f'<div class="lead">{html_text}</div>', unsafe_allow_html=True)
+def lead(html_text: str, big: bool = False) -> None:
+    """한 줄 결론 (html_text 안의 <b> 는 파랑 강조). 호출하는 쪽에서 값은 esc() 로. big: 페이지 제목보다 한 단계 작은 큰 글자 (Q1)"""
+    st.markdown(f'<div class="lead{" lead-lg" if big else ""}">{html_text}</div>', unsafe_allow_html=True)
 
 
 def section(title: str, icon: str = "◆", badge: str | None = None, badge_kind: str = "gray", sub: str | None = None) -> None:

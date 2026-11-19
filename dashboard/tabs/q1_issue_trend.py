@@ -1,5 +1,5 @@
 """
-[A·D6] Q1 AI 마케팅 기사는 언제 급증했나 — 월별 기사량 + 급증 시점
+[A·D6] Q1 AI 마케팅 언급이 급증한 시기 (옛 제목: AI 마케팅 기사는 언제 급증했나) — 월별 기사량 + 급증 시점
 
 render(df, period) : df = 기업·카테고리 필터만 거친 기사 (전체 기간), period = 화면에 보여 줄 기간
   급증 기준선(직전 6개월 평균)은 전체 기간으로 계산한 뒤 선택 기간만 잘라 보여 준다 — 기간을 좁혀도 판정이 바뀌지 않게
@@ -79,7 +79,7 @@ def _spike_timeline(df: pd.DataFrame, m: pd.DataFrame, spikes: list[str]) -> Non
 
 
 def render(df: pd.DataFrame, period) -> None:
-    ui.page_title("Q1. AI 마케팅 기사는 언제 급증했나", "제공 뉴스(키워드 수집, 중복 제외)의 월별 기사량과 급증 시점")
+    ui.page_title("Q1. AI 마케팅 언급이 급증한 시기", "뉴스 중 AI 마케팅 관련 월별 기사량과 급증 시점을 정리했어요.")
     m_all = _monthly(df)   # 전체 기간으로 기준선·급증 계산
     lo, hi = period[0].strftime("%Y-%m"), period[1].strftime("%Y-%m")
     m = m_all.loc[(m_all.index >= lo) & (m_all.index <= hi)]
@@ -96,13 +96,14 @@ def render(df: pd.DataFrame, period) -> None:
     if spikes:
         first = spikes[0]
         after = full.loc[first:]
-        ui.lead(f"<b>{first}</b> 에 AI 기사가 직전 6개월 평균의 <b>{m.loc[first, 'ratio']:.1f}배</b>로 급증했고, "
-                f"이후 월 {int(after['ai'].min())}건 아래로 내려가지 않았다")
+        y, mo = first.split("-")   # '2024-04' → '2024년 04월'
+        ui.lead(f"<b>{y}년 {mo}월</b>에 AI 기사가 직전 6개월 평균의 <b>{m.loc[first, 'ratio']:.1f}배</b>로 급증했고, "
+                f"이후 월 {int(after['ai'].min())}건 아래로 내려가지 않았어요.", big=True)
     elif not show_spikes:
         ui.lead(f"선택한 필터에서는 기사 수가 적어 급증 시점을 판정하지 않아요 "
-                f'<span style="font-weight:500;opacity:.6;font-size:.9rem">(AI 기사 월평균 {mean_ai:.1f}건)</span>')
+                f'<span style="font-weight:500;opacity:.6;font-size:.9rem">(AI 기사 월평균 {mean_ai:.1f}건)</span>', big=True)
     else:
-        ui.lead("선택한 기간에는 급증한 달이 없어요")
+        ui.lead("선택한 기간에는 급증한 달이 없어요.", big=True)
 
     ui.kpis([("기사", f"{len(df):,}건", f"{m.index.min()} – {m.index.max()}"),
              ("AI 기사", f"{int(df['is_ai'].sum()):,}건", f"전체의 {df['is_ai'].mean():.0%}"),

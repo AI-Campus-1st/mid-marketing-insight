@@ -16,14 +16,6 @@ from dashboard.theme import colors, mode, style
 MIN_MONTHLY_AI = 30   # 필터로 월평균 AI 언급 기사가 이보다 적으면 급증 판정이 흔들려서 표시하지 않는다
 MIN_FULL_MONTHS = 7   # 직전 6개월 평균과 비교하려면 완전한 달이 이만큼은 있어야 한다
 
-HOW_TO_READ = f"""
-- **AI 언급 기사** = 제목이나 본문(정제 후)에 AI 용어(AI·인공지능·생성형·LLM·GPT 등)가 나온 기사. 제공 뉴스(키워드 수집) 기준이다.
-- **급증** = 그 달 AI 언급 기사 수가 **직전 6개월 평균의 1.5배**를 넘은 달. 수집량 자체가 늘고 있어서 전체 평균이 아니라 직전 반년과 비교한다.
-  기간 3·6·12개월 × 배율 1.3·1.5·2.0 의 9개 조합 모두에서 2024-04 가 급증으로 나온다 (decisions.md).
-- 2023-10(19일부터)·2026-10(19일까지)은 **미완 월**이라 빈 점으로 표시하고 급증 판정에서 뺀다.
-- 필터로 월평균 AI 언급 기사가 {MIN_MONTHLY_AI}건보다 적어지면 급증 판정을 표시하지 않는다(건수가 적어 우연한 변동이 커짐).
-"""
-
 
 def _ym(month: str) -> str:
     """'2024-04' → '2024년 04월'"""
@@ -145,7 +137,8 @@ def render(df: pd.DataFrame, period) -> None:
     with left, st.container(border=True, key="card_q1_chart"):
         ui.section("월별 AI 언급 기사량", ui.ICON_CALENDAR)
         st.plotly_chart(_chart(m, show_spikes), width="stretch", config={"displayModeBar": False})
-        st.caption("* 일부 수집 : 날짜 제한으로 일부만 수집된 달 (2023년 10월은 19일부터, 2026년 10월은 19일까지)\n"
+        st.caption("* AI 언급 기사 : 제목이나 본문에 AI 용어(AI·인공지능·생성형·LLM·GPT 등)가 나온 기사\n"
+                   "* 일부 수집 : 날짜 제한으로 일부만 수집된 달 (2023년 10월은 19일부터, 2026년 10월은 19일까지)\n"
                    "* 급증 기준 : 직전 6개월 평균 × 1.5 초과")
     with right, st.container(border=True, key="card_q1_timeline"):
         ui.section("급증 타임라인", ui.ICON_CLOCK)
@@ -154,8 +147,13 @@ def render(df: pd.DataFrame, period) -> None:
         else:
             st.caption("기사가 적어 급증을 가릴 수 없어요")   # 기업·카테고리 필터로 기사가 크게 줄었을 때 (위 show_spikes 조건)
 
+    with st.container(key="q1_more"):   # 아래 접기 메뉴: 제목 글꼴을 카드 제목(월별 AI 언급 기사량)과 같게 (style.py)
+        _more(df, m, spikes, show_spikes)
+
+
+def _more(df: pd.DataFrame, m: pd.DataFrame, spikes: list[str], show_spikes: bool) -> None:
     if spikes:
-        with st.expander("급증한 달에 무엇이 늘었나 (제목 단어)"):
+        with st.expander("달별 늘어난 언급량 (급증 달 위주로)"):
             for mo in spikes:
                 terms = trend.spike_terms(df, mo, k=8)
                 if terms.empty:
@@ -163,9 +161,7 @@ def render(df: pd.DataFrame, period) -> None:
                 st.markdown(f"**{_ym(mo)}** — AI 언급 기사 {int(m.loc[mo, 'ai'])}건 (직전 평균 {m.loc[mo, 'baseline']:.0f}건)")
                 st.dataframe(terms.rename(columns={"term": "단어", "count": "이번 달", "expected": "평소 기대", "excess": "초과"}),
                              hide_index=True, width="content")
-    with st.expander("읽는 법 · 급증 기준"):
-        st.markdown(HOW_TO_READ)
-    with st.expander("표로 보기"):
+    with st.expander("엑셀 형식의 표로 보기"):
         t = m[["total", "ai", "ai_share"]].assign(ai_share=lambda x: (x["ai_share"] * 100).round(0))
         if "spike" in m:
             t["급증"] = m["spike"].map({True: "급증", False: ""}) if show_spikes else ""

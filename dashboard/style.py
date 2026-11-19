@@ -47,6 +47,7 @@ div[class*="st-key-kpi_"] {
 .kpi-label { font-size: .82rem; color: #5b6575; margin-bottom: .15rem; }
 .kpi-value { font-size: 1.65rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.25; }
 .kpi-note  { font-size: .78rem; color: #8a93a3; margin-top: .15rem; }
+div[class*="st-key-kpi_"] [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }   /* Streamlit 기본 -1rem 때문에 카드 아래 여백이 사라짐 → 위와 같게 */
 
 /* 섹션 제목 + 배지 */
 .sec { display: flex; align-items: center; gap: .55rem; margin: 1.6rem 0 .6rem; }

@@ -25,6 +25,12 @@ HOW_TO_READ = f"""
 """
 
 
+def _ym(month: str) -> str:
+    """'2024-04' → '2024년 04월'"""
+    y, mo = month.split("-")
+    return f"{y}년 {mo}월"
+
+
 def _monthly(df: pd.DataFrame) -> pd.DataFrame:
     # 기사가 0건이면 빈 표 — 행 이름(월)을 글자 형식으로 둬야 아래 '2023-10' 같은 기간 비교에서 TypeError 가 나지 않는다
     #   (기업 하나 + '기술 및 트렌드' 끔 → 0건: 제목에 기업명이 나온 기사는 모두 그 카테고리)
@@ -96,8 +102,7 @@ def render(df: pd.DataFrame, period) -> None:
     if spikes:
         first = spikes[0]
         after = full.loc[first:]
-        y, mo = first.split("-")   # '2024-04' → '2024년 04월'
-        ui.lead(f"<b>{y}년 {mo}월</b>에 AI 기사가 직전 6개월 평균의 <b>{m.loc[first, 'ratio']:.1f}배</b>로 급증했고, "
+        ui.lead(f"<b>{_ym(first)}</b>에 AI 기사가 직전 6개월 평균의 <b>{m.loc[first, 'ratio']:.1f}배</b>로 급증했고, "
                 f"이후 월 {int(after['ai'].min())}건 아래로 내려가지 않았어요.", big=True)
     elif not show_spikes:
         ui.lead(f"선택한 필터에서는 기사 수가 적어 급증 시점을 판정하지 않아요 "
@@ -106,9 +111,9 @@ def render(df: pd.DataFrame, period) -> None:
         ui.lead("선택한 기간에는 급증한 달이 없어요.", big=True)
 
     # '기사'(전체 건수) 카드는 빼고 AI 기사 카드 설명에 전체 건수를 함께 적음
-    ui.kpis([("AI 기사", f"{int(df['is_ai'].sum()):,}건", f"전체 {len(df):,}건 중 {df['is_ai'].mean():.0%}"),
+    ui.kpis([("AI 기사", f"{int(df['is_ai'].sum()):,}건", f"수집한 뉴스 {len(df):,}건 중 {df['is_ai'].mean():.0%}"),
              ("급증한 달", f"{len(spikes)}개" if show_spikes else "판정 안 함", "직전 6개월 평균 × 1.5 초과"),
-             ("기간", f"{len(m)}개월", "미완 월 2개 포함" if m["partial"].any() else "")], key="q1")
+             ("관측 기간", f"{len(m)}개월", f"{_ym(m.index.min())} ~ {_ym(m.index.max())} ({len(m)}개월)")], key="q1")
 
     left, right = st.columns([5, 2], gap="medium")
     with left, st.container(border=True, key="card_q1_chart"):

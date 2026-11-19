@@ -383,8 +383,11 @@ def _sidebar() -> None:
 def _input() -> tuple[str, str] | None:
     """입력 칸 (결과가 없을 때만 보임) → (기획안 글, 표시 이름) 또는 None"""
     nonce = st.session_state.get("pr_nonce", 0)
-    up = st.file_uploader("파일 첨부", type=FILE_TYPES, key=f"pr_file_{nonce}")
-    text = st.text_area("또는 기획 내용을 붙여 넣으세요", key="pr_text", height=160,
+    # 칸 이름: 공시 챗봇 '이런 걸 물어볼 수 있어요'와 같은 굵은 소제목(#####). 위젯 자체 이름표는 숨김(화면 읽기용으로는 남음)
+    st.markdown("##### 파일 첨부")
+    up = st.file_uploader("파일 첨부", type=FILE_TYPES, key=f"pr_file_{nonce}", label_visibility="collapsed")
+    st.markdown("##### 파일이 없다면 기획 내용을 적어주세요")
+    text = st.text_area("파일이 없다면 기획 내용을 적어주세요", key="pr_text", height=160, label_visibility="collapsed",
                         placeholder="예: [신사업 제안] AI 검색 최적화(GEO) 컨설팅 상품 출시 — 배경, 제안, 필요 역량…")
     go, ex, _ = st.columns([1, 1.4, 3])
     run = go.button("검토 시작", key="pr_go", width="stretch", icon=":material/search:")

@@ -56,7 +56,7 @@ div[class*="st-key-kpi_"] [data-testid="stMarkdownContainer"] { margin-bottom: 0
 .sec-title { font-size: 1.12rem; font-weight: 800; letter-spacing: -.01em; }
 .sec-sub { margin-left: auto; font-size: .8rem; color: #8a93a3; font-style: italic; }
 /* 리포트 Q1 카드(월별 기사량 · 급증 타임라인) 안 제목: 카드 위 여백이 커 보여서 줄임 */
-.st-key-card_q1_chart .sec, .st-key-card_q1_timeline .sec { margin-top: .6rem; }
+.st-key-card_q1_chart .sec, .st-key-card_q1_timeline .sec, .st-key-card_q2_trend .sec, .st-key-card_q2_rank .sec { margin-top: .6rem; }
 /* 급증 타임라인 내용(제목 제외)을 남은 칸의 위아래 가운데로 */
 .st-key-card_q1_timeline > div:has(.tl) { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; margin-top: -.5rem; }   /* -.5rem: 제목과의 칸 간격(1rem) 때문에 아래로 쏠리는 만큼 보정 → 위아래 여백 같게 */
 .st-key-card_q1_timeline .tl { margin: 0; }
@@ -130,7 +130,7 @@ section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p { font-siz
 /* 접기 메뉴·표 */
 div[data-testid="stExpander"] details { border-radius: 14px; }
 div[data-testid="stExpander"] summary { font-weight: 600; }
-.st-key-q1_more div[data-testid="stExpander"] summary p { font-weight: 400; letter-spacing: -.01em; color: #1f2733; }   /* 리포트 Q1 아래 접기 메뉴 제목: 카드 제목과 같은 자간·색, 굵게 하지 않음 */
+.st-key-q1_more div[data-testid="stExpander"] summary p, .st-key-q2_more div[data-testid="stExpander"] summary p { font-weight: 400; letter-spacing: -.01em; color: #1f2733; }   /* 리포트 Q1 아래 접기 메뉴 제목: 카드 제목과 같은 자간·색, 굵게 하지 않음 */
 
 /* ── 사이드바: 화면 메뉴 (라디오 동그라미 숨기고 메뉴 항목처럼) ── */
 section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] > div:first-child { display: none; }
@@ -375,6 +375,9 @@ _SVG = ('<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="cur
         'stroke-linecap="round" stroke-linejoin="round" style="display:block">{}</svg>')
 ICON_CALENDAR = _SVG.format('<rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>')
 ICON_CLOCK = _SVG.format('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/>')
+ICON_TREND = _SVG.format('<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>')                        # 꺾은선 차트
+ICON_RANK = _SVG.format('<path d="M4 6h16M4 12h11M4 18h6"/>')                                         # 순위 막대
+ICON_ALERT = _SVG.format('<path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.3"/>')            # 주의
 
 
 def section(title: str, icon: str = "◆", badge: str | None = None, badge_kind: str = "gray", sub: str | None = None) -> None:

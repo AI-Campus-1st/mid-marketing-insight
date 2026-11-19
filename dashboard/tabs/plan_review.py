@@ -124,12 +124,15 @@ BTN_CSS = """<style>
 .st-key-pr_go button { background: #2a78d6 !important; border-color: #2a78d6 !important; }
 .st-key-pr_go button:hover { background: #1f66bd !important; border-color: #1f66bd !important; }
 .st-key-pr_go button p, .st-key-pr_go button span { color: #ffffff !important; font-weight: 700; }
-/* '검토 시작' 아래 경고 알림: 토스트처럼 떴다가 4초 뒤 사라짐 */
+/* '검토 시작' 아래 경고 알림: 토스트처럼 떴다가 4초 뒤 사라짐. 상자 색은 사이드바 '＋ 새 기획안' 버튼과 같은 옅은 파랑 */
 .pr-toast { display: inline-flex; align-items: center; gap: .55rem; padding: .7rem 1rem; border-radius: 10px;
-  background: #ffffff; border: 1px solid #e4e8ef; box-shadow: 0 4px 14px rgba(16, 24, 40, .10); font-size: .9rem; color: #1f2733;
-  animation: pr-toast 4.5s ease forwards; }
+  background: #eaf2fb; border: 1.5px solid #aac9ef; box-shadow: 0 4px 14px rgba(16, 24, 40, .10); font-size: .9rem; color: #1f2733;
+  animation: pr-toast-a 4.5s ease forwards; }
+.pr-toast.b { animation-name: pr-toast-b; }   /* 누를 때마다 a·b 를 번갈아 → 애니메이션 이름이 바뀌어 처음부터 다시 재생 */
 .pr-toast .ic { color: #d97706; font-size: 1.05rem; }
-@keyframes pr-toast { 0% { opacity: 0; transform: translateY(-4px); } 6% { opacity: 1; transform: none; }
+@keyframes pr-toast-a { 0% { opacity: 0; transform: translateY(-4px); } 6% { opacity: 1; transform: none; }
+  85% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+@keyframes pr-toast-b { 0% { opacity: 0; transform: translateY(-4px); } 6% { opacity: 1; transform: none; }
   85% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
 /* '직접 입력' 소제목 옆 작고 흐린 보충 글 */
 .pr-hint { font-size: .82rem; font-weight: 400; color: #8a93a3; margin-left: .35rem; }
@@ -406,7 +409,9 @@ def _input() -> tuple[str, str] | None:
         return None
     if up is not None and text.strip():   # 둘 다 넣었으면 어느 쪽을 검토할지 모르므로 시작하지 않음
         # st.toast 는 화면 오른쪽 위에만 떠서, 같은 모양의 알림을 '검토 시작' 바로 아래에 직접 그림 (몇 초 뒤 사라짐, BTN_CSS .pr-toast)
-        st.markdown('<div class="pr-toast"><span class="ic">⚠</span>파일 첨부와 직접 입력 중 하나만 해 주세요.</div>',
+        # 누를 때마다 다시 뜨게: Streamlit 은 같은 자리의 요소를 다시 써서 애니메이션이 처음부터 돌지 않으므로 a·b 를 번갈아 씀
+        n = st.session_state["pr_toast_n"] = st.session_state.get("pr_toast_n", 0) + 1
+        st.markdown(f'<div class="pr-toast {"ab"[n % 2]}"><span class="ic">⚠</span>파일 첨부와 직접 입력 중 하나만 해 주세요.</div>',
                     unsafe_allow_html=True)
         return None
     body, label = text.strip(), "붙여 넣은 글"

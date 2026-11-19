@@ -146,11 +146,15 @@ def _topn_chart(rel: pd.DataFrame):
     col = [LIGHT_BAR[mode()] if i in FORMAT_ISSUES else c["verdict"]["제때"] for i in cnt.index]
     fig = go.Figure(go.Bar(x=cnt.values, y=cnt.index, orientation="h", marker=dict(color=col, cornerradius=6),
                            text=cnt.values, textposition="outside", textfont=dict(color=c["text2"]), cliponaxis=False,
-                           hovertemplate="%{y} %{x}건<extra></extra>"))
+                           hovertemplate="%{y} %{x}건<extra></extra>", showlegend=False))
+    # 범례(빈 막대): 내용 이슈 = AI 를 어디에 썼나 / 형식 이슈 = 제휴·실적·행사 같은 일반 사업 소식
+    for name, colr in (("AI 활용 분야", c["verdict"]["제때"]), ("일반 사업 소식", LIGHT_BAR[mode()])):
+        fig.add_bar(x=[None], y=[None], orientation="h", name=name, marker=dict(color=colr), hoverinfo="skip")
     fig.update_xaxes(title=None, showgrid=False, showticklabels=False, range=[0, cnt.max() * 1.15])   # 막대 끝 숫자 자리
     fig.update_yaxes(title=None, showgrid=False)
-    fig.update_layout(bargap=.35)
-    return style(fig, height=max(260, 26 * len(cnt) + 40))
+    fig = style(fig, height=max(260, 26 * len(cnt) + 40))
+    fig.update_layout(bargap=.35, barmode="overlay", legend=dict(x=1, xanchor="right", y=1.02, yanchor="bottom", orientation="h"))
+    return fig
 
 
 def _concerns(period) -> None:
@@ -210,8 +214,6 @@ def render(df: pd.DataFrame, period) -> None:
     with st.container(border=True, key="card_q2_rank"):
         ui.section("이슈 순위", ui.ICON_RANK)
         st.plotly_chart(_topn_chart(rel), width="stretch", config={"displayModeBar": False})
-        st.caption("* 파랑 : 내용 이슈 (무엇을 했나)\n"
-                   "* 옅은 파랑 : 형식 이슈 (제휴·협력 · 실적·투자·상장 · 행사·시상)")
     _concerns(period)
 
     with st.container(key="q2_more"):   # 아래 접기 메뉴: Q1 과 같은 제목 글꼴 (style.py)

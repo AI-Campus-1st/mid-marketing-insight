@@ -124,6 +124,8 @@ BTN_CSS = """<style>
 .st-key-pr_go button { background: #2a78d6 !important; border-color: #2a78d6 !important; }
 .st-key-pr_go button:hover { background: #1f66bd !important; border-color: #1f66bd !important; }
 .st-key-pr_go button p, .st-key-pr_go button span { color: #ffffff !important; font-weight: 700; }
+/* '직접 입력' 소제목 옆 작고 흐린 보충 글 */
+.pr-hint { font-size: .82rem; font-weight: 400; color: #8a93a3; margin-left: .35rem; }
 /* 제목과 설명 사이를 조금 띄움 */
 .st-key-pr_tagline { margin-top: .6rem; }
 /* 파일 첨부 칸: Streamlit 은 이 글자들을 바꾸는 설정이 없어서, 영어 글자를 숨기고(font-size: 0) 같은 자리에 한국어를 덧씌움 */
@@ -386,14 +388,17 @@ def _input() -> tuple[str, str] | None:
     # 칸 이름: 공시 챗봇 '이런 걸 물어볼 수 있어요'와 같은 굵은 소제목(#####). 위젯 자체 이름표는 숨김(화면 읽기용으로는 남음)
     st.markdown("##### 파일 첨부")
     up = st.file_uploader("파일 첨부", type=FILE_TYPES, key=f"pr_file_{nonce}", label_visibility="collapsed")
-    st.markdown("##### 파일이 없다면 기획 내용을 적어주세요")
-    text = st.text_area("파일이 없다면 기획 내용을 적어주세요", key="pr_text", height=160, label_visibility="collapsed",
+    st.markdown('##### 직접 입력 <span class="pr-hint">(기획안 파일이 없는 경우)</span>', unsafe_allow_html=True)
+    text = st.text_area("직접 입력", key="pr_text", height=160, label_visibility="collapsed",
                         placeholder="예: [신사업 제안] AI 검색 최적화(GEO) 컨설팅 상품 출시 — 배경, 제안, 필요 역량…")
     go, ex, _ = st.columns([1, 1.4, 3])
     run = go.button("검토 시작", key="pr_go", width="stretch", icon=":material/search:")
     if ex.button("예시 기획안으로 해 보기", width="stretch"):
         return EXAMPLE, "예시: GEO 컨설팅 상품 기획안"
     if not run:
+        return None
+    if up is not None and text.strip():   # 둘 다 넣었으면 어느 쪽을 검토할지 모르므로 시작하지 않음
+        st.toast("파일 첨부와 직접 입력 중 하나만 해 주세요.", icon=":material/warning:")
         return None
     body, label = text.strip(), "붙여 넣은 글"
     if up is not None:
@@ -407,7 +412,7 @@ def _input() -> tuple[str, str] | None:
             return None
         label = f"📎 {up.name}"
     if len(body) < MIN_CHARS:
-        st.info("파일을 첨부하거나 기획 내용을 몇 줄 이상 붙여 넣어 주세요.")
+        st.info("파일을 첨부하거나 기획 내용을 몇 줄 이상 적어 주세요.")
         return None
     return body, label
 

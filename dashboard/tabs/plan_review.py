@@ -121,9 +121,13 @@ div[class*="st-key-pr_row_"] [data-testid="stColumn"]:first-child {
 /* '매칭 결과'·'구체적인 사례 물어보기' 소제목: 다른 소제목(16.8px)보다 크게 */
 .st-key-pr_h_match h5, .st-key-pr_h_ask h5 { font-size: 1.3rem !important; }
 .pr-ask-sub { font-size: .875rem; color: #1f2733; margin-bottom: 1.1rem; }   /* 챗봇 버튼 설명: 검정. 아래 버튼과 띄움 */
-/* 챗봇 물어보기 버튼: 결과 요약 상자와 같은 옅은 파랑 바탕 + 파랑 테두리 + 둥근 모서리, 글자는 소제목처럼 굵게 */
-div[class*="st-key-pr_ask_"] button { background: #f2f7fd !important; border: 1px solid #b4d0f1 !important; border-radius: 16px !important; }
-div[class*="st-key-pr_ask_"] button:hover { background: #e3eefb !important; border-color: #8fb8ea !important; }
+/* 챗봇 물어보기 버튼: 말풍선 모양 (결과 요약 상자와 같은 옅은 파랑 + 파랑 테두리, 왼쪽 아래 꼬리), 글자는 소제목처럼 굵게 */
+div[class*="st-key-pr_ask_"] button { background: #f2f7fd !important; border: 1px solid #b4d0f1 !important;
+  border-radius: 18px 18px 18px 0 !important; padding: .5rem 1.1rem !important; position: relative; margin-left: 10px; overflow: visible; }
+/* 꼬리: 버튼 왼쪽 아래 바깥에 작은 그림(바탕·테두리 색 같음). 오른쪽 1px 를 버튼 테두리 위에 겹쳐 이어 보이게 */
+div[class*="st-key-pr_ask_"] button::before { content: ""; position: absolute; left: -10px; bottom: -1px; width: 12px; height: 14px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='14' viewBox='0 0 12 14'%3E%3Cpath d='M11 0 L11 13.5 L0.5 13.5 Q8 12 11 0 Z' fill='%23f2f7fd'/%3E%3Cpath d='M11 0 Q8 12 0.5 13.5 L12 13.5' fill='none' stroke='%23b4d0f1' stroke-width='1'/%3E%3C/svg%3E") no-repeat; }
+div[class*="st-key-pr_ask_"] button:hover { border-color: #8fb8ea !important; box-shadow: 0 2px 8px rgba(42, 120, 214, .15); }
 div[class*="st-key-pr_ask_"] button p { font-weight: 800 !important; letter-spacing: normal; color: #2a78d6 !important; }   /* 글자 파랑 */
 /* 결과 요약 상자 안 여백: 양옆과 아래를 위(상자 위 → '결과 요약' 글자, 약 29px)와 같게 */
 div.st-key-hl_pr_concl { padding: 5.6px 28px 28px 28px !important; }
@@ -309,9 +313,8 @@ def _ask_chatbot(r: dict) -> None:
         st.markdown("##### 💬 구체적인 사례 물어보기")
     st.markdown('<div class="pr-ask-sub">누르면 <b>공시 챗봇 새 대화에서 바로 답해요.</b> 기획안 검토 결과는 그대로 남아요.</div>',
                 unsafe_allow_html=True)
-    for col, (i, (corp, k, q, ids)) in zip(st.columns(2) * ((len(qs) + 1) // 2), enumerate(qs)):
-        col.button(f"{corp} · {k}", key=f"pr_ask_{i}", width="stretch", icon="💬",   # 소제목 '💬 구체적인 사례 물어보기'와 같은 아이콘
-                   on_click=_to_chatbot, args=(q, ids), help=q)
+    for i, (corp, k, q, ids) in enumerate(qs):   # 한 줄에 하나씩, 글 길이만큼의 말풍선 (DOC_CSS st-key-pr_ask_)
+        st.button(f"{corp} · {k}", key=f"pr_ask_{i}", width="content", on_click=_to_chatbot, args=(q, ids), help=q)
 
 
 def _report(r: dict, label: str) -> None:

@@ -123,7 +123,8 @@ div[class*="st-key-pr_row_"] [data-testid="stColumn"]:first-child {
 .pr-ask-sub { font-size: .875rem; color: #1f2733; margin-bottom: 1.1rem; }   /* 챗봇 버튼 설명: 검정. 아래 버튼과 띄움 */
 /* 챗봇 물어보기 버튼: 말풍선 모양 (왼쪽 아래 꼬리). 기본 흰 바탕 + 회색 테두리 → 마우스를 대면 옅은 파랑 + 파랑 테두리('＋ 새 기획안'과 같은 색) */
 div[class*="st-key-pr_ask_"] button { background: #ffffff !important; border: 1px solid #d5dbe5 !important;
-  border-radius: 18px 18px 18px 0 !important; padding: .5rem 1.1rem !important; position: relative; margin-left: 10px; overflow: visible; }
+  border-radius: 18px 18px 18px 0 !important; padding: .5rem 1.1rem !important; position: relative; margin-left: 10px; overflow: visible;
+  filter: drop-shadow(0 1px 1.5px rgba(16, 24, 40, .06)) drop-shadow(0 3px 6px rgba(16, 24, 40, .06)); }   /* 옅은 그림자 (꼬리까지 같이 — box-shadow 는 꼬리에 안 생김) */
 /* 꼬리: 버튼 왼쪽 아래 바깥에 작은 그림(바탕·테두리 색 같음). 오른쪽 1px 를 버튼 테두리 위에 겹쳐 이어 보이게 */
 div[class*="st-key-pr_ask_"] button::before { content: ""; position: absolute; left: -10px; bottom: -1px; width: 12px; height: 14px;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='14' viewBox='0 0 12 14'%3E%3Cpath d='M11 0 L11 13.5 L0.5 13.5 Q8 12 11 0 Z' fill='%23ffffff'/%3E%3Cpath d='M11 0 Q8 12 0.5 13.5 L12 13.5' fill='none' stroke='%23d5dbe5' stroke-width='1'/%3E%3C/svg%3E") no-repeat; }

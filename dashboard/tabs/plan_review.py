@@ -22,8 +22,7 @@ import streamlit as st
 from config import settings
 
 TITLE = "기획안 검토"
-TAGLINE = ("AI 신사업 계획이나 마케팅 기획안을 올리면, **같은 일을 이미 한 곳이 있는지** 정기공시(사업·반기·분기보고서)와 뉴스에서 찾아 드려요. "
-           "공시로 확인된 사례와 뉴스에만 나온 사례를 나눠 보여 줘요.")
+TAGLINE = "AI 신사업 계획이나 마케팅 기획안을 올리면, 비슷한 사례를 정기공시(사업·반기·분기보고서)와 뉴스에서 찾아 드려요."
 EXAMPLE = ("[신사업 제안] AI 검색 최적화(GEO) 컨설팅 상품 출시\n"
            "배경: 소비자가 챗GPT 같은 생성형 AI 검색으로 브랜드를 찾기 시작하면서 기존 검색광고만으로는 노출이 줄고 있음.\n"
            "제안: 광고주 브랜드가 생성형 AI 답변에 우선 노출되도록 진단·콘텐츠 최적화·모니터링을 묶은 GEO 컨설팅 상품을 출시.\n"
@@ -125,6 +124,14 @@ BTN_CSS = """<style>
 .st-key-pr_go button { background: #2a78d6 !important; border-color: #2a78d6 !important; }
 .st-key-pr_go button:hover { background: #1f66bd !important; border-color: #1f66bd !important; }
 .st-key-pr_go button p, .st-key-pr_go button span { color: #ffffff !important; font-weight: 700; }
+/* 제목과 설명 사이를 조금 띄움 */
+.st-key-pr_tagline { margin-top: .6rem; }
+/* 파일 첨부 칸: Streamlit 은 이 글자들을 바꾸는 설정이 없어서, 영어 글자를 숨기고(font-size: 0) 같은 자리에 한국어를 덧씌움 */
+[data-testid="stFileUploaderDropzoneInstructions"] > div > span { font-size: 0 !important; }
+[data-testid="stFileUploaderDropzoneInstructions"] > div > span:first-child::after { content: "파일을 여기로 끌어다 놓으세요"; font-size: 1rem; }
+[data-testid="stFileUploaderDropzoneInstructions"] > div > span:last-child::after { content: "파일 1개당 200MB까지 · TXT, MD, PDF, DOCX"; font-size: .82rem; }
+[data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"] { font-size: 0 !important; }
+[data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"]::after { content: "파일 선택"; font-size: .95rem; }
 </style>"""
 
 
@@ -376,7 +383,7 @@ def _sidebar() -> None:
 def _input() -> tuple[str, str] | None:
     """입력 칸 (결과가 없을 때만 보임) → (기획안 글, 표시 이름) 또는 None"""
     nonce = st.session_state.get("pr_nonce", 0)
-    up = st.file_uploader("기획안 파일 (txt · md · pdf · docx)", type=FILE_TYPES, key=f"pr_file_{nonce}")
+    up = st.file_uploader("파일 첨부", type=FILE_TYPES, key=f"pr_file_{nonce}")
     text = st.text_area("또는 기획 내용을 붙여 넣으세요", key="pr_text", height=160,
                         placeholder="예: [신사업 제안] AI 검색 최적화(GEO) 컨설팅 상품 출시 — 배경, 제안, 필요 역량…")
     go, ex, _ = st.columns([1, 1.4, 3])
@@ -397,7 +404,7 @@ def _input() -> tuple[str, str] | None:
             return None
         label = f"📎 {up.name}"
     if len(body) < MIN_CHARS:
-        st.info("기획안 파일을 올리거나 기획 내용을 몇 줄 이상 붙여 넣어 주세요.")
+        st.info("파일을 첨부하거나 기획 내용을 몇 줄 이상 붙여 넣어 주세요.")
         return None
     return body, label
 
@@ -413,7 +420,8 @@ def render() -> None:
     head.title(TITLE)
     if res is not None and st.session_state.get("pr_id"):
         clear.button("이 기획안 지우기", width="stretch", on_click=_delete)
-    st.markdown(TAGLINE)
+    with st.container(key="pr_tagline"):   # key: 제목과의 간격 (BTN_CSS)
+        st.markdown(TAGLINE)
 
     if res is None:  # 결과가 나오면 입력 칸은 숨긴다 (다시 하려면 '＋ 새 기획안')
         got = _input()

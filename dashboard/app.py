@@ -24,6 +24,9 @@ CATEGORIES = ["기술 및 트렌드", "시장 및 경쟁", "공급망 및 인프
 START, END = date(2023, 10, 19), date(2026, 10, 19)
 MENU = ["공시 챗봇", "기획안 검토", "리포트"]   # 사이드바 메뉴 (챗봇이 첫 화면)
 MENU_ICON = {"공시 챗봇": ":material/forum:", "기획안 검토": ":material/assignment:", "리포트": ":material/analytics:"}
+MENU_TIP = {"공시 챗봇": "5개사 공시를 근거로 질문에 답해요",          # 메뉴에 마우스를 대면 나오는 설명 (style.menu_tips)
+            "기획안 검토": "내 기획안과 비슷한 AI 사례를 공시·뉴스에서 찾아요",
+            "리포트": "기사량·화제 이슈·공시 반영 정도를 한눈에 봐요"}
 REPORT_PAGES = ["Q1 기사량·급증", "Q2 화제 이슈", "Q3 공시 반영"]   # '리포트' 안에서 맨 위 버튼으로 고름
 PAGE_ICON = {"Q1 기사량·급증": ":material/bar_chart:", "Q2 화제 이슈": ":material/trending_up:", "Q3 공시 반영": ":material/fact_check:"}
 
@@ -47,6 +50,7 @@ with st.sidebar:
     ui.brand()   # 로고 'AA 팩트체커' · 설명 (style.py, preview_b.py 와 같은 모양)
     menu = st.radio("화면", MENU, label_visibility="collapsed", format_func=lambda p: f"{MENU_ICON[p]}  {p}",
                     key="page_sel")   # key: 기획안 검토의 '챗봇에 물어보기'가 화면을 챗봇으로 바꿀 수 있게 (#46)
+    ui.menu_tips("page_sel", [MENU_TIP[p] for p in MENU])   # 마우스를 대면 메뉴 설명
     chat = menu != "리포트"   # 필터를 쓰지 않는 화면 (공시 챗봇 · 기획안 검토)
     if not chat:   # 필터는 리포트에서만
         for k, v in saved.items():   # 다른 화면에 다녀오면 지워진 위젯 값을 저장해 둔 값으로 되살림
@@ -65,7 +69,7 @@ with st.sidebar:
         st.markdown('<div class="sb-field">뉴스 카테고리</div>', unsafe_allow_html=True)
         with st.container(key="fbox_cat", gap=None):
             categories = [c for c in CATEGORIES if st.checkbox(c, key=f"cat_{c}")]
-        st.caption("수집 키워드 카테고리 — 뉴스 화면(Q1·Q2)에만 적용")
+        st.caption("'기사량·급증', '화제 이슈' 화면에만 필터가 적용돼요")
         st.button("필터 초기화", on_click=_reset, width="stretch", type="primary", key="filter_reset", icon=":material/restart_alt:")
         saved.update({k: st.session_state[k] for k in FILTER_DEFAULTS})   # 이번 값을 저장 (다음에 돌아올 때 씀)
     else:          # 챗봇·기획안 검토: 필터를 그리지 않고 저장해 둔 값만 (이 화면들은 필터를 쓰지 않음)
@@ -165,4 +169,5 @@ else:
 # 사이드바 맨 아래: 데이터 설명 (챗봇·기획안 검토의 기록 목록 · 리포트 필터 아래)
 with st.sidebar:
     st.divider()
-    st.caption("데이터: 제공 뉴스 6,450건 · DART 정기공시 5개사 · 앵커 이벤트 28개 (2023-10-19 ~ 2026-10-19)")
+    st.markdown('<div class="sb-desc sb-foot">데이터: 제공 뉴스 6,450건 · DART 정기공시 5개사 · 앵커 이벤트 28개 '
+                '(2023-10-19 ~ 2026-10-19)</div>', unsafe_allow_html=True)   # 맨 위 설명(sb-desc)과 같은 글자 크기·글꼴

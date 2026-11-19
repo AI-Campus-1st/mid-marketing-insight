@@ -67,7 +67,7 @@ def _chart(m: pd.DataFrame, show_spikes: bool):
     if show_spikes and "spike" in m:
         legend.append(("급증한 달", blue, ""))
     if m["partial"].any():
-        legend.append(("일부만 수집된 달", LIGHT_BAR[mode()], "/"))
+        legend.append(("일부 수집", LIGHT_BAR[mode()], "/"))
     for name, col, shape in legend:
         fig.add_bar(x=[None], y=[None], name=name, yaxis="y2", hoverinfo="skip",
                     marker=dict(color=col, pattern=dict(shape=shape, fgcolor=blue, solidity=.25)))
@@ -90,7 +90,7 @@ def _chart(m: pd.DataFrame, show_spikes: bool):
     if sum(d.year == x[0].year for d in x) > 4:
         fig.add_annotation(x=x[0] - half, xref="x", y=-.14, yref="paper", text=f"{x[0].year}년", showarrow=False,
                            xanchor="left", yanchor="top", font=dict(color=c["text2"], size=12))
-    # 범례 순서: AI 언급 기사 · 급증한 달 · 일부만 수집된 달 · 급증 기준선 (기준선은 아래층에 그리려고 먼저 넣었으므로 맨 뒤로)
+    # 범례 순서: AI 언급 기사 · 급증한 달 · 일부 수집 · 급증 기준선 (기준선은 아래층에 그리려고 먼저 넣었으므로 맨 뒤로)
     if fig.data and fig.data[0].name == "급증 기준선":
         fig.data[0].legendrank = 2000
     fig.update_layout(bargap=.28, barmode="overlay", legend=dict(x=1, xanchor="right"), margin=dict(l=10, r=10, t=40, b=70))
@@ -146,7 +146,8 @@ def render(df: pd.DataFrame, period) -> None:
     with left, st.container(border=True, key="card_q1_chart"):
         ui.section("월별 AI 언급 기사량", "▮")
         st.plotly_chart(_chart(m, show_spikes), width="stretch", config={"displayModeBar": False})
-        st.caption("빗금 = 일부만 수집된 달 (2023년 10월은 19일부터, 2026년 10월은 19일까지)")
+        st.caption("* 일부 수집 : 날짜 제한으로 일부만 수집된 달 (2023년 10월은 19일부터, 2026년 10월은 19일까지)\n"
+                   "* 급증 기준 : 직전 6개월 평균 × 1.5 초과")
     with right, st.container(border=True, key="card_q1_timeline"):
         ui.section("급증 타임라인", "⏱")
         if spikes or show_spikes:

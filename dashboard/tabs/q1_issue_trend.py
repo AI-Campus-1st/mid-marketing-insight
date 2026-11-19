@@ -105,8 +105,8 @@ def render(df: pd.DataFrame, period) -> None:
     else:
         ui.lead("선택한 기간에는 급증한 달이 없어요.", big=True)
 
-    ui.kpis([("기사", f"{len(df):,}건", f"{m.index.min()} – {m.index.max()}"),
-             ("AI 기사", f"{int(df['is_ai'].sum()):,}건", f"전체의 {df['is_ai'].mean():.0%}"),
+    # '기사'(전체 건수) 카드는 빼고 AI 기사 카드 설명에 전체 건수를 함께 적음
+    ui.kpis([("AI 기사", f"{int(df['is_ai'].sum()):,}건", f"전체 {len(df):,}건 중 {df['is_ai'].mean():.0%}"),
              ("급증한 달", f"{len(spikes)}개" if show_spikes else "판정 안 함", "직전 6개월 평균 × 1.5 초과"),
              ("기간", f"{len(m)}개월", "미완 월 2개 포함" if m["partial"].any() else "")], key="q1")
 

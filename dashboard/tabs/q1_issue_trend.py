@@ -75,12 +75,12 @@ def _spike_timeline(df: pd.DataFrame, m: pd.DataFrame, spikes: list[str]) -> Non
     for mo in spikes:
         terms = trend.spike_terms(df, mo, k=3)
         words = " · ".join(terms["term"]) if len(terms) else ""
-        steps.append(("done", f"{mo}  ×{m.loc[mo, 'ratio']:.1f}", f"AI 언급 기사 {int(m.loc[mo, 'ai'])}건" + (f" · {words}" if words else "")))
+        steps.append(("done", f"{_ym(mo)}  ×{m.loc[mo, 'ratio']:.1f}", f"AI 언급 기사 {int(m.loc[mo, 'ai'])}건" + (f" · {words}" if words else "")))
     full = m[~m["partial"]]
     if len(full):
         last = full.index[-1]
         base = m.loc[last, "baseline"] * trend.SPIKE_RATIO if "baseline" in m and pd.notna(m.loc[last, "baseline"]) else None
-        steps.append(("now", f"최근 {last}", f"AI 언급 기사 {int(full.loc[last, 'ai'])}건" + (f" · 기준선 {base:.0f}건" if base else "")))
+        steps.append(("now", f"최근 {_ym(last)}", f"AI 언급 기사 {int(full.loc[last, 'ai'])}건" + (f" · 기준선 {base:.0f}건" if base else "")))
     ui.timeline(steps)
 
 
@@ -133,7 +133,7 @@ def render(df: pd.DataFrame, period) -> None:
                 terms = trend.spike_terms(df, mo, k=8)
                 if terms.empty:
                     continue
-                st.markdown(f"**{mo}** — AI 언급 기사 {int(m.loc[mo, 'ai'])}건 (직전 평균 {m.loc[mo, 'baseline']:.0f}건)")
+                st.markdown(f"**{_ym(mo)}** — AI 언급 기사 {int(m.loc[mo, 'ai'])}건 (직전 평균 {m.loc[mo, 'baseline']:.0f}건)")
                 st.dataframe(terms.rename(columns={"term": "단어", "count": "이번 달", "expected": "평소 기대", "excess": "초과"}),
                              hide_index=True, width="content")
     with st.expander("읽는 법 · 급증 기준"):

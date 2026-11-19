@@ -44,34 +44,45 @@ LIGHT_BAR = {"light": "#d6e2f3", "dark": "#2b3a52"}   # 급증이 아닌 달 (�
 
 
 def _chart(m: pd.DataFrame, show_spikes: bool):
-    """AI 언급 기사 월별 막대 — 급증 월만 진한 파랑, 미완 월은 빗금. 급증 기준선은 옅은 실선 (전체 기사 선은 뺌)"""
+    """AI 언급 기사 월별 막대 — 급증 월만 진한 파랑, 미완 월은 빗금. 급증 기준선은 옅은 실선, 막대 뒤 (전체 기사 선은 뺌)"""
     c = colors()
     blue = c["verdict"]["제때"]
     x = pd.to_datetime(m.index)
     spike = m["spike"] if (show_spikes and "spike" in m) else pd.Series(False, index=m.index)
     colors_ = [blue if sp else LIGHT_BAR[mode()] for sp in spike]
     fig = go.Figure()
-    fig.add_bar(x=x, y=m["ai"], name="AI 언급 기사", marker=dict(color=colors_, cornerradius=6,
-                pattern=dict(shape=["/" if p else "" for p in m["partial"]], fgcolor=blue, solidity=.25)),
-                customdata=(m["ai_share"] * 100).round(0), hovertemplate="%{x|%Y-%m} AI 언급 기사 %{y}건 (전체의 %{customdata:.0f}%)<extra></extra>")
+    # 기준선은 아래층(y), 막대·배수 글자는 위층(y2, y 와 같은 눈금) → 기준선이 막대 뒤로 지나감 (Plotly 는 같은 층이면 선을 막대 위에 그림)
     if show_spikes and "spike" in m:
         fig.add_scatter(x=x, y=m["baseline"] * trend.SPIKE_RATIO, name="급증 기준선", mode="lines",
-                        line=dict(color=c["muted"], width=1.5), opacity=.6, hovertemplate="%{x|%Y-%m} 기준선 %{y:.0f}건<extra></extra>")
+                        line=dict(color=c["muted"], width=1.5), opacity=.6, hovertemplate="%{x|%Y년 %m월} 기준선 %{y:.0f}건<extra></extra>")
+    fig.add_bar(x=x, y=m["ai"], name="AI 언급 기사", yaxis="y2", marker=dict(color=colors_, cornerradius=6,
+                pattern=dict(shape=["/" if p else "" for p in m["partial"]], fgcolor=blue, solidity=.25)),
+                customdata=(m["ai_share"] * 100).round(0), hovertemplate="%{x|%Y년 %m월} AI 언급 기사 %{y}건 (전체의 %{customdata:.0f}%)<extra></extra>")
+    if show_spikes and "spike" in m:
         s = m[m["spike"]]
-        fig.add_scatter(x=pd.to_datetime(s.index), y=s["ai"], mode="text", showlegend=False, hoverinfo="skip",
+        fig.add_scatter(x=pd.to_datetime(s.index), y=s["ai"], yaxis="y2", mode="text", showlegend=False, hoverinfo="skip",
                         text=[f"×{r:.1f}" for r in s["ratio"]], textposition="top center", textfont=dict(color=blue, size=13))
     fig.update_yaxes(title=None, rangemode="tozero", showgrid=True)
     fig = style(fig, height=360)
-    # 아래 날짜: 3개월마다 '1월 · 4월 · 7월 · 10월', 그 밑 줄에 연도는 해가 바뀔 때(와 맨 처음)만 → 시기가 한눈에
+    fig.update_layout(yaxis2=dict(overlaying="y", matches="y", visible=False, showgrid=False))
+    # 아래 날짜: 3개월마다 '1월 · 4월 · 7월 · 10월'
     #   날짜를 기울이면 Plotly automargin 이 왼쪽 여백을 크게 잡아 차트가 오른쪽으로 밀림 → 수평 라벨·automargin 끔
     ticks = [d for d in x if d.month in (1, 4, 7, 10)]
-    text = [f"{d.month}월<br>{d.year}년" if (d.month == 1 or i == 0) else f"{d.month}월" for i, d in enumerate(ticks)]
-    fig.update_xaxes(title=None, tickvals=ticks, ticktext=text, tickangle=0, showgrid=False, automargin=False)
-    # 매년 1월 막대 바로 앞(12월과 1월 사이)에 옅은 세로선 → 연도 칸 나누기
-    for d in x:
-        if d.month == 1 and d != x[0]:
-            fig.add_vline(x=d - pd.Timedelta(days=15), line=dict(color=c["grid"], width=1.5), layer="below")
-    fig.update_layout(bargap=.28, legend=dict(x=1, xanchor="right"), margin=dict(l=10, r=10, t=40, b=52))
+    fig.update_xaxes(title=None, tickvals=ticks, ticktext=[f"{d.month}월" for d in ticks], tickangle=0, showgrid=False, automargin=False)
+    # 연도 칸: 12월과 1월 막대 사이에 옅은 세로선(날짜 줄 아래까지) + 그 선 아래 가운데에 연도
+    #   맨 처음 해는 선이 없어 첫 막대 왼쪽 끝에 맞춰 쓰되, 그 해가 4개월 이하로 짧으면(2023년 10~12월) 다음 해 글자와 겹쳐서 생략
+    half = pd.Timedelta(days=15)
+    for k, d in enumerate(x):
+        if d.month == 1 and k > 0:
+            fig.add_shape(type="line", xref="x", yref="paper", x0=d - half, x1=d - half, y0=-.13, y1=1,
+                          line=dict(color=c["grid"], width=1.5), layer="below")
+            fig.add_annotation(x=d - half, xref="x", y=-.14, yref="paper", text=f"{d.year}년", showarrow=False,
+                               xanchor="center", yanchor="top", font=dict(color=c["text2"], size=12))
+    if sum(d.year == x[0].year for d in x) > 4:
+        fig.add_annotation(x=x[0] - half, xref="x", y=-.14, yref="paper", text=f"{x[0].year}년", showarrow=False,
+                           xanchor="left", yanchor="top", font=dict(color=c["text2"], size=12))
+    # 범례: 막대(AI 언급 기사)를 먼저 — 기준선을 아래층에 그리려고 먼저 넣어서 순서가 뒤집힘
+    fig.update_layout(bargap=.28, legend=dict(x=1, xanchor="right", traceorder="reversed"), margin=dict(l=10, r=10, t=40, b=70))
     return fig
 
 

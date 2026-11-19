@@ -110,9 +110,8 @@ def _trend_html(share: pd.DataFrame, n: pd.Series, height: int = 430) -> str:
           padding: .25rem .6rem; border-radius: 999px; border: 1px solid transparent; opacity: .55; transition: all .12s; }}
   .chip i {{ width: 9px; height: 9px; border-radius: 50%; display: inline-block; }}
   .chip.on {{ opacity: 1; color: {c["text"]}; font-weight: 700; border-color: {c["grid"]}; }}
-  .hint {{ font-size: 11.5px; color: {c["muted"]}; margin-left: auto; align-self: center; }}
 </style>
-<div class="legend">{chips}<span class="hint">범례나 선에 마우스를 올리면 그 이슈가 보여요</span></div>
+<div class="legend">{chips}</div>
 {plot}
 <script>
 (function () {{
@@ -189,7 +188,7 @@ def render(df: pd.DataFrame, period) -> None:
         early, late = share.loc[full[:3]].mean(), share.loc[full[-3:]].mean()
         rise = (late - early).sort_values(ascending=False)
         top = rise.index[0]
-        ui.lead(f'{ui.pill("NEXT", "line")} 광고·마케팅 관련 기사에서 <b>{ui.esc(top)}</b> 비중이 '
+        ui.lead(f'광고·마케팅 관련 기사에서 <b>{ui.esc(top)}</b> 비중이 '
                 f'{early[top]:.0f}% → <b>{late[top]:.0f}%</b>로 가장 많이 늘었어요. '
                 f'<span style="display:block;font-weight:500;opacity:.6;font-size:.9rem">({_yq_range(full[0], full[2])} 평균 → {_yq_range(full[-3], full[-1])} 평균)</span>',   # 괄호는 다음 줄에 (중간에서 줄바뀜 방지)
                 big=True)
@@ -200,6 +199,7 @@ def render(df: pd.DataFrame, period) -> None:
 
     with st.container(border=True, key="card_q2_trend"):
         ui.section("분기별 이슈 비중", ui.ICON_TREND)
+        st.caption("범례나 선에 마우스를 올리면 그 이슈가 보여요.")   # 제목 아래 · 범례 위
         import streamlit.components.v1 as components
         components.html(_trend_html(share, n), height=440)
         st.caption("* 관련 기사 : AI(LLM)가 광고·마케팅 산업 활동으로 분류한 기사\n"

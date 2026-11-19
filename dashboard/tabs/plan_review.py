@@ -129,9 +129,9 @@ BTN_CSS = """<style>
 /* 파일 첨부 칸: Streamlit 은 이 글자들을 바꾸는 설정이 없어서, 영어 글자를 숨기고(font-size: 0) 같은 자리에 한국어를 덧씌움 */
 [data-testid="stFileUploaderDropzoneInstructions"] > div > span { font-size: 0 !important; }
 [data-testid="stFileUploaderDropzoneInstructions"] > div > span:first-child::after { content: "파일을 여기로 끌어다 놓으세요"; font-size: 1rem; }
-[data-testid="stFileUploaderDropzoneInstructions"] > div > span:last-child::after { content: "파일 1개당 200MB까지 · TXT, MD, PDF, DOCX"; font-size: .82rem; }
+[data-testid="stFileUploaderDropzoneInstructions"] > div > span:last-child::after { content: "파일 1개당 200MB까지 · TXT, MD, PDF, DOCX"; font-size: .875rem; }   /* 칸 이름(파일 첨부)과 같은 14px */
 [data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"] { font-size: 0 !important; }
-[data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"]::after { content: "파일 선택"; font-size: .95rem; }
+[data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"]::after { content: "파일 선택"; font-size: 1rem; }   /* 옆 버튼들(검토 시작·예시)과 같은 16px */
 </style>"""
 
 

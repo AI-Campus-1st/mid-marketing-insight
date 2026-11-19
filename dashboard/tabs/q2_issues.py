@@ -206,14 +206,13 @@ def render(df: pd.DataFrame, period) -> None:
                    "* 이슈 비중 : 관련 기사 중 각 이슈가 붙은 기사 비율 (한 기사에 이슈가 여럿이라 합이 100%를 넘어요)\n"
                    "* 일부 수집 (빈 점) : 날짜 제한으로 일부만 수집된 분기 (2023년 4분기는 10월 19일부터, 2026년 4분기는 10월 19일까지)")
 
-    left, right = st.columns([2, 3], gap="large")
-    with left, st.container(border=True, key="card_q2_rank"):
+    # 위아래로: 이슈 순위(분기 비중에 이어 '전체 기간에 무엇이 많았나') → 우려 기사(도입 전 주의할 점, 부록)
+    with st.container(border=True, key="card_q2_rank"):
         ui.section("이슈 순위", ui.ICON_RANK)
         st.plotly_chart(_topn_chart(rel), width="stretch", config={"displayModeBar": False})
         st.caption("* 파랑 : 내용 이슈 (무엇을 했나)\n"
                    "* 옅은 파랑 : 형식 이슈 (제휴·협력 · 실적·투자·상장 · 행사·시상)")
-    with right:
-        _concerns(period)
+    _concerns(period)
 
     with st.container(key="q2_more"):   # 아래 접기 메뉴: Q1 과 같은 제목 글꼴 (style.py)
         with st.expander("분류 정확도"):

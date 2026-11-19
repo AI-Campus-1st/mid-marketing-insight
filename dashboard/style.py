@@ -412,9 +412,10 @@ def timeline(steps: list[tuple]) -> None:
 
 
 def mini_cards(cards: list[dict]) -> None:
-    """작은 카드 그리드: dict(tag, title, meta, url)"""
+    """작은 카드 그리드: dict(tag, title, meta, url) — tag 가 없으면 윗줄 꼬리표 없이"""
     items = "".join(
         f'<a class="mc" href="{esc(c.get("url") or "#")}" target="_blank">'
-        f'<div class="mc-tag">{esc(c["tag"])}</div><div class="mc-title">{esc(c["title"])}</div>'
+        + (f'<div class="mc-tag">{esc(c["tag"])}</div>' if c.get("tag") else "")
+        + f'<div class="mc-title">{esc(c["title"])}</div>'
         f'<div class="mc-meta">{esc(c.get("meta", ""))}</div></a>' for c in cards)
     st.markdown(f'<div class="mc-grid">{items}</div>', unsafe_allow_html=True)

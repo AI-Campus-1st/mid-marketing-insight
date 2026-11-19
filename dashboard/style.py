@@ -133,6 +133,9 @@ div[data-testid="stExpander"] summary { font-weight: 600; }
 .st-key-q1_more div[data-testid="stExpander"] summary p, .st-key-q2_more div[data-testid="stExpander"] summary p { font-weight: 400; letter-spacing: -.01em; color: #1f2733; }   /* 리포트 Q1 아래 접기 메뉴 제목: 카드 제목과 같은 자간·색, 굵게 하지 않음 */
 .st-key-q2_more { margin-top: 1.5rem; }   /* 리포트 Q2: 우려 기사 카드와 아래 접기 메뉴 사이 띄움 */
 .st-key-q2_concerns_more { margin-top: .6rem; }   /* 우려 기사 '더보기·접기' 버튼: 카드와 띄움 */
+/* 버튼 글자: 위 설명 줄(st.caption)과 같은 스타일 — 14px · 보통 굵기 · 60% 흐린 본문색 */
+.st-key-q2_concerns_more button p { font-size: .875rem !important; font-weight: 400; color: rgba(31, 39, 51, .6) !important; }
+.st-key-q2_concerns_more button [data-testid="stIconMaterial"] { font-size: 1.1rem; color: rgba(31, 39, 51, .6); }
 
 /* ── 사이드바: 화면 메뉴 (라디오 동그라미 숨기고 메뉴 항목처럼) ── */
 section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] > div:first-child { display: none; }

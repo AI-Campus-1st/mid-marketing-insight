@@ -57,7 +57,11 @@ div[class*="st-key-kpi_"] [data-testid="stMarkdownContainer"] { margin-bottom: 0
 .sec-sub { margin-left: auto; font-size: .8rem; color: #8a93a3; font-style: italic; }
 /* 리포트 Q1 카드(월별 기사량 · 급증 타임라인) 안 제목: 카드 위 여백이 커 보여서 줄임 */
 .st-key-card_q1_chart .sec, .st-key-card_q1_timeline .sec { margin-top: .6rem; }
-.st-key-card_q1_timeline .tl { margin-top: calc(.3rem + 7px); }   /* 첫 체크 표시를 옆 차트 범례 줄과 같은 높이로 */
+/* 급증 타임라인 내용(제목 제외)을 남은 칸의 위아래 가운데로 */
+.st-key-card_q1_timeline > div:has(.tl) { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; margin-top: -.5rem; }   /* -.5rem: 제목과의 칸 간격(1rem) 때문에 아래로 쏠리는 만큼 보정 → 위아래 여백 같게 */
+.st-key-card_q1_timeline .tl { margin: 0; }
+.st-key-card_q1_timeline .tl li:last-child { padding-bottom: 0; }   /* 마지막 항목 아래 빈칸을 빼야 실제 글자 기준으로 가운데 */
+.st-key-card_q1_timeline div:has(> .tl) { margin-bottom: 0 !important; }   /* Streamlit 기본 -1rem 이 가운데를 아래로 끌지 않게 */
 /* 급증 타임라인 카드를 옆 월별 기사량 카드와 같은 높이로 (내용은 그대로, 상자만 칸 높이까지 늘림) */
 div[data-testid="stLayoutWrapper"]:has(> .st-key-card_q1_timeline) { flex: 1 1 auto; }
 .st-key-card_q1_timeline { flex: 1 1 auto; }

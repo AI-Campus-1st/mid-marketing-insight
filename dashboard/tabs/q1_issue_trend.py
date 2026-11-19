@@ -78,18 +78,17 @@ def _chart(m: pd.DataFrame, show_spikes: bool):
     #   날짜를 기울이면 Plotly automargin 이 왼쪽 여백을 크게 잡아 차트가 오른쪽으로 밀림 → 수평 라벨·automargin 끔
     ticks = [d for d in x if d.month in (1, 4, 7, 10)]
     fig.update_xaxes(title=None, tickvals=ticks, ticktext=[f"{d.month}월" for d in ticks], tickangle=0, showgrid=False, automargin=False)
-    # 연도 칸: 12월과 1월 막대 사이에 옅은 세로선(날짜 줄 아래까지) + 그 선 아래 가운데에 연도
-    #   맨 처음 해는 선이 없어 첫 막대 왼쪽 끝에 맞춰 쓰되, 그 해가 4개월 이하로 짧으면(2023년 10~12월) 다음 해 글자와 겹쳐서 생략
+    # 연도 칸: 12월과 1월 막대 사이에 옅은 세로선(날짜 줄 아래까지) + 선과 선 사이(그 해 칸) 가운데에 연도
     half = pd.Timedelta(days=15)
     for k, d in enumerate(x):
         if d.month == 1 and k > 0:
             fig.add_shape(type="line", xref="x", yref="paper", x0=d - half, x1=d - half, y0=-.13, y1=1,
                           line=dict(color=c["grid"], width=1.5), layer="below")
-            fig.add_annotation(x=d - half, xref="x", y=-.14, yref="paper", text=f"{d.year}년", showarrow=False,
-                               xanchor="center", yanchor="top", font=dict(color=c["text2"], size=12))
-    if sum(d.year == x[0].year for d in x) > 4:
-        fig.add_annotation(x=x[0] - half, xref="x", y=-.14, yref="paper", text=f"{x[0].year}년", showarrow=False,
-                           xanchor="left", yanchor="top", font=dict(color=c["text2"], size=12))
+    for y in sorted({d.year for d in x}):
+        months = [d for d in x if d.year == y]
+        mid = months[0] - half + ((months[-1] + half) - (months[0] - half)) / 2   # 그 해 첫 막대 왼쪽 끝 ~ 마지막 막대 오른쪽 끝의 가운데
+        fig.add_annotation(x=mid, xref="x", y=-.14, yref="paper", text=f"{y}년", showarrow=False,
+                           xanchor="center", yanchor="top", font=dict(color=c["text2"], size=12))
     # 범례 순서: AI 언급 기사 · 급증한 달 · 일부 수집 · 급증 기준선 (기준선은 아래층에 그리려고 먼저 넣었으므로 맨 뒤로)
     if fig.data and fig.data[0].name == "급증 기준선":
         fig.data[0].legendrank = 2000

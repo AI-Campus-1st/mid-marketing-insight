@@ -2,7 +2,7 @@
 [A·D7] 기획안 검토 화면 — 기획안을 올리면 공시·뉴스에서 비슷한 AI 활용 사례를 찾아 리포트 한 장으로 보여 준다
 
 사용자: 5개사 밖 중견 대행사 신사업기획팀장 (메인 페르소나, 이슈 #28) — "우리 기획과 같은 일을 경쟁사가 실제로 했나?"
-- 입력: 파일(txt·md·pdf·docx) 또는 붙여 넣기, 예시 기획안 버튼 → '검토 시작'. 결과가 나오면 입력 칸은 숨긴다 ('＋ 새 기획안'으로 다시)
+- 입력: 파일(txt·md·pdf·docx) 또는 직접 입력 → '검토 시작'. 결과가 나오면 입력 칸은 숨긴다 ('＋ 새 기획안'으로 다시)
 - 결과: 결과 요약(실행 부분 몇 곳에 같은 일 사례가 있는지 + 기획 부분 ↔ 회사 · 사업 키워드 짝) → 왼쪽 기획안 문서(사례가 붙은 문단을 칠함) ·
   오른쪽 그 문단의 사례 카드('같은 일을 이미 한 곳' / '비슷한 기술을 다른 일에 쓴 곳', 공시·뉴스 배지)
   (문단은 rag/plan_review.split_paras, 사례 ↔ 문단 연결은 LLM 의 para, 결론은 코드가 사례로 만든 짝 목록 — plan_v6)
@@ -23,10 +23,6 @@ from config import settings
 
 TITLE = "기획안 검토"
 TAGLINE = "AI 신사업 계획이나 마케팅 기획안을 올리면, 비슷한 사례를 정기공시(사업·반기·분기보고서)와 뉴스에서 찾아 드려요."
-EXAMPLE = ("[신사업 제안] AI 검색 최적화(GEO) 컨설팅 상품 출시\n"
-           "배경: 소비자가 챗GPT 같은 생성형 AI 검색으로 브랜드를 찾기 시작하면서 기존 검색광고만으로는 노출이 줄고 있음.\n"
-           "제안: 광고주 브랜드가 생성형 AI 답변에 우선 노출되도록 진단·콘텐츠 최적화·모니터링을 묶은 GEO 컨설팅 상품을 출시.\n"
-           "필요 역량: AI 답변 노출 진단 도구(자체 개발 또는 외부 솔루션 제휴), 콘텐츠 제작 인력.")
 FILE_TYPES = ["txt", "md", "pdf", "docx"]
 MIN_CHARS = 30
 HIST_DIR = settings.DATA_DIR / "processed" / "plan_history"
@@ -427,10 +423,8 @@ def _input() -> tuple[str, str] | None:
     st.markdown('##### 직접 입력 <span class="pr-hint">(기획안 파일이 없는 경우)</span>', unsafe_allow_html=True)
     text = st.text_area("직접 입력", key="pr_text", height=160, label_visibility="collapsed",
                         placeholder="예: [신사업 제안] AI 검색 최적화(GEO) 컨설팅 상품 출시 — 배경, 제안, 필요 역량…")
-    go, ex, _ = st.columns([1, 1.4, 3])
+    go, _ = st.columns([1, 4.4])
     run = go.button("검토 시작", key="pr_go", width="stretch", icon=":material/search:")
-    if ex.button("예시 기획안으로 해 보기", width="stretch"):
-        return EXAMPLE, "예시: GEO 컨설팅 상품 기획안"
     if not run:
         return None
     if up is not None and text.strip():   # 둘 다 넣었으면 어느 쪽을 검토할지 모르므로 시작하지 않음

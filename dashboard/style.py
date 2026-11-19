@@ -317,6 +317,13 @@ def lead(html_text: str, big: bool = False) -> None:
     st.markdown(f'<div class="lead{" lead-lg" if big else ""}">{html_text}</div>', unsafe_allow_html=True)
 
 
+# 선 아이콘 (SVG, 글자색을 따름) — section() 의 icon 으로 넘긴다. 이모지 대신 파란 아이콘 상자에 맞는 모양
+_SVG = ('<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+        'stroke-linecap="round" stroke-linejoin="round" style="display:block">{}</svg>')
+ICON_CALENDAR = _SVG.format('<rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>')
+ICON_CLOCK = _SVG.format('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/>')
+
+
 def section(title: str, icon: str = "◆", badge: str | None = None, badge_kind: str = "gray", sub: str | None = None) -> None:
     b = f" {pill(badge, badge_kind)}" if badge else ""
     s = f'<span class="sec-sub">{esc(sub)}</span>' if sub else ""

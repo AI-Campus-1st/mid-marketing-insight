@@ -143,12 +143,12 @@ def render(df: pd.DataFrame, period) -> None:
 
     left, right = st.columns([5, 2], gap="medium")
     with left, st.container(border=True, key="card_q1_chart"):
-        ui.section("월별 AI 언급 기사량", "📅")
+        ui.section("월별 AI 언급 기사량", ui.ICON_CALENDAR)
         st.plotly_chart(_chart(m, show_spikes), width="stretch", config={"displayModeBar": False})
         st.caption("* 일부 수집 : 날짜 제한으로 일부만 수집된 달 (2023년 10월은 19일부터, 2026년 10월은 19일까지)\n"
                    "* 급증 기준 : 직전 6개월 평균 × 1.5 초과")
     with right, st.container(border=True, key="card_q1_timeline"):
-        ui.section("급증 타임라인", "🕒")
+        ui.section("급증 타임라인", ui.ICON_CLOCK)
         if spikes or show_spikes:
             _spike_timeline(df, m, spikes)
         else:

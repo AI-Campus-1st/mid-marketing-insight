@@ -56,6 +56,7 @@ def disclosure_facts(corps: list[str], period: tuple) -> dict:
         "found": int((v != "not_found").sum()), "on_time": int((v == "on_time").sum()),
         "delayed": int(v.str.startswith("delayed").sum()), "preceded": int((v == "preceded").sum()),
         "not_found": int((v == "not_found").sum()),
+        "not_found_types": sorted(set(j[v == "not_found"].event_type.dropna())),   # 미확인 이벤트 유형 (해석 문장용)
         "median_lag": None if lag.empty else int(lag.median()),
         "l3_share": l3.to_dict(),                                   # 5개사 모두 (순위용)
         "l3_rank": {c: i + 1 for i, c in enumerate(l3.index)},
@@ -87,8 +88,10 @@ def disclosure_rows(corps: list[str], period: tuple) -> list[tuple[str, str]]:
             else:
                 execution = f"{found}됩니다 ({' · '.join(parts)})"
         if f["not_found"]:
-            execution += (f". 공시에서 미확인 {f['not_found']}개 — 제휴·외부 솔루션 도입은 공시에 실을 칸이 마땅치 않아, "
-                          "미확인이 곧 실행 안 함은 아닙니다")
+            # 해석은 미확인에 제휴·도입이 있을 때만, 단정하지 않고 (리포트 4-3: 분석 대상에서 관찰된 경향)
+            hard = [k for t, k in (("partnership", "제휴"), ("adoption", "외부 솔루션 도입")) if t in f["not_found_types"]]
+            why = f" ({'·'.join(hard)}처럼 정기보고서에 따로 적을 항목이 없는 유형은 덜 실리는 것으로 보입니다)" if hard else ""
+            execution += f". 확인되지 않은 {f['not_found']}개가 실행되지 않았다는 뜻은 아닙니다{why}"
         execution += "."
 
     share, rank = f["l3_share"], f["l3_rank"]

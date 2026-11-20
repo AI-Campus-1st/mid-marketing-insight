@@ -16,15 +16,15 @@ from dashboard.theme import LEVEL_NAME, LEVEL_ORDER, VERDICT_ORDER, colors, styl
 
 HOW_TO_READ = """
 - **판정 기준:** 뉴스 발표일 이후 처음 끝나는 분기의 정기보고서(기대 보고서)에 실렸으면 *다음 공시에 반영*, 그 뒤 보고서에서 처음이면 *늦게 반영*,
-  발표 전 보고서에 이미 있었으면 *공시가 먼저*, 수집 기간(~2026-10) 끝까지 없으면 *공시에서 미확인*이에요.
-- **'공시에서 미확인' ≠ 실행 안 함.** 제휴·외부 솔루션 도입은 정기보고서에 실을 칸이 마땅치 않아요.
-- 분기보고서에는 회사 연혁이 없어서, 연혁에만 실리는 이벤트는 반기·사업보고서를 기대 보고서로 봐요.
-- 2026-07 이후 발표된 이벤트는 다음 보고서가 아직 없어 판정하지 않아요(참고용).
+  발표 전 보고서에 이미 있었으면 *공시가 먼저*, 수집 기간(~2026-10) 끝까지 없으면 *공시에서 미확인*입니다.
+- **'공시에서 미확인' ≠ 실행 안 함.** 제휴·외부 솔루션 도입은 정기보고서에 실을 칸이 마땅치 않습니다.
+- 분기보고서에는 회사 연혁이 없어서, 연혁에만 실리는 이벤트는 반기·사업보고서를 기대 보고서로 봅니다.
+- 2026-07 이후 발표된 이벤트는 다음 보고서가 아직 없어 판정하지 않습니다(참고용).
 """
 ACCURACY = """
-- AI 용어가 있는 공시 문단만 LLM 으로 분류했어요 (프롬프트 chunk_v7). 처음 보는 표본 29개를 A·B 가 합의 판정한 기준 **가중 정확도 87%**.
-- '자체 개발·상용화'·'언급'은 표본에서 모두 맞았지만 **'도입·적용'(외부 AI 도입)은 4개 중 1개만 맞아** 믿기 어려워요 — '자체 개발·상용화' 비중 중심으로 보세요.
-- KT나스미디어는 연결 자회사였던 플레이디 제품을 근거로 한 문단(2025-04 매각 전)을 뺐어요.
+- AI 용어가 있는 공시 문단만 LLM 으로 분류했습니다 (프롬프트 chunk_v7). 처음 보는 표본 29개를 A·B 가 합의 판정한 기준 **가중 정확도 87%**.
+- '자체 개발·상용화'·'언급'은 표본에서 모두 맞았지만 **'도입·적용'(외부 AI 도입)은 4개 중 1개만 맞아** 믿기 어렵습니다 — '자체 개발·상용화' 비중 중심으로 보십시오.
+- KT나스미디어는 연결 자회사였던 플레이디 제품을 근거로 한 문단(2025-04 매각 전)을 뺐습니다.
 """
 
 EVENT_TYPE_KO = {"partnership": "제휴", "adoption": "도입", "launch": "출시", "campaign": "캠페인", "organization": "조직"}
@@ -48,13 +48,13 @@ def _headline(r: pd.DataFrame) -> None:
     n = {v: int((j["판정"] == v).sum()) for v in VERDICT_ORDER}
     found = n["제때"] + n["늦게"] + n["공시가 먼저"]
     if j.empty:   # 필터에 참고용(최근 발표) 이벤트만 남은 경우
-        ui.lead(f"선택한 기업·기간에는 판정 대상 이벤트가 없어요 "
-                f'<span style="font-weight:500;opacity:.6;font-size:.9rem">(참고용 {len(r)}개는 이벤트 타임라인에서 볼 수 있어요)</span>', big=True)
+        ui.lead(f"선택한 기업·기간에는 판정 대상 이벤트가 없습니다 "
+                f'<span style="font-weight:500;opacity:.6;font-size:.9rem">(참고용 {len(r)}개는 이벤트 타임라인에서 볼 수 있습니다)</span>', big=True)
     else:
         lag = j[j.lag_days.notna() & j["판정"].isin(["제때", "늦게"])].lag_days
         sub = (f'<span style="display:block;font-weight:500;opacity:.6;font-size:.9rem">'
                f'(뉴스 발표 뒤 정기보고서에 실리기까지 중앙값 {int(lag.median())}일)</span>') if len(lag) else ""
-        ui.lead(f"뉴스로 발표한 AI 이벤트 {len(j)}개 중 <b>{found}개({found / len(j):.0%})</b>가 정기공시에 실렸어요.{sub}", big=True)
+        ui.lead(f"뉴스로 발표한 AI 이벤트 {len(j)}개 중 <b>{found}개({found / len(j):.0%})</b>가 정기공시에 실렸습니다.{sub}", big=True)
     ui.kpis([(_label(v), f"{n[v]}개", VERDICT_NOTE[v]) for v in VERDICT_ORDER], key="q3")
 
 
@@ -65,22 +65,22 @@ def _points(r: pd.DataFrame) -> None:
     hit = j.groupby("corp_name")["판정"].apply(lambda x: int((x != "미확인").sum()))
     zero = [c for c, v in hit.items() if v == 0]
     if zero:
-        pts.append(f"<b>{ui.esc(', '.join(zero))}</b>: 뉴스로 알려진 AI 이벤트가 공시에서 하나도 확인되지 않았어요.")
+        pts.append(f"<b>{ui.esc(', '.join(zero))}</b>: 뉴스로 알려진 AI 이벤트가 공시에서 하나도 확인되지 않았습니다.")
     miss = j[j["판정"] == "미확인"]
     if len(miss):
         kinds = miss.event_type.map(EVENT_TYPE_KO).fillna("기타").value_counts()
         pts.append(f"공시에서 미확인 <b>{len(miss)}개</b>: " + ", ".join(f"{k} {v}" for k, v in kinds.items())
-                   + " — 제휴·도입은 정기보고서에 실을 칸이 마땅치 않아요.")
+                   + " — 제휴·도입은 정기보고서에 실을 칸이 마땅치 않습니다.")
     late = j[j["판정"] == "늦게"]
     if len(late):
         pts.append(f"늦게 반영 <b>{len(late)}개</b>: " + ", ".join(ui.esc(e) for e in late.event_name) + ".")
     ref = int((r.analysis_scope == "reference").sum())
     if ref:
-        pts.append(f"2026-07 이후 발표된 <b>{ref}개</b>는 다음 보고서가 아직 없어 판정하지 않았어요 (참고용).")
+        pts.append(f"2026-07 이후 발표된 <b>{ref}개</b>는 다음 보고서가 아직 없어 판정하지 않았습니다 (참고용).")
     if pts:
         st.markdown('<ul class="q3-points">' + "".join(f"<li>{p}</li>" for p in pts) + "</ul>", unsafe_allow_html=True)
     else:
-        st.caption("선택한 기업·기간에 따로 짚을 점이 없어요.")
+        st.caption("선택한 기업·기간에 따로 짚을 점이 없습니다.")
 
 
 def _hbar_layout(fig, n_rows: int):
@@ -160,7 +160,7 @@ def _timeline_chart(d: pd.DataFrame):
 def _timeline(r: pd.DataFrame) -> None:
     with st.container(border=True, key="card_q3_timeline"):
         ui.section("이벤트 타임라인", ui.ICON_CLOCK)
-        st.caption("기업을 고르면 그 기업의 이벤트가 보여요. 점에 마우스를 올리면 보고서 이름과 걸린 일수가 보여요.")
+        st.caption("기업을 고르면 그 기업의 이벤트가 보입니다. 점에 마우스를 올리면 보고서 이름과 걸린 일수가 보입니다.")
         corp = st.radio("기업", sorted(r.corp_name.unique()), horizontal=True, key="q3_tl_corp", label_visibility="collapsed")
         d = r[r.corp_name == corp].sort_values("official_date").copy()
         d["label"] = d.event_name.str.slice(0, 26) + d.analysis_scope.map({"reference": " (참고용)"}).fillna("")
@@ -179,8 +179,8 @@ def _levels(corps: list[str]) -> None:
     order = list(share["L3"].sort_values().index)
     with st.container(border=True, key="card_q3_levels"):
         ui.section("기업별 공시 AI 단계 비중", ui.ICON_LAYERS)
-        st.caption("정기공시에서 AI 를 말한 문단을 4단계로 나눈 비중이에요. '자체 개발·상용화'가 클수록 공시로 확인되는 실행이 많아요. "
-                   "막대에 마우스를 올리면 비중과 문단 수가 보여요.")
+        st.caption("정기공시에서 AI 를 말한 문단을 4단계로 나눈 비중입니다. '자체 개발·상용화'가 클수록 공시로 확인되는 실행이 많습니다. "
+                   "막대에 마우스를 올리면 비중과 문단 수가 보입니다.")
         fig = go.Figure()
         for lvl in LEVEL_ORDER:
             fig.add_bar(y=order, x=share.loc[order, lvl], name=LEVEL_NAME[lvl], orientation="h",
@@ -196,7 +196,7 @@ def _levels(corps: list[str]) -> None:
 def _table(r: pd.DataFrame) -> None:
     with st.container(border=True, key="card_q3_table"):
         ui.section("이벤트 표", ui.ICON_TABLE)
-        st.caption("표에서 볼 기업을 고를 수 있어요. 'DART'·'기사'를 누르면 원문이 열려요.")
+        st.caption("표에서 볼 기업을 고를 수 있습니다. 'DART'·'기사'를 누르면 원문이 열립니다.")
         # 표에서만 쓰는 기업 체크박스 (사이드바 기업 필터로 고른 기업 안에서 다시 고른다)
         corps = sorted(r.corp_name.unique())
         keys = {c: f"q3_tbl_{c}" for c in corps}
@@ -209,7 +209,7 @@ def _table(r: pd.DataFrame) -> None:
                      on_click=lambda: st.session_state.update({k: True for k in keys.values()}))
         r = r[r.corp_name.isin(on)]
         if r.empty:
-            st.info("기업을 하나 이상 골라 주세요.")
+            st.info("기업을 하나 이상 골라 주십시오.")
             return
         t = r.sort_values(["analysis_scope", "corp_name", "official_date"])[
             ["corp_name", "event_name", "official_date", "판정명", "first_report", "first_report_date", "lag_days", "dart_url", "primary_source_url"]].copy()
@@ -226,13 +226,13 @@ def _table(r: pd.DataFrame) -> None:
 
 def render(corps: list[str], period: tuple) -> None:
     ui.page_title("Q3. 뉴스에서 말한 AI, 정기공시에도 실렸나",
-                  "뉴스로 발표한 AI 이벤트가 정기공시(사업·반기·분기보고서)에 실렸는지, 공시 속 AI 는 어느 단계인지 정리했어요.")
+                  "뉴스로 발표한 AI 이벤트가 정기공시(사업·반기·분기보고서)에 실렸는지, 공시 속 AI 는 어느 단계인지 정리했습니다.")
     r = dl.reflection()
     r = r[r.corp_name.isin(corps) & (r.official_date >= str(period[0])) & (r.official_date <= str(period[1]))].copy()
     r["판정"] = r.verdict.map(verdict_ko)          # 안쪽 이름 (색·계산용)
     r["판정명"] = r["판정"].map(verdict_label)   # 화면 이름
     if r.empty:
-        st.info("선택한 기업·기간에 이벤트가 없어요.")
+        st.info("선택한 기업·기간에 이벤트가 없습니다.")
         return
     _headline(r)
     t1, t2, t3 = st.tabs(["요약", "이벤트 타임라인", "공시 AI 단계"])
@@ -242,7 +242,7 @@ def render(corps: list[str], period: tuple) -> None:
         with left, st.container(border=True, key="card_q3_corp"):
             ui.section("기업별 반영 결과", ui.ICON_BARS)
             if j.empty:
-                st.caption("판정 대상 이벤트가 없어요.")
+                st.caption("판정 대상 이벤트가 없습니다.")
             else:
                 st.plotly_chart(_by_corp(j), width="stretch", config={"displayModeBar": False})
                 st.caption("* 판정 대상 : 2026년 6월까지 발표돼 다음 정기보고서가 나온 이벤트 (막대 끝 숫자 = 기업별 합계)")

@@ -311,7 +311,7 @@ def inject() -> None:
 
 BRAND = "AA 팩트체커"
 BRAND_SUB = "Ad & AI Fact-Checker"
-BRAND_DESC = "공시와 뉴스를 대조해 주요 광고사 5곳의 AI 적용·활용 단계를 확인할 수 있어요."
+BRAND_DESC = "공시와 뉴스를 대조해 주요 광고사 5곳의 AI 적용·활용 단계를 확인할 수 있습니다."
 
 
 def brand(desc: str = BRAND_DESC) -> None:

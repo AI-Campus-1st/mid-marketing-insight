@@ -24,7 +24,7 @@ st.set_page_config(page_title=f"{ui.BRAND} · {ui.BRAND_SUB} (B 미리보기)", 
 ui.inject()   # app.py 와 같은 카드형 UI 공통 CSS
 
 with st.sidebar:
-    ui.brand("B 화면 미리보기 — 공시 챗봇과 Q3 공시 반영만 띄워요. 전체 화면은 streamlit run dashboard/app.py")
+    ui.brand("B 화면 미리보기 — 공시 챗봇과 Q3 공시 반영만 띄웁니다. 전체 화면은 streamlit run dashboard/app.py")
     st.markdown('<div class="sb-label">화면</div>', unsafe_allow_html=True)
     page = st.radio("화면", PAGES, label_visibility="collapsed", format_func=lambda p: f"{PAGE_ICON[p]}  {p}")
     st.divider()

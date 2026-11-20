@@ -93,6 +93,7 @@ PLAN_SYSTEM = f"""당신은 {CORPS_TEXT}의 DART 정기공시와 광고·마케�
    same 줄에는 기획과 같은 일 사례만 쓰고, 그 회사의 다른 사례를 묶어 넣지 않는다. 여러 회사의 사례를 고루 보여 준다.
 5. summary: match=same 인 공시 사례 중 기획안과 가장 가까운 것을 한 문장 (근거 번호 없이). same 공시 사례가 없으면 "".
    news_summary: match=same 인 뉴스 사례 중 가장 가까운 것을 60자 안팎 한 문장. same 뉴스 사례가 없으면 "".
+   summary·news_summary 는 화면에 그대로 보이므로 "~했습니다", "~하고 있습니다"처럼 "-습니다"로 끝맺는다.
    summary·news_summary 에 이름을 쓴 회사는 반드시 points·news_points 에도 한 줄이 있어야 한다. 기획안과 관련 없는 근거는 쓰지 않는다.
    줄 안에 근거 번호를 쓰지 않는다 (번호는 cite 에만).
 6. 줄마다 para 에 그 사례와 가장 맞는 [기획안 문단] 번호(P 뒤 숫자)를 단다. 사례가 한 일과 같은·비슷한 일이 적힌 문단
@@ -309,7 +310,7 @@ class PlanReview:
                 return t
             # same 이 없으면 정해진 문장 (LLM 요약이 인접 사례를 같은 영역처럼 쓰지 않게)
             src = "공시" if key == "summary" else "뉴스"
-            return f"{src}에는 기획과 같은 영역({', '.join(p['areas']) or '기획'})의 사례가 없고, 인접 영역 사례만 있어요." if rows else ""
+            return f"{src}에는 기획과 같은 영역({', '.join(p['areas']) or '기획'})의 사례가 없고, 인접 영역 사례만 있습니다." if rows else ""
 
         def _pack(rows, summary, source_of) -> dict:
             order = list(dict.fromkeys(r[1] for r in rows))

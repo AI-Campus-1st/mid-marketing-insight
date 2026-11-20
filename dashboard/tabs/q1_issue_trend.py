@@ -103,13 +103,13 @@ def _spike_timeline(df: pd.DataFrame, m: pd.DataFrame, spikes: list[str]) -> Non
 
 
 def render(df: pd.DataFrame, period) -> None:
-    ui.page_title("Q1. AI 마케팅 언급이 급증한 시기", "뉴스 중 AI 마케팅 관련 월별 기사량과 급증 시점을 정리했어요.")
+    ui.page_title("Q1. AI 마케팅 언급이 급증한 시기", "뉴스 중 AI 마케팅 관련 월별 기사량과 급증 시점을 정리했습니다.")
     m_all = _monthly(df)   # 전체 기간으로 기준선·급증 계산
     lo, hi = period[0].strftime("%Y-%m"), period[1].strftime("%Y-%m")
     m = m_all.loc[(m_all.index >= lo) & (m_all.index <= hi)]
     df = df[(df["date"] >= period[0]) & (df["date"] <= period[1])]
     if df.empty or m.empty:
-        st.info("선택한 필터에 해당하는 기사가 없어요.")
+        st.info("선택한 필터에 해당하는 기사가 없습니다.")
         return
     full_all = m_all[~m_all["partial"]]
     mean_ai = float(full_all["ai"].mean()) if len(full_all) else 0.0
@@ -121,12 +121,12 @@ def render(df: pd.DataFrame, period) -> None:
         first = spikes[0]
         after = full.loc[first:]
         ui.lead(f"<b>{_ym(first)}</b>에 AI 언급 기사가 직전 6개월 평균의 <b>{m.loc[first, 'ratio']:.1f}배</b>로 급증했고, "
-                f"이후 월 {int(after['ai'].min())}건 아래로 내려가지 않았어요.", big=True)
+                f"이후 월 {int(after['ai'].min())}건 아래로 내려가지 않았습니다.", big=True)
     elif not show_spikes:
-        ui.lead(f"선택한 필터에서는 기사 수가 적어 급증 시점을 판정하지 않아요 "
+        ui.lead(f"선택한 필터에서는 기사 수가 적어 급증 시점을 판정하지 않습니다 "
                 f'<span style="font-weight:500;opacity:.6;font-size:.9rem">(AI 언급 기사 월평균 {mean_ai:.1f}건)</span>', big=True)
     else:
-        ui.lead("선택한 기간에는 급증한 달이 없어요.", big=True)
+        ui.lead("선택한 기간에는 급증한 달이 없습니다.", big=True)
 
     # '기사'(전체 건수) 카드는 빼고 AI 언급 기사 카드 설명에 전체 건수를 함께 적음
     ui.kpis([("AI 언급 기사", f"{int(df['is_ai'].sum()):,}건", f"수집한 뉴스 {len(df):,}건 중 {df['is_ai'].mean():.0%}"),
@@ -145,7 +145,7 @@ def render(df: pd.DataFrame, period) -> None:
         if spikes or show_spikes:
             _spike_timeline(df, m, spikes)
         else:
-            st.caption("기사가 적어 급증을 가릴 수 없어요")   # 기업·카테고리 필터로 기사가 크게 줄었을 때 (위 show_spikes 조건)
+            st.caption("기사가 적어 급증을 가릴 수 없습니다")   # 기업·카테고리 필터로 기사가 크게 줄었을 때 (위 show_spikes 조건)
 
     with st.container(key="q1_more"):   # 아래 접기 메뉴: 제목 글꼴을 카드 제목(월별 AI 언급 기사량)과 같게 (style.py)
         _more(df, m, spikes, show_spikes)

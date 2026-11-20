@@ -68,26 +68,27 @@ def disclosure_rows(corps: list[str], period: tuple) -> list[tuple[str, str]]:
     try:
         f = disclosure_facts(corps, period)
     except (sqlite3.Error, pd.errors.DatabaseError):  # 공시 테이블이 없는 DB (다른 오류는 숨기지 않음)
-        return [("공시", "공시 데이터가 이 DB 에 없어 표시하지 않아요.")]
+        return [("공시", "공시 데이터가 이 DB 에 없어 표시하지 않습니다.")]
     who = _corp_text(f["corps"])
 
     if f["judge"] == 0:
         ref = f" (발표가 최근이라 아직 판정하지 않은 참고용 이벤트 {f['reference']}개)" if f["reference"] else ""
-        execution = f"선택한 기업·기간에는 반영을 판정할 AI 이벤트가 없다{ref}."
+        execution = f"선택한 기업·기간에는 반영을 판정할 AI 이벤트가 없습니다{ref}."
     else:
         head = f"{who}{_ga(who)} 발표한 AI 이벤트 {f['judge']}개 중"
         if f["found"] == 0:
-            execution = f"{head} 정기공시(사업·반기·분기보고서)에서 확인된 것은 <b>없다</b>"
+            execution = f"{head} 정기공시(사업·반기·분기보고서)에서 확인된 것은 <b>없습니다</b>"
         else:
             parts = [f"다음 공시에 반영 {f['on_time']}"] + ([f"늦게 반영 {f['delayed']}"] if f["delayed"] else []) \
                 + ([f"공시가 먼저 {f['preceded']}"] if f["preceded"] else [])
-            execution = (f"{head} <b>{f['found']}개({f['found'] / f['judge']:.0%})</b>가 정기공시(사업·반기·분기보고서)에서 확인된다"
-                         f" ({' · '.join(parts)})")
+            found = f"{head} <b>{f['found']}개({f['found'] / f['judge']:.0%})</b>가 정기공시(사업·반기·분기보고서)에서 확인"
             if f["median_lag"] is not None:
-                execution += f", 실리기까지 보통 {f['median_lag']}일"
+                execution = f"{found}되고 ({' · '.join(parts)}), 실리기까지 보통 {f['median_lag']}일이 걸립니다"
+            else:
+                execution = f"{found}됩니다 ({' · '.join(parts)})"
         if f["not_found"]:
             execution += (f". 공시에서 미확인 {f['not_found']}개 — 제휴·외부 솔루션 도입은 공시에 실을 칸이 마땅치 않아, "
-                          "미확인이 곧 실행 안 함은 아니다")
+                          "미확인이 곧 실행 안 함은 아닙니다")
         execution += "."
 
     share, rank = f["l3_share"], f["l3_rank"]
@@ -95,15 +96,15 @@ def disclosure_rows(corps: list[str], period: tuple) -> list[tuple[str, str]]:
     # 형식: '~를 기준으로 비교했을 때, ~다.' (A 요청 — 기준과 결과를 한 문장으로)
     base = "대행사의 AI 경쟁력을 <b>정기공시로 확인되는 자체 개발·상용화</b>를 기준으로 비교했을 때"
     if not picked:
-        judgement = f"{base}, 선택한 기업에는 비교할 공시 속 AI 문단이 없다."
+        judgement = f"{base}, 선택한 기업에는 비교할 공시 속 AI 문단이 없습니다."
     elif len(picked) == 1:
         c = picked[0]
         judgement = (f"{base}, {c}의 공시 속 AI 문단 중 '자체 개발·상용화' 비중은 <b>{share[c]:.0%}</b>"
-                     f"(5개사 중 {rank[c]}위)이다.")
+                     f"(5개사 중 {rank[c]}위)입니다.")
     else:
         top, low = max(picked, key=share.get), min(picked, key=share.get)
         judgement = (f"{base}, 선택한 기업 중 '자체 개발·상용화' 비중이 가장 높은 곳은 <b>{top}({share[top]:.0%})</b>, "
-                     f"가장 낮은 곳은 {low}({share[low]:.0%})이다.")
+                     f"가장 낮은 곳은 {low}({share[low]:.0%})입니다.")
     return [("공시", execution), ("결론", judgement)]
 
 
@@ -176,40 +177,40 @@ def news_rows(news: pd.DataFrame, period: tuple, corps: list[str]) -> list[tuple
         try:
             g = company_news_facts(news, period)
         except (KeyError, sqlite3.Error, pd.errors.DatabaseError):
-            return [("뉴스", "뉴스 데이터가 이 DB 에 없어 표시하지 않아요.")]
+            return [("뉴스", "뉴스 데이터가 이 DB 에 없어 표시하지 않습니다.")]
         who = _corp_text(corps)
         if not g["articles"]:
-            return [("뉴스", f"선택한 기간에는 제목에 {who}{_ga(who)} 나온 기사가 없다.")]
+            return [("뉴스", f"선택한 기간에는 제목에 {who}{_ga(who)} 나온 기사가 없습니다.")]
         text = f"제목에 {who}{_ga(who)} 나온 기사 <b>{g['articles']}건</b> 중 {g['peak']}{_ga(g['peak'])} {g['peak_n']}건으로 가장 많았"
         if g["issues"]:
-            text += "고, 주로 " + "·".join(f"<b>{i}</b>({v:.0f}%)" for i, v in g["issues"]) + " 이슈를 다뤘다"
+            text += "고, 주로 " + "·".join(f"<b>{i}</b>({v:.0f}%)" for i, v in g["issues"]) + " 이슈를 다뤘습니다"
         else:
-            text += "다"
+            text += "습니다"
         return [("뉴스", text + ".")]
     try:
         f = news_facts(news, period)
     except (KeyError, sqlite3.Error, pd.errors.DatabaseError):  # 뉴스 결과(llm_results 등)가 없는 DB
-        return [("뉴스", "뉴스 데이터가 이 DB 에 없어 표시하지 않아요.")]
+        return [("뉴스", "뉴스 데이터가 이 DB 에 없어 표시하지 않습니다.")]
     subj = "제공 뉴스의 AI 마케팅 기사"
     if f["spike"]:
         s = f["spike"]
         first = (f"{subj}는 <b>{s['month']}</b>에 직전 반년 평균의 {s['ratio']:.1f}배로 급증한 뒤 "
-                 f"월 {s['floor']}건 아래로 내려가지 않았다")
+                 f"월 {s['floor']}건 아래로 내려가지 않았고")
     elif not f["judge_spike"]:
-        first = f"{subj}는 수가 적어 급증 시점을 판정하지 않는다"
+        first = f"{subj}는 수가 적어 급증 시점을 판정하지 않고"
     else:
-        first = f"{subj}는 선택한 기간에 급증한 달이 없다"
+        first = f"{subj}는 선택한 기간에 급증한 달이 없고"
     p = f["path"]
     if len(p) >= 2:
         steps = [f"{x['issue']}({x['year']})" if x["rise"] is None
                  else f"<b>{x['issue']}</b>({x['year']}, 비중 {x['rise']:+.0f}%p)" for x in p]
-        second = "화제는 " + " → ".join(steps) + " 로 옮겨 가고 있다"
+        second = "화제는 " + " → ".join(steps) + " 로 옮겨 가고 있습니다"
     elif len(p) == 1:
-        second = f"관련 기사에서 가장 많이 다룬 이슈는 <b>{p[0]['issue']}</b>({p[0]['year']}, {p[0]['share']:.0f}%)이다"
+        second = f"관련 기사에서 가장 많이 다룬 이슈는 <b>{p[0]['issue']}</b>({p[0]['year']}, {p[0]['share']:.0f}%)입니다"
     elif f["articles"]:
-        second = f"선택한 기간이 {MIN_YEAR_MONTHS}개월보다 짧거나 관련 기사가 적어 화제 이동은 판정하지 않는다"
+        second = f"선택한 기간이 {MIN_YEAR_MONTHS}개월보다 짧거나 관련 기사가 적어 화제 이동은 판정하지 않습니다"
     else:
-        second = "관련 기사가 없어 화제 이동은 판정하지 않는다"
+        second = "관련 기사가 없어 화제 이동은 판정하지 않습니다"
     return [("뉴스", f"{first}, {second}.")]
 
 

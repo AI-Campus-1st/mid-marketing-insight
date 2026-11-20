@@ -23,7 +23,7 @@ from config import settings
 from dashboard import style as ui
 
 TITLE = "기획안 검토"
-TAGLINE = "AI 신사업 계획이나 마케팅 기획안을 올리면, 비슷한 사례를 정기공시(사업·반기·분기보고서)와 뉴스에서 찾아 드려요."
+TAGLINE = "AI 신사업 계획이나 마케팅 기획안을 올리면, 비슷한 사례를 정기공시(사업·반기·분기보고서)와 뉴스에서 찾아 드립니다."
 FILE_TYPES = ["txt", "md", "pdf", "docx"]
 MIN_CHARS = 30
 HIST_DIR = settings.DATA_DIR / "processed" / "plan_history"
@@ -162,7 +162,7 @@ BTN_CSS = """<style>
 .st-key-pr_tagline { margin-top: .6rem; }
 /* 파일 첨부 칸: Streamlit 은 이 글자들을 바꾸는 설정이 없어서, 영어 글자를 숨기고(font-size: 0) 같은 자리에 한국어를 덧씌움 */
 [data-testid="stFileUploaderDropzoneInstructions"] > div > span { font-size: 0 !important; }
-[data-testid="stFileUploaderDropzoneInstructions"] > div > span:first-child::after { content: "파일을 여기로 끌어다 놓으세요"; font-size: 1rem; }
+[data-testid="stFileUploaderDropzoneInstructions"] > div > span:first-child::after { content: "파일을 여기로 끌어다 놓으십시오"; font-size: 1rem; }
 [data-testid="stFileUploaderDropzoneInstructions"] > div > span:last-child::after { content: "파일 1개당 200MB까지 · TXT, MD, PDF, DOCX"; font-size: .875rem; }   /* 칸 이름(파일 첨부)과 같은 14px */
 [data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"] { font-size: 0 !important; }
 [data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"]::after { content: "파일 선택"; font-size: 1rem; }   /* 옆 버튼들(검토 시작·예시)과 같은 16px */
@@ -218,7 +218,11 @@ def _collapsed(n: int, marked: set) -> set:
     return out
 
 
-GAP_CARD = '<div class="pr-card gap">공시·뉴스에서 이 부분과 같은 일을 한 사례를 찾지 못했어요.</div>'
+def _join(bits: list[tuple[str, str, str]]) -> str:
+    return ", ".join(stem + (end if i == len(bits) - 1 else mid) for i, (stem, mid, end) in enumerate(bits))
+
+
+GAP_CARD = '<div class="pr-card gap">공시·뉴스에서 이 부분과 같은 일을 한 사례를 찾지 못했습니다.</div>'
 
 
 def _year(text: str) -> str:
@@ -253,15 +257,15 @@ def _conclusion(r: dict) -> None:
     n_only = [n for n in parts if n not in d_same and any(x["same"] for x in by.get(n, []))]
     adj_only = [n for n in parts if n not in d_same and n not in n_only and by.get(n)]
     lead = f"기획의 실행 부분 {len(parts)}곳 중 "
-    bits = []
+    bits = []   # (줄기, 중간 어미, 끝 어미) — 중간은 '~고'로 잇고 마지막만 '-습니다' (예: '…있고, 1곳은 …못했습니다')
     if d_same:
-        bits.append(f"<b>{len(d_same)}곳</b>은 공시로 같은 일을 이미 한 회사가 있어요")
+        bits.append((f"<b>{len(d_same)}곳</b>은 공시로 같은 일을 이미 한 회사가 있", "고", "습니다"))
     if n_only:
-        bits.append(f"<b>{len(n_only)}곳</b>은 뉴스 보도로만 같은 사례가 보여요")
+        bits.append((f"<b>{len(n_only)}곳</b>은 뉴스 보도로만 같은 사례가 보", "이고", "입니다"))
     if adj_only:
-        bits.append(f"<b>{len(adj_only)}곳</b>은 비슷한 기술 사례만 있어요")
+        bits.append((f"<b>{len(adj_only)}곳</b>은 비슷한 기술 사례만 있", "고", "습니다"))
     if gaps:
-        bits.append(f"<b>{len(gaps)}곳</b>은 사례를 찾지 못했어요")
+        bits.append((f"<b>{len(gaps)}곳</b>은 사례를 찾지 못했", "고", "습니다"))
     rows = []
     for n in parts:
         xs = by.get(n, [])
@@ -275,12 +279,12 @@ def _conclusion(r: dict) -> None:
         if adj:
             cells.append('<span class="sim">유사 기술</span>' + " · ".join(case(x) for x in adj))
         if not xs:
-            cells.append('<span class="none">공시·뉴스에서 같은 사례를 찾지 못했어요</span>')
+            cells.append('<span class="none">공시·뉴스에서 같은 사례를 찾지 못했습니다</span>')
         rows.append(f'<div class="map"><div class="part">{html.escape(_label(r, n))}</div><div class="cases">{"<br>".join(cells)}</div></div>')
-    note = '<div class="note">기획 부분 이름과 사업 키워드만 AI 가 줄였고, 짝은 찾은 사례(공시·뉴스) 그대로예요. 기획의 결과는 예측하지 않아요.</div>'
+    note = '<div class="note">기획 부분 이름과 사업 키워드만 AI 가 줄였고, 짝은 찾은 사례(공시·뉴스) 그대로입니다. 기획의 결과는 예측하지 않습니다.</div>'
     with st.container(key="hl_pr_concl"):
         st.markdown("##### 🧭 결과 요약")
-        st.markdown(f'<div class="pr-concl">{lead + ", ".join(bits)}.{"".join(rows)}{note}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="pr-concl">{lead + _join(bits)}.{"".join(rows)}{note}</div>', unsafe_allow_html=True)
 
 
 def _to_chatbot(q: str, chunk_ids: list[str] | None = None) -> None:
@@ -311,7 +315,7 @@ def _ask_chatbot(r: dict) -> None:
         return
     with st.container(key="pr_h_ask"):   # key: 소제목 크게 (DOC_CSS)
         st.markdown("##### 💬 구체적인 사례 물어보기")
-    st.markdown('<div class="pr-ask-sub">누르면 <b>공시 챗봇 새 대화에서 바로 답해요.</b> 기획안 검토 결과는 그대로 남아요.</div>',
+    st.markdown('<div class="pr-ask-sub">누르면 <b>공시 챗봇 새 대화에서 바로 답합니다.</b> 기획안 검토 결과는 그대로 남습니다.</div>',
                 unsafe_allow_html=True)
     for i, (corp, k, q, ids) in enumerate(qs):   # 한 줄에 하나씩, 글 길이만큼의 말풍선 (DOC_CSS st-key-pr_ask_)
         st.button(q, key=f"pr_ask_{i}", width="content", on_click=_to_chatbot, args=(q, ids))   # 버튼 글 = 챗봇에 보낼 질문 그대로
@@ -320,7 +324,7 @@ def _ask_chatbot(r: dict) -> None:
 def _report(r: dict, label: str) -> None:
     # 기획안 제목·첨부 파일·AI 활용 영역은 화면 맨 위(render)에서 그림
     if not r["ok"]:
-        st.warning(r["message"] + " AI 를 어디에 어떻게 쓰려는지가 드러나게 써 주세요.")
+        st.warning(r["message"] + " AI 를 어디에 어떻게 쓰려는지가 드러나게 써 주십시오.")
         return
     st.markdown(DOC_CSS, unsafe_allow_html=True)
     _conclusion(r)
@@ -356,7 +360,7 @@ def _report(r: dict, label: str) -> None:
                     right.markdown(_card(items), unsafe_allow_html=True)
                 elif i in gaps:
                     right.markdown(GAP_CARD, unsafe_allow_html=True)
-    st.caption("문서는 올린 파일에서 읽은 글자로 다시 그린 것이라 원본의 표·그림·글꼴은 보이지 않아요.")
+    st.caption("문서는 올린 파일에서 읽은 글자로 다시 그린 것이라 원본의 표·그림·글꼴은 보이지 않습니다.")
     _ask_chatbot(r)   # 맨 아래: 공시 사례를 챗봇에 물어보는 버튼
 
 
@@ -406,7 +410,7 @@ def _sidebar() -> None:
         items = _history()
         st.markdown("**지난 기획안**")
         if not items:
-            st.caption("아직 없어요. 검토하면 여기에 저장돼요.")
+            st.caption("아직 없습니다. 검토하면 여기에 저장됩니다.")
         cur = st.session_state.get("pr_id")
         tips = []   # 잘린 제목에 마우스를 대면 전체 제목 — 메뉴 설명과 같은 말풍선·정렬 (style.hover_tips)
         for c in items[:HIST_SHOW]:
@@ -422,7 +426,7 @@ def _sidebar() -> None:
 def _input() -> tuple[str, str] | None:
     """입력 칸 (결과가 없을 때만 보임) → (기획안 글, 표시 이름) 또는 None"""
     nonce = st.session_state.get("pr_nonce", 0)
-    # 칸 이름: 공시 챗봇 '이런 걸 물어볼 수 있어요'와 같은 굵은 소제목(#####). 위젯 자체 이름표는 숨김(화면 읽기용으로는 남음)
+    # 칸 이름: 공시 챗봇 '이런 걸 물어볼 수 있습니다'와 같은 굵은 소제목(#####). 위젯 자체 이름표는 숨김(화면 읽기용으로는 남음)
     st.markdown("##### 파일 첨부")
     up = st.file_uploader("파일 첨부", type=FILE_TYPES, key=f"pr_file_{nonce}", label_visibility="collapsed")
     st.markdown('##### 직접 입력 <span class="pr-hint">(기획안 파일이 없는 경우)</span>', unsafe_allow_html=True)
@@ -436,7 +440,7 @@ def _input() -> tuple[str, str] | None:
         # st.toast 는 화면 오른쪽 위에만 떠서, 같은 모양의 알림을 '검토 시작' 바로 아래에 직접 그림 (몇 초 뒤 사라짐, BTN_CSS .pr-toast)
         # 누를 때마다 다시 뜨게: Streamlit 은 같은 자리의 요소를 다시 써서 애니메이션이 처음부터 돌지 않으므로 a·b 를 번갈아 씀
         n = st.session_state["pr_toast_n"] = st.session_state.get("pr_toast_n", 0) + 1
-        st.markdown(f'<div class="pr-toast {"ab"[n % 2]}"><span class="ic">⚠</span>파일 첨부와 직접 입력 중 하나만 해 주세요.</div>',
+        st.markdown(f'<div class="pr-toast {"ab"[n % 2]}"><span class="ic">⚠</span>파일 첨부와 직접 입력 중 하나만 해 주십시오.</div>',
                     unsafe_allow_html=True)
         return None
     body, label = text.strip(), "붙여 넣은 글"
@@ -444,14 +448,14 @@ def _input() -> tuple[str, str] | None:
         try:
             body = _file_text(up).strip()
         except Exception as e:  # 깨진 파일 등
-            st.error(f"'{up.name}' 을(를) 읽지 못했어요 ({type(e).__name__}). txt·md·pdf·docx 파일인지 확인해 주세요.")
+            st.error(f"'{up.name}' 을(를) 읽지 못했습니다 ({type(e).__name__}). txt·md·pdf·docx 파일인지 확인해 주십시오.")
             return None
         if not body:
-            st.error(f"'{up.name}' 에서 글자를 찾지 못했어요. 스캔한 그림 PDF 는 읽을 수 없어요.")
+            st.error(f"'{up.name}' 에서 글자를 찾지 못했습니다. 스캔한 그림 PDF 는 읽을 수 없습니다.")
             return None
         label = f"📎 {up.name}"
     if len(body) < MIN_CHARS:
-        st.info("파일을 첨부하거나 기획 내용을 몇 줄 이상 적어 주세요.")
+        st.info("파일을 첨부하거나 기획 내용을 몇 줄 이상 적어 주십시오.")
         return None
     return body, label
 
@@ -487,7 +491,7 @@ def render() -> None:
                 try:
                     result = _reviewer().review(body)
                 except Exception as e:  # API 키 없음 등
-                    st.error(f"검토하지 못했어요 ({type(e).__name__}). `.env` 의 OPENAI_API_KEY 를 확인해 주세요.")
+                    st.error(f"검토하지 못했습니다 ({type(e).__name__}). `.env` 의 OPENAI_API_KEY 를 확인해 주십시오.")
                     return
             st.session_state.pr_result = (result, label)
             st.session_state.pr_id = _save(result, label) if result.get("ok") else None
@@ -497,4 +501,4 @@ def render() -> None:
     try:
         _report(*res)
     except Exception as e:  # 결과 모양이 화면 코드와 다름 등 — app.py 의 '공시 데이터 없음' 안내로 새지 않게
-        st.error(f"결과를 그리지 못했어요 ({type(e).__name__}: {e}). '＋ 새 기획안'으로 다시 검토해 주세요.")
+        st.error(f"결과를 그리지 못했습니다 ({type(e).__name__}: {e}). '＋ 새 기획안'으로 다시 검토해 주십시오.")

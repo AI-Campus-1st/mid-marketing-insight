@@ -165,11 +165,13 @@ def render() -> None:
         with st.chat_message("assistant"):
             st.markdown(WELCOME)
         st.markdown("##### 이런 걸 물어볼 수 있습니다")
-        for col, (kind, q) in zip(st.columns(2) * 2, EXAMPLES.items()):
-            with col.container(border=True):
-                st.caption(kind)
-                if st.button(q, key=f"ex_{kind}", width="stretch"):
-                    picked = q
+        items = list(EXAMPLES.items())
+        for row in (items[:2], items[2:]):   # 줄마다 칸 두 개 → 같은 줄 카드는 높이가 같이 바뀜 (style.py: 칸 높이까지 늘림)
+            for col, (kind, q) in zip(st.columns(2), row):
+                with col.container(border=True):
+                    st.caption(kind)
+                    if st.button(q, key=f"ex_{kind}", width="stretch"):
+                        picked = q
     for m in msgs:
         _show(m)
 

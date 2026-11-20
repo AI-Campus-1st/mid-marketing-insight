@@ -16,21 +16,22 @@ from dashboard.theme import LEVEL_NAME, LEVEL_ORDER, VERDICT_ORDER, colors, styl
 
 HOW_TO_READ = """
 - **판정 기준:** 뉴스 발표일 이후 처음 끝나는 분기의 정기보고서(기대 보고서)에 실렸으면 *다음 공시에 반영*, 그 뒤 보고서에서 처음이면 *늦게 반영*,
-  발표 전 보고서에 이미 있었으면 *공시가 먼저*, 수집 기간(~2026-10) 끝까지 없으면 *공시에서 미확인*입니다.
-- **'공시에서 미확인' ≠ 실행 안 함.** 제휴·외부 솔루션 도입은 정기보고서에 실을 칸이 마땅치 않습니다.
+  발표 전 보고서에 이미 있었으면 *공시가 먼저*, 수집 기간 끝(2026년 10월)까지 확인되지 않으면 *공시에서 미확인*입니다.
+- **'공시에서 미확인'은 실행하지 않았다는 뜻이 아닙니다.** 정기보고서에 모든 사업 활동이 실리지는 않으며, 특히 제휴·외부 솔루션 도입은 따로 적을 항목이 없어 덜 실리는 것으로 보입니다.
 - 분기보고서에는 회사 연혁이 없어서, 연혁에만 실리는 이벤트는 반기·사업보고서를 기대 보고서로 봅니다.
-- 2026-07 이후 발표된 이벤트는 다음 보고서가 아직 없어 판정하지 않습니다(참고용).
+- 2026년 7월 이후 발표된 이벤트는 다음 보고서가 아직 없어 판정하지 않습니다(참고용).
 """
 ACCURACY = """
-- AI 용어가 있는 공시 문단만 LLM 으로 분류했습니다 (프롬프트 chunk_v7). 처음 보는 표본 29개를 A·B 가 합의 판정한 기준 **가중 정확도 87%**.
+- AI 용어가 있는 공시 문단만 LLM 으로 분류했습니다 (프롬프트 chunk_v7). 처음 보는 표본 29개를 A·B 가 합의 판정한 결과 표본 일치율은 **79%(23/29)**, 전체 문단의 단계 비중으로 가중한 **추정 정확도는 87%**입니다. 표본이 작아 추정치의 불확실성이 큽니다.
 - '자체 개발·상용화'·'언급'은 표본에서 모두 맞았지만 **'도입·적용'(외부 AI 도입)은 4개 중 1개만 맞아** 믿기 어렵습니다 — '자체 개발·상용화' 비중 중심으로 보십시오.
-- KT나스미디어는 연결 자회사였던 플레이디 제품을 근거로 한 문단(2025-04 매각 전)을 뺐습니다.
+- KT나스미디어는 연결 자회사였던 플레이디의 제품을 근거로 한 문단 13개(2025년 4월 매각 전 보고서)를 뺐습니다.
 """
 
-EVENT_TYPE_KO = {"partnership": "제휴", "adoption": "도입", "launch": "출시", "campaign": "캠페인", "organization": "조직"}
+EVENT_TYPE_KO = {"partnership": "제휴", "adoption": "외부 솔루션 도입", "launch": "출시", "campaign": "캠페인",
+                 "organization": "조직", "award": "수상", "patent": "특허"}   # 리포트 4-3 유형 이름과 같게
 # KPI 카드 아래 작은 글씨 — 판정이 무슨 뜻인지 한 줄로
 VERDICT_NOTE = {"제때": "발표 뒤 첫 정기보고서에 실림", "늦게": "그다음 보고서부터 실림",
-                "공시가 먼저": "발표 전 보고서에 이미 있음", "미확인": "수집 끝(2026-10)까지 보고서에 없음"}
+                "공시가 먼저": "발표 전 보고서에 이미 있음", "미확인": "수집 끝(2026년 10월)까지 확인되지 않음"}
 X_RANGE = (pd.Timestamp("2023-09-01"), pd.Timestamp("2026-11-30"))   # 타임라인 가로축 (수집 기간 + 앞뒤 여유)
 
 
@@ -68,15 +69,20 @@ def _points(r: pd.DataFrame) -> None:
         pts.append(f"<b>{ui.esc(', '.join(zero))}</b>: 뉴스로 알려진 AI 이벤트가 공시에서 하나도 확인되지 않았습니다.")
     miss = j[j["판정"] == "미확인"]
     if len(miss):
-        kinds = miss.event_type.map(EVENT_TYPE_KO).fillna("기타").value_counts()
-        pts.append(f"공시에서 미확인 <b>{len(miss)}개</b>: " + ", ".join(f"{k} {v}" for k, v in kinds.items())
-                   + " — 제휴·도입은 정기보고서에 실을 칸이 마땅치 않습니다.")
+        # 유형마다 '미확인 / 그 유형의 판정 대상' — 개수만 보면 출시(9개 중 2개)와 제휴(4개 중 3개)의 차이가 안 보임
+        total, kinds = j.event_type.value_counts(), miss.event_type.value_counts()
+        kinds = sorted(kinds.items(), key=lambda kv: (-kv[1] / total[kv[0]], -kv[1]))   # 미확인 비율이 높은 유형부터
+        txt = ", ".join(f"{EVENT_TYPE_KO.get(t, '기타')} {total[t]}개 중 {v}개" for t, v in kinds)
+        hard = [EVENT_TYPE_KO[t] for t in ("partnership", "adoption") if t in dict(kinds)]
+        # 해석은 필터 결과에 제휴·도입이 있을 때만, 단정하지 않고 (리포트 4-3: 분석 대상에서 관찰된 경향)
+        why = (f" {'·'.join(hard)}처럼 정기보고서에 따로 적을 항목이 없는 유형이 덜 실리는 것으로 보입니다." if hard else "")
+        pts.append(f"공시에서 미확인 <b>{len(miss)}개</b>: {txt}.{why} 공시에서 확인되지 않았다고 실행하지 않았다는 뜻은 아닙니다.")
     late = j[j["판정"] == "늦게"]
     if len(late):
         pts.append(f"늦게 반영 <b>{len(late)}개</b>: " + ", ".join(ui.esc(e) for e in late.event_name) + ".")
     ref = int((r.analysis_scope == "reference").sum())
     if ref:
-        pts.append(f"2026-07 이후 발표된 <b>{ref}개</b>는 다음 보고서가 아직 없어 판정하지 않았습니다 (참고용).")
+        pts.append(f"2026년 7월 이후 발표된 <b>{ref}개</b>는 다음 보고서가 아직 없어 판정하지 않았습니다 (참고용).")
     if pts:
         st.markdown('<ul class="q3-points">' + "".join(f"<li>{p}</li>" for p in pts) + "</ul>", unsafe_allow_html=True)
     else:
@@ -166,7 +172,7 @@ def _timeline(r: pd.DataFrame) -> None:
         d["label"] = d.event_name.str.slice(0, 26) + d.analysis_scope.map({"reference": " (참고용)"}).fillna("")
         st.plotly_chart(_timeline_chart(d), width="stretch", config={"displayModeBar": False})
         st.caption("* ○ 뉴스 발표일 → ● 그 이벤트가 처음 실린 정기보고서 접수일 (색은 판정)\n"
-                   "* 공시에서 미확인 : 수집 기간(~2026년 10월) 끝까지 정기보고서에 없음\n"
+                   "* 공시에서 미확인 : 수집 기간 끝(2026년 10월)까지 정기보고서에서 확인되지 않음\n"
                    "* (참고용) : 2026년 7월 이후 발표돼 다음 보고서가 아직 없음")
 
 
@@ -179,7 +185,7 @@ def _levels(corps: list[str]) -> None:
     order = list(share["L3"].sort_values().index)
     with st.container(border=True, key="card_q3_levels"):
         ui.section("기업별 공시 AI 단계 비중", ui.ICON_LAYERS)
-        st.caption("정기공시에서 AI 를 말한 문단을 4단계로 나눈 비중입니다. '자체 개발·상용화'가 클수록 공시로 확인되는 실행이 많습니다. "
+        st.caption("정기공시에서 AI 를 말한 문단을 4단계로 나눈 비중입니다. 공시에 적힌 AI 서술의 차이이며, 실제 AI 기술력이나 사업 성과 순위는 아닙니다. "
                    "막대에 마우스를 올리면 비중과 문단 수가 보입니다.")
         fig = go.Figure()
         for lvl in LEVEL_ORDER:

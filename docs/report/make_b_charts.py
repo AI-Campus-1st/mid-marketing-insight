@@ -79,7 +79,7 @@ def verdicts() -> None:
     for y, v in enumerate(vals):
         ax.text(v + 0.25, y, f"{v}개 ({v / total:.0%})", va="center", fontsize=10.5, color=C["text"])
     found = int(n["제때"] + n["늦게"] + n["공시가 먼저"])
-    ax.set_title(f"판정 대상 {total}개 중 {found}개({found / total:.0%})가 정기공시에서 확인됨 — 미확인 ≠ 실행 안 함",
+    ax.set_title(f"판정 대상 {total}개 중 {found}개({found / total:.0%})가 정기공시에서 확인됨 — 미확인이 실행하지 않았다는 뜻은 아님",
                  loc="left", fontsize=11, color=C["text2"], pad=10)
     ax.set_xlim(0, n.max() * 1.3)
     ax.set_xticks([])

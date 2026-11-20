@@ -26,7 +26,6 @@ mid-marketing-insight/
 │   ├── load_news.py           # [A·D2] 제공 뉴스 CSV → documents (news_origin='provided'), 중복 표시
 │   ├── supplement_search.py   # [A·D2] 네이버 검색 API → 보강 후보 기사 목록 (원본 JSON 저장)
 │   ├── supplement_fetch.py    # [A·D2] robots.txt 확인 → 언론사 원문에서 전문 추출
-│   ├── newsroom_collect.py    # [A·D2] 기업 뉴스룸 보도자료 수집 — 미사용 (Day 3 A·B 합의, decisions.md)
 │   ├── load_news_supplement.py# [A·D2~4] 보강 기사 CSV → documents (news_origin='supplement')
 │   ├── dart_corp_code.py      # [B·D1] corpCode.xml 내려받기 → 5개사 corp_code 확인
 │   ├── dart_collect.py        # [B·D2] 공시 목록(list.json) 수집, 원본 저장 → companies·documents(메타데이터) 적재, 재실행 가능
@@ -106,12 +105,12 @@ mid-marketing-insight/
 │   └── vectordb/              # 임베딩 캐시: 공시 청크 chunk_emb_{모델}.npz (매칭·RAG 공용), 관련 뉴스 news_emb_{모델}.npz (기획안 검토)
 │
 └── docs/
-    ├── AI 마케팅 이슈 × 공시 분석 대시보드 기획안.md
     ├── decisions.md           # [공동·매일] 설계 결정 기록
-    ├── ai_level_guide.md      # [공동·D2] AI 단계 L0~L3 설명·예시·검수 방법
-    ├── dart_ai_check.md       # [B·D2] 확인 지점 ①: 사업보고서 AI 문장 점검
-    ├── 실행 설계서 - 뉴스 보강·이벤트 매칭.md  # [A·D2] 수집·이벤트·매칭 설계와 상의 안건
+    ├── ai_level_guide.md      # [공동·D2] AI 단계 L0~L3 설명·예시·검수 방법 + 부록 A: 확인 지점 ① 사업보고서 AI 문장 점검 (B)
     ├── PROJECT_STRUCTURE.md   # [공동] 이 문서
+    ├── archive/               # [공동] 처음 계획 기록 (코드 주석의 '기획안'·'실행 설계서'가 가리키는 문서)
+    │   ├── AI 마케팅 이슈 × 공시 분석 대시보드 기획안.md
+    │   └── 실행 설계서 - 뉴스 보강·이벤트 매칭.md  # [A·D2] 수집·이벤트·매칭 설계와 상의 안건
     ├── design/references/     # [공동·D6] 대시보드 디자인 레퍼런스 (이미지는 저장소 제외, README 의 목록만)
     └── report/                # [공동·D7] 리포트, 발표 자료
         ├── report_A.md        # [A·D7] 리포트 A 파트 원고: 분석 목적·뉴스 데이터·앵커 이벤트·Q1 급증·Q2 뉴스 LLM·기획안 검토·대시보드·한계·회고

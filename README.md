@@ -8,7 +8,7 @@
 - **사용자:** 5개사 밖 중견 디지털 광고대행사 신사업기획팀장 (메인), 브랜드사 광고주 마케팅 담당자 (서브)
 - **핵심 질문:** AI 마케팅 이슈는 언제 급증했고 무엇으로 옮겨 갔나? 뉴스로 발표한 AI 는 정기공시에도 실렸나, 공시 속 AI 는 어느 단계(언급 · 계획 · 도입·적용 · 자체 개발·상용화)인가?
 
-> **최종 리포트는 [docs/report/report_AB.md](docs/report/report_AB.md)** (파트별 원고: [report_A.md](docs/report/report_A.md) · [report_B.md](docs/report/report_B.md)). 기획 상세는 [기획안](docs/AI%20마케팅%20이슈%20×%20공시%20분석%20대시보드%20기획안.md), 설계 결정은 [decisions.md](docs/decisions.md) 참고
+> **최종 리포트는 [docs/report/report_AB.md](docs/report/report_AB.md)** (파트별 원고: [report_A.md](docs/report/report_A.md) · [report_B.md](docs/report/report_B.md)). 기획 상세는 [기획안](docs/archive/AI%20마케팅%20이슈%20×%20공시%20분석%20대시보드%20기획안.md), 설계 결정은 [decisions.md](docs/decisions.md) 참고
 
 ## 화면
 
@@ -40,7 +40,7 @@
 │   ├── raw/          # 제공 뉴스, 보강 기사, DART 응답 원본
 │   ├── processed/    # DB, 정제 뉴스 CSV, 검수 엑셀(review/), 챗봇·기획안 기록
 │   └── vectordb/     # 임베딩 캐시 (공시 청크·관련 뉴스)
-├── docs/             # 기획안, 설계 결정 기록, 파일 구조도, 리포트(report/: 최종 리포트 report_AB · 파트 원고 A·B · 이미지 img/)
+├── docs/             # 설계 결정 기록, AI 단계 기준(ai_level_guide), 처음 기획안·설계서(archive/), 파일 구조도, 리포트(report/: 최종 리포트 report_AB · 파트 원고 A·B · 이미지 img/)
 ├── schema.sql        # 뉴스·공시 통합 스키마 + 반영 판정 뷰(event_reflection)
 └── .env.example      # 환경변수 예시 (실제 키는 .env 에만)
 ```

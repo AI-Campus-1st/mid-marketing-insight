@@ -33,7 +33,7 @@ from config import settings  # noqa: E402
 MAX_CHARS = 1000  # 청크 최대 길이 (한국어 공시 문단 2~4개 분량)
 
 # AI 용어 패턴: 뉴스·공시 공통 settings.AI_TERM_PATTERN (A·B 합의, decisions.md).
-# 'AI'·'LLM'·AI 복합어는 앞뒤가 영문자가 아닐 때만 센다 (HYUNDAI, PENGTAI 등 오탐 방지, docs/dart_ai_check.md 3절)
+# 'AI'·'LLM'·AI 복합어는 앞뒤가 영문자가 아닐 때만 센다 (HYUNDAI, PENGTAI 등 오탐 방지, docs/ai_level_guide.md 부록 A-3)
 AI_PATTERN = re.compile(settings.AI_TERM_PATTERN)
 
 # 화이트리스트: (장 번호, 포함할 소제목 패턴). 소제목 패턴이 None 이면 장 전체.

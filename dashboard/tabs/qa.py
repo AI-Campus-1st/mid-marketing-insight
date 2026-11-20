@@ -118,6 +118,14 @@ def _delete() -> None:
     _new()
 
 
+def _delete_all() -> None:
+    """지난 대화 모두 지우기 (사이드바 버튼) — 저장된 대화 파일을 전부 지우고 새 대화로"""
+    if HIST_DIR.exists():
+        for f in HIST_DIR.glob("*.json"):
+            f.unlink(missing_ok=True)
+    _new()
+
+
 def _sidebar() -> None:
     with st.sidebar:
         st.button("＋ 새 대화", width="stretch", type="primary", on_click=_new)
@@ -135,6 +143,11 @@ def _sidebar() -> None:
             if title != c["title"]:   # 제목이 잘렸을 때만 전체 제목 말풍선
                 tips.append((f"div.st-key-hist_{now}{c['id']}", c["title"]))
         ui.hover_tips(tips, shift=".5rem, 4px")
+        if convs:   # 지난 대화 목록 아래: 한 번에 지우기 — 되돌릴 수 없어 누르면 확인 창(팝오버)에서 한 번 더 누름
+            with st.container(key="qa_clear_all"), \
+                    st.popover("지난 대화 모두 지우기", icon=":material/delete:", width="stretch"):
+                st.markdown(f"지난 대화 **{len(convs)}개**를 모두 지웁니다. 지운 대화는 되돌릴 수 없습니다.")
+                st.button("모두 지우기", type="primary", width="stretch", on_click=_delete_all)
 
 
 def render() -> None:

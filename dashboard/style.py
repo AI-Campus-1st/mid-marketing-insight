@@ -126,11 +126,19 @@ div[data-testid="stLayoutWrapper"]:has(> .st-key-card_q3_points) { flex: 1 1 aut
 /* 사이드바: 메뉴형 라디오 + 소제목 */
 section[data-testid="stSidebar"] .sb-label { font-size: .78rem; font-weight: 700; color: #8a93a3; letter-spacing: .03em; margin: .4rem 0 .3rem; }
 section[data-testid="stSidebar"] div[role="radiogroup"] { gap: .15rem; }
-section[data-testid="stSidebar"] div[role="radiogroup"] > label {
+/* Streamlit 1.67 이후: 라디오 항목이 label[data-testid="stRadioOption"] 이고 div 로 한 겹 감싸짐 (1.51 은 radiogroup > label[data-baseweb="radio"]).
+   아래 라디오 규칙은 두 구조를 나란히 적어 어느 버전이든 같은 모양 — 1.67 에서 동그라미가 보이고 Q3 기업 선택이 알약이 아니던 문제 */
+section[data-testid="stSidebar"] div[data-testid="stElementContainer"]:has(> [data-testid="stRadio"]),
+section[data-testid="stSidebar"] [data-testid="stRadio"], section[data-testid="stSidebar"] div[role="radiogroup"],
+section[data-testid="stSidebar"] div[role="radiogroup"] > div:has(> label[data-testid="stRadioOption"]) { width: 100%; }   /* 1.67: 라디오 상자가 글자 폭만큼만 잡혀 선택 배경이 짧던 것 → 칸 전체 */
+section[data-testid="stSidebar"] div[role="radiogroup"] > label,
+section[data-testid="stSidebar"] div[role="radiogroup"] label[data-testid="stRadioOption"] {
   padding: .45rem .6rem; border-radius: 10px; width: 100%; margin: 0;
 }
-section[data-testid="stSidebar"] div[role="radiogroup"] > label:hover { background: #f2f3f5; }
-section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checked) {
+section[data-testid="stSidebar"] div[role="radiogroup"] > label:hover,
+section[data-testid="stSidebar"] div[role="radiogroup"] label[data-testid="stRadioOption"]:hover { background: #f2f3f5; }
+section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checked),
+section[data-testid="stSidebar"] div[role="radiogroup"] label[data-testid="stRadioOption"]:has(input:checked) {
   background: #eaf2fb; font-weight: 700;
 }
 .sb-brand { display: flex; gap: .65rem; align-items: center; font-weight: 800; font-size: 1.4rem; letter-spacing: -.02em; margin: 11px 0 .35rem; }
@@ -160,10 +168,14 @@ div[data-testid="stElementContainer"]:has(.q3page-marker) { display: none; }
 .st-key-q2_concerns_more button [data-testid="stIconMaterial"] { font-size: 1.1rem; color: rgba(31, 39, 51, .6); }
 
 /* ── 사이드바: 화면 메뉴 (라디오 동그라미 숨기고 메뉴 항목처럼) ── */
-section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] > div:first-child { display: none; }
-section[data-testid="stSidebar"] div[role="radiogroup"] > label { padding: .55rem .75rem; font-size: .95rem; }
-section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checked) { color: #2a78d6; }
-section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checked) p { color: #2a78d6; font-weight: 700; }
+section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] > div:first-child,
+section[data-testid="stSidebar"] div[role="radiogroup"] label[data-testid="stRadioOption"] > div > div:first-child { display: none; }
+section[data-testid="stSidebar"] div[role="radiogroup"] > label,
+section[data-testid="stSidebar"] div[role="radiogroup"] label[data-testid="stRadioOption"] { padding: .55rem .75rem; font-size: .95rem; }
+section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checked),
+section[data-testid="stSidebar"] div[role="radiogroup"] label[data-testid="stRadioOption"]:has(input:checked) { color: #2a78d6; }
+section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checked) p,
+section[data-testid="stSidebar"] div[role="radiogroup"] label[data-testid="stRadioOption"]:has(input:checked) p { color: #2a78d6; font-weight: 700; }
 
 /* 사이드바: 필터 카드 (접기 메뉴를 레퍼런스 '기본정보' 카드처럼) */
 section[data-testid="stSidebar"] div[data-testid="stExpander"] details {
@@ -195,6 +207,15 @@ div[class*="st-key-hist_"] button { border: none; background: transparent; justi
   padding: .5rem .65rem; border-radius: 10px; }
 div[class*="st-key-hist_"] button:hover { background: #f2f3f5; }
 div[class*="st-key-hist_"] button p { font-size: .85rem; line-height: 1.35; }
+div[class*="st-key-hist_"] button > div { justify-content: flex-start; text-align: left; }   /* 1.67: 짧은 제목이 가운데로 밀리던 것 → 왼쪽 맞춤 */
+/* 지난 대화 모두 지우기 (qa.py): 목록 아래 흐린 글씨 버튼 → 누르면 확인 창(팝오버). 확인 창은 사이드바 밖에 그려져 강조 버튼 색을 따로 파랑으로 */
+.st-key-qa_clear_all { margin-top: .4rem; }
+.st-key-qa_clear_all button { border: 1px dashed #d5dae2; background: transparent; }
+.st-key-qa_clear_all button p, .st-key-qa_clear_all button [data-testid="stIconMaterial"] { font-size: .82rem; color: #6b7686; }
+.st-key-qa_clear_all button:hover { border-color: #94bcea; background: #f2f7fd; }
+div[data-testid="stPopoverBody"] button[data-testid="stBaseButton-primary"] { background: #2a78d6 !important; border-color: #2a78d6 !important; }
+div[data-testid="stPopoverBody"] button[data-testid="stBaseButton-primary"] p { color: #ffffff !important; }
+div[data-testid="stPopoverBody"] [data-testid="stMarkdownContainer"] p { font-size: .88rem; }
 
 /* ── 챗봇 화면 (app.py 가 넣는 .chatpage-marker 가 있는 본문) ── */
 .stMain:has(.chatpage-marker) h1 { font-size: 2.15rem !important; font-weight: 800 !important; letter-spacing: -.02em; padding-bottom: .1rem; }
@@ -271,15 +292,20 @@ button[data-testid="stTab"][aria-selected="true"], button[data-testid="stTab"][a
 .stMain:has(.q3page-marker) div[role="radiogroup"] { gap: .4rem; flex-wrap: wrap; }
 /* 리포트 맨 위 선택 버튼(segmented control)도 radiogroup 이라 위 Q3 규칙이 걸려 버튼 사이가 6px 벌어짐 → 붙여 둔다 */
 .stMain [data-testid="stButtonGroup"] div[role="radiogroup"] { gap: 0 !important; flex-wrap: nowrap; }
-.stMain:has(.q3page-marker) div[role="radiogroup"] label[data-baseweb="radio"] > div:first-child { display: none; }
-.stMain:has(.q3page-marker) div[role="radiogroup"] > label {
+.stMain:has(.q3page-marker) div[role="radiogroup"] label[data-baseweb="radio"] > div:first-child,
+.stMain:has(.q3page-marker) div[role="radiogroup"] label[data-testid="stRadioOption"] > div > div:first-child { display: none; }
+.stMain:has(.q3page-marker) div[role="radiogroup"] > label,
+.stMain:has(.q3page-marker) div[role="radiogroup"] label[data-testid="stRadioOption"] {
   padding: .35rem .9rem; border-radius: 999px; border: 1px solid #d9dce2; margin: 0;
 }
-.stMain:has(.q3page-marker) div[role="radiogroup"] > label:hover { border-color: #94bcea; }
-.stMain:has(.q3page-marker) div[role="radiogroup"] > label:has(input:checked) {
+.stMain:has(.q3page-marker) div[role="radiogroup"] > label:hover,
+.stMain:has(.q3page-marker) div[role="radiogroup"] label[data-testid="stRadioOption"]:hover { border-color: #94bcea; }
+.stMain:has(.q3page-marker) div[role="radiogroup"] > label:has(input:checked),
+.stMain:has(.q3page-marker) div[role="radiogroup"] label[data-testid="stRadioOption"]:has(input:checked) {
   background: #eaf2fb; border-color: #2a78d6;
 }
-.stMain:has(.q3page-marker) div[role="radiogroup"] > label:has(input:checked) p { color: #2a78d6; font-weight: 700; }
+.stMain:has(.q3page-marker) div[role="radiogroup"] > label:has(input:checked) p,
+.stMain:has(.q3page-marker) div[role="radiogroup"] label[data-testid="stRadioOption"]:has(input:checked) p { color: #2a78d6; font-weight: 700; }
 /* 본문 보조 버튼(이벤트 표 '초기화' 등) → 필터 초기화와 같은 파랑 테두리 */
 .stMain:has(.q3page-marker) button[data-testid="stBaseButton-secondary"] {
   border: 1.5px solid #2a78d6; color: #2a78d6; background: transparent; font-weight: 700;
@@ -360,7 +386,8 @@ def hover_tips(pairs: list[tuple[str, str]], shift: str = "-.25rem, 2.1rem") -> 
     st.markdown("<style>" + "\n".join(rules) + "</style>", unsafe_allow_html=True)
 
 
-TIP_TARGETS = 'div.st-key-page_sel div[role="radiogroup"] > label, div[class*="st-key-hist_"]'   # 말풍선이 붙는 항목 (메뉴 · 지난 대화 · 지난 기획안)
+TIP_TARGETS = ('div.st-key-page_sel div[role="radiogroup"] > label, div.st-key-page_sel label[data-testid="stRadioOption"], '
+               'div[class*="st-key-hist_"]')   # 말풍선이 붙는 항목 (메뉴 · 지난 대화 · 지난 기획안)
 
 
 def tip_positioner() -> None:
@@ -389,8 +416,10 @@ def tip_positioner() -> None:
 
 def menu_tips(key: str, tips: list[str]) -> None:
     """사이드바 메뉴(st.radio, key=key)의 각 항목 설명 말풍선. tips 는 메뉴 순서대로 (st.radio 는 항목별 도움말이 없음)"""
-    base = f'div.st-key-{key} div[role="radiogroup"] > label'
-    hover_tips([(f"{base}:nth-child({i})", t) for i, t in enumerate(tips, 1)])
+    g = f'div.st-key-{key} div[role="radiogroup"]'
+    # 1.51: radiogroup > label(n번째) / 1.67 이후: radiogroup > div(n번째) > label — 두 구조 모두에 말풍선
+    hover_tips([(sel, t) for i, t in enumerate(tips, 1)
+                for sel in (f"{g} > label:nth-child({i})", f'{g} > div:nth-child({i}) > label[data-testid="stRadioOption"]')])
 
 
 def esc(s) -> str:

@@ -2,8 +2,8 @@
 [A·D7] 기획안 검토 화면 — 기획안을 올리면 공시·뉴스에서 비슷한 AI 활용 사례를 찾아 리포트 한 장으로 보여 준다
 
 사용자: 5개사 밖 중견 대행사 신사업기획팀장 (메인 페르소나, 이슈 #28) — "우리 기획과 같은 일을 경쟁사가 실제로 했나?"
-- 입력: 파일(txt·md·pdf·docx) 또는 붙여 넣기, 예시 기획안 버튼 → '검토 시작'. 결과가 나오면 입력 칸은 숨긴다 ('＋ 새 기획안'으로 다시)
-- 결과: 검토 결론(실행 부분 몇 곳에 같은 일 사례가 있는지 + 기획 부분 ↔ 회사 · 사업 키워드 짝) → 왼쪽 기획안 문서(사례가 붙은 문단을 칠함) ·
+- 입력: 파일(txt·md·pdf·docx) 또는 직접 입력 → '검토 시작'. 결과가 나오면 입력 칸은 숨긴다 ('＋ 새 기획안'으로 다시)
+- 결과: 결과 요약(실행 부분 몇 곳에 같은 일 사례가 있는지 + 기획 부분 ↔ 회사 · 사업 키워드 짝) → 왼쪽 기획안 문서(사례가 붙은 문단을 칠함) ·
   오른쪽 그 문단의 사례 카드('같은 일을 이미 한 곳' / '비슷한 기술을 다른 일에 쓴 곳', 공시·뉴스 배지)
   (문단은 rag/plan_review.split_paras, 사례 ↔ 문단 연결은 LLM 의 para, 결론은 코드가 사례로 만든 짝 목록 — plan_v6)
 - 사례 없는 문단이 COLLAPSE_MIN 개 이상 이어지면 앞뒤만 두고 가운데는 '⋯ 중략'으로 접는다 (눌러서 펼침)
@@ -23,18 +23,15 @@ from config import settings
 from dashboard import style as ui
 
 TITLE = "기획안 검토"
-TAGLINE = ("AI 신사업 계획이나 마케팅 기획안을 올리면, **같은 일을 이미 한 곳이 있는지** 정기공시(사업·반기·분기보고서)와 뉴스에서 찾아 드려요. "
-           "공시로 확인된 사례와 뉴스에만 나온 사례를 나눠 보여 줘요.")
-EXAMPLE = ("[신사업 제안] AI 검색 최적화(GEO) 컨설팅 상품 출시\n"
-           "배경: 소비자가 챗GPT 같은 생성형 AI 검색으로 브랜드를 찾기 시작하면서 기존 검색광고만으로는 노출이 줄고 있음.\n"
-           "제안: 광고주 브랜드가 생성형 AI 답변에 우선 노출되도록 진단·콘텐츠 최적화·모니터링을 묶은 GEO 컨설팅 상품을 출시.\n"
-           "필요 역량: AI 답변 노출 진단 도구(자체 개발 또는 외부 솔루션 제휴), 콘텐츠 제작 인력.")
+TAGLINE = "AI 신사업 계획이나 마케팅 기획안을 올리면, 비슷한 사례를 정기공시(사업·반기·분기보고서)와 뉴스에서 찾아 드려요."
 FILE_TYPES = ["txt", "md", "pdf", "docx"]
 MIN_CHARS = 30
 HIST_DIR = settings.DATA_DIR / "processed" / "plan_history"
 HIST_SHOW = 30
-SAME_HEAD = ("기획과 같은 일을 이미 한 곳", "같은 상품·서비스·업무에 AI 를 쓴 사례")
-ADJ_HEAD = ("비슷한 기술을 다른 일에 쓴 곳", "다른 업무에 썼거나, 전담 조직·제휴처럼 준비 단계인 사례")
+SAME_HEAD = ("일치",   # 기획과 같은 일을 이미 한 곳
+             "같은 상품·서비스·업무에 AI 를 쓴 사례")
+ADJ_HEAD = ("유사",    # 비슷한 기술을 다른 일에 쓴 곳
+            "다른 업무에 썼거나, 전담 조직·제휴처럼 준비 단계인 사례")
 
 
 @st.cache_resource(show_spinner="공시·뉴스 검색기를 준비하는 중…", max_entries=1)
@@ -90,20 +87,20 @@ div[class*="st-key-pr_row_"] [data-testid="stColumn"]:first-child {
 .pr-para { white-space: pre-wrap; font-size: .93rem; line-height: 1.65; color: #1f2733; padding: .25rem .6rem; margin: .15rem -.6rem .35rem;
   border-radius: 6px; border-left: 3px solid transparent; }
 .pr-para.hl { background: #e3eefc; border-left-color: #2a78d6; }          /* 같은 영역 사례가 붙은 문단 */
-.pr-para.hl-adj { background: #f1f4f8; border-left-color: #9aa8bb; }      /* 인접 영역 사례만 붙은 문단 */
+.pr-para.hl-adj { background: #fdf5ea; border-left-color: #e0a458; }      /* 인접 영역(비슷한 기술) 사례만 붙은 문단 = 주황 */
 .pr-card { background: #ffffff; border: 1px solid #b4d0f1; border-radius: 12px; padding: .65rem .85rem; margin: .1rem 0 .55rem;
   box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 12px rgba(16,24,40,.05); position: relative; font-size: .86rem; line-height: 1.5; }
 .pr-card::before { content: ""; position: absolute; left: -1.05rem; top: 1.1rem; width: 1.05rem; border-top: 2px solid #2a78d6; }  /* 문단과 잇는 선 */
-.pr-card.adj { border-color: #d5dbe5; } .pr-card.adj::before { border-top-color: #9aa8bb; }
-.pr-sec + .pr-sec { border-top: 1px dashed #c9d2df; margin-top: .55rem; padding-top: .5rem; }   /* 같은 일 / 비슷한 기술 나누는 선 */
-.pr-sec .head { font-size: .78rem; font-weight: 800; color: #1d5fae; }
+.pr-card.adj { border-color: #f0d3ad; } .pr-card.adj::before { border-top-color: #e0a458; }   /* 비슷한 기술만 있는 카드 = 주황 */
+.pr-sec + .pr-sec { border-top: 1px solid #dfe4ec; margin-top: .9rem; padding-top: .85rem; }   /* 일치 / 유사 나누는 선 (위아래 여백) */
+/* 일치·유사 제목: 검정 굵은 글자 (사례 글자보다 크게) */
+.pr-sec .head { font-size: .95rem; font-weight: 800; color: #1f2733; }
 .pr-sec .sub { font-size: .7rem; color: #8592a3; margin-bottom: .25rem; }
-.pr-sec.adj .head { color: #5b6676; }
 .pr-card.gap { border: 1px dashed #c9d2df; box-shadow: none; background: transparent; color: #6b7686; font-size: .8rem; }
 .pr-card.gap::before { border-top: 2px dashed #c9d2df; }
 .pr-item { margin: .3rem 0; }
 .pr-item .tag { display: inline-block; font-size: .7rem; font-weight: 700; border-radius: 5px; padding: 0 .35rem; margin-right: .3rem; }
-.pr-item .tag.d { background: #e3eefc; color: #1d5fae; } .pr-item .tag.n { background: #fdf0e1; color: #a35a00; }
+.pr-item .tag.d { background: #e3eefc; color: #1d5fae; } .pr-item .tag.n { background: #fce8f1; color: #b0336f; }   /* 뉴스 = 핑크 */
 .pr-item a { font-size: .74rem; color: #6b7686; text-decoration: none; margin-left: .25rem; }
 .pr-col-head { font-size: .8rem; font-weight: 700; color: #6b7686; letter-spacing: .02em; margin-bottom: .6rem; }
 .pr-concl { font-size: .95rem; line-height: 1.7; color: #1f2733; }
@@ -112,12 +109,28 @@ div[class*="st-key-pr_row_"] [data-testid="stColumn"]:first-child {
 .pr-concl .part { flex: 0 0 11rem; font-weight: 800; color: #1d5fae; }
 .pr-concl .cases { flex: 1; }
 .pr-concl .tag { display: inline-block; font-size: .7rem; font-weight: 700; border-radius: 5px; padding: 0 .35rem; margin-right: .35rem; }
-.pr-concl .tag.d { background: #e3eefc; color: #1d5fae; } .pr-concl .tag.n { background: #fdf0e1; color: #a35a00; }
-.pr-concl .sim { display: inline-block; font-size: .7rem; font-weight: 700; color: #5b6676; background: #eef1f5; border-radius: 5px; padding: 0 .35rem; margin-right: .35rem; }
+.pr-concl .tag.d { background: #e3eefc; color: #1d5fae; } .pr-concl .tag.n { background: #fce8f1; color: #b0336f; }
+.pr-concl .sim { display: inline-block; font-size: .7rem; font-weight: 700; color: #a35a00; background: #fdf0e1;   /* 비슷한 기술 = 주황 (사례 카드의 비슷한 기술 구역과 같은 색) */ border-radius: 5px; padding: 0 .35rem; margin-right: .35rem; }
 .pr-concl .yr { color: #8592a3; font-size: .78rem; }
 .pr-concl .none { color: #8592a3; }
 .pr-concl .note { margin-top: .5rem; font-size: .75rem; color: #8592a3; }
 .st-key-hl_pr_concl [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }   /* 안내 문구가 상자 밖으로 나가지 않게 */
+/* '매칭 결과'·'구체적인 사례 물어보기' 소제목: 다른 소제목(16.8px)보다 크게 */
+.st-key-pr_h_match h5, .st-key-pr_h_ask h5 { font-size: 1.3rem !important; }
+.st-key-pr_h_match, .st-key-pr_h_ask { margin-top: 2rem; }   /* 섹션 사이를 넉넉히 띄워 구분 (결과 요약 ↔ 매칭 결과 ↔ 사례 물어보기) */
+.pr-ask-sub { font-size: .875rem; color: #1f2733; margin-bottom: 1.1rem; }   /* 챗봇 버튼 설명: 검정. 아래 버튼과 띄움 */
+/* 챗봇 물어보기 버튼: 말풍선 모양 (왼쪽 아래 꼬리). 기본 흰 바탕 + 회색 테두리 → 마우스를 대면 옅은 파랑 + 파랑 테두리('＋ 새 기획안'과 같은 색) */
+div[class*="st-key-pr_ask_"] button { background: #ffffff !important; border: 1px solid #d5dbe5 !important;
+  border-radius: 18px 18px 18px 0 !important; padding: .5rem 1.1rem !important; position: relative; margin-left: 10px; overflow: visible;
+  filter: drop-shadow(0 1px 1.5px rgba(16, 24, 40, .06)) drop-shadow(0 3px 6px rgba(16, 24, 40, .06)); }   /* 옅은 그림자 (꼬리까지 같이 — box-shadow 는 꼬리에 안 생김) */
+/* 꼬리: 버튼 왼쪽 아래 바깥에 작은 그림(바탕·테두리 색 같음). 오른쪽 1px 를 버튼 테두리 위에 겹쳐 이어 보이게 */
+div[class*="st-key-pr_ask_"] button::before { content: ""; position: absolute; left: -10px; bottom: -1px; width: 12px; height: 14px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='14' viewBox='0 0 12 14'%3E%3Cpath d='M11 0 L11 13.5 L0.5 13.5 Q8 12 11 0 Z' fill='%23ffffff'/%3E%3Cpath d='M11 0 Q8 12 0.5 13.5 L12 13.5' fill='none' stroke='%23d5dbe5' stroke-width='1'/%3E%3C/svg%3E") no-repeat; }
+div[class*="st-key-pr_ask_"] button:hover { background: #eaf2fb !important; border-color: #aac9ef !important; }
+div[class*="st-key-pr_ask_"] button:hover::before { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='14' viewBox='0 0 12 14'%3E%3Cpath d='M11 0 L11 13.5 L0.5 13.5 Q8 12 11 0 Z' fill='%23eaf2fb'/%3E%3Cpath d='M11 0 Q8 12 0.5 13.5 L12 13.5' fill='none' stroke='%23aac9ef' stroke-width='1'/%3E%3C/svg%3E") no-repeat; }
+div[class*="st-key-pr_ask_"] button p { font-size: .875rem !important; font-weight: 800 !important; letter-spacing: normal; color: #1f2733 !important; }   /* 글자 검정, 본문보다 작게 */
+/* 결과 요약 상자 안 여백: 양옆과 아래를 위(상자 위 → '결과 요약' 글자, 약 29px)와 같게 */
+div.st-key-hl_pr_concl { padding: 5.6px 28px 28px 28px !important; }
 </style>"""
 
 
@@ -126,6 +139,33 @@ BTN_CSS = """<style>
 .st-key-pr_go button { background: #2a78d6 !important; border-color: #2a78d6 !important; }
 .st-key-pr_go button:hover { background: #1f66bd !important; border-color: #1f66bd !important; }
 .st-key-pr_go button p, .st-key-pr_go button span { color: #ffffff !important; font-weight: 700; }
+/* '검토 시작' 아래 경고 알림: 토스트처럼 떴다가 4초 뒤 사라짐. 상자 색은 사이드바 '＋ 새 기획안' 버튼과 같은 옅은 파랑 */
+.pr-toast { display: inline-flex; align-items: center; gap: .55rem; padding: .7rem 1rem; border-radius: 10px;
+  background: #eaf2fb; border: 1.5px solid #aac9ef; box-shadow: 0 4px 14px rgba(16, 24, 40, .10); font-size: .9rem; color: #1f2733;
+  animation: pr-toast-a 4.5s ease forwards; }
+.pr-toast.b { animation-name: pr-toast-b; }   /* 누를 때마다 a·b 를 번갈아 → 애니메이션 이름이 바뀌어 처음부터 다시 재생 */
+.pr-toast .ic { color: #d97706; font-size: 1.05rem; }
+@keyframes pr-toast-a { 0% { opacity: 0; transform: translateY(-4px); } 6% { opacity: 1; transform: none; }
+  85% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+@keyframes pr-toast-b { 0% { opacity: 0; transform: translateY(-4px); } 6% { opacity: 1; transform: none; }
+  85% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+/* '이 기획안 지우기': 기획안 제목 첫 줄과 같은 높이로 (칸 위쪽 맞춤 + 제목 h1 위 여백만큼 내림) */
+.st-key-pr_del button { transform: translateY(20px); }
+/* 결과 화면 맨 위: 첨부 파일(작은 회색) · AI 활용 영역 해시태그 필(사이드바 '＋ 새 기획안'과 같은 옅은 파랑) */
+.pr-meta { font-size: .9rem; color: #6b7686; }
+.pr-tags { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .55rem; }
+.pr-tag { display: inline-block; padding: .28rem .75rem; border-radius: 999px; background: #eaf2fb; border: 1px solid #aac9ef;
+  color: #2a78d6; font-size: .85rem; font-weight: 600; }
+/* '직접 입력' 소제목 옆 작고 흐린 보충 글 */
+.pr-hint { font-size: .82rem; font-weight: 400; color: #8a93a3; margin-left: .35rem; }
+/* 제목과 설명 사이를 조금 띄움 */
+.st-key-pr_tagline { margin-top: .6rem; }
+/* 파일 첨부 칸: Streamlit 은 이 글자들을 바꾸는 설정이 없어서, 영어 글자를 숨기고(font-size: 0) 같은 자리에 한국어를 덧씌움 */
+[data-testid="stFileUploaderDropzoneInstructions"] > div > span { font-size: 0 !important; }
+[data-testid="stFileUploaderDropzoneInstructions"] > div > span:first-child::after { content: "파일을 여기로 끌어다 놓으세요"; font-size: 1rem; }
+[data-testid="stFileUploaderDropzoneInstructions"] > div > span:last-child::after { content: "파일 1개당 200MB까지 · TXT, MD, PDF, DOCX"; font-size: .875rem; }   /* 칸 이름(파일 첨부)과 같은 14px */
+[data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"] { font-size: 0 !important; }
+[data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"]::after { content: "파일 선택"; font-size: 1rem; }   /* 옆 버튼들(검토 시작·예시)과 같은 16px */
 </style>"""
 
 
@@ -195,7 +235,7 @@ def _label(r: dict, n: int) -> str:
 
 
 def _conclusion(r: dict) -> None:
-    """검토 결론 — 모두 코드가 만든다 (LLM 은 기획 부분 이름·사업 키워드만):
+    """결과 요약(옛 이름 검토 결론) — 모두 코드가 만든다 (LLM 은 기획 부분 이름·사업 키워드만):
     한 줄 요약(실행 방안 몇 개 중 몇 개에 같은 일 사례) + 기획 부분마다 '회사 · 사업 키워드'"""
     by, gaps = _items(r), set(r.get("gaps") or [])
     kw = {"d": r["disclosure"].get("keywords") or {}, "n": r["news"].get("keywords") or {}}
@@ -233,13 +273,13 @@ def _conclusion(r: dict) -> None:
             if ys:
                 cells.append(f'<span class="tag {kind}">{src}</span>' + " · ".join(ys))
         if adj:
-            cells.append('<span class="sim">비슷한 기술</span>' + " · ".join(case(x) for x in adj))
+            cells.append('<span class="sim">유사 기술</span>' + " · ".join(case(x) for x in adj))
         if not xs:
             cells.append('<span class="none">공시·뉴스에서 같은 사례를 찾지 못했어요</span>')
         rows.append(f'<div class="map"><div class="part">{html.escape(_label(r, n))}</div><div class="cases">{"<br>".join(cells)}</div></div>')
     note = '<div class="note">기획 부분 이름과 사업 키워드만 AI 가 줄였고, 짝은 찾은 사례(공시·뉴스) 그대로예요. 기획의 결과는 예측하지 않아요.</div>'
     with st.container(key="hl_pr_concl"):
-        st.markdown("##### 🧭 검토 결론")
+        st.markdown("##### 🧭 결과 요약")
         st.markdown(f'<div class="pr-concl">{lead + ", ".join(bits)}.{"".join(rows)}{note}</div>', unsafe_allow_html=True)
 
 
@@ -269,28 +309,28 @@ def _ask_chatbot(r: dict) -> None:
             qs.append((corp, k, f"{corp}의 {k}에 대해 알려주세요.", [c for c in [cid.get(n) or cid.get(str(n))] if c]))
     if not qs:
         return
-    st.markdown("##### 💬 이 사례를 공시 챗봇에 물어보기")
-    st.caption("누르면 공시 챗봇 새 대화에서 바로 답해요 (정기공시 근거 · 출처 링크). 기획안 검토 결과는 그대로 남아 있어요.")
-    for col, (i, (corp, k, q, ids)) in zip(st.columns(2) * ((len(qs) + 1) // 2), enumerate(qs)):
-        col.button(f"{corp} · {k}", key=f"pr_ask_{i}", width="stretch", icon=":material/forum:",
-                   on_click=_to_chatbot, args=(q, ids), help=q)
+    with st.container(key="pr_h_ask"):   # key: 소제목 크게 (DOC_CSS)
+        st.markdown("##### 💬 구체적인 사례 물어보기")
+    st.markdown('<div class="pr-ask-sub">누르면 <b>공시 챗봇 새 대화에서 바로 답해요.</b> 기획안 검토 결과는 그대로 남아요.</div>',
+                unsafe_allow_html=True)
+    for i, (corp, k, q, ids) in enumerate(qs):   # 한 줄에 하나씩, 글 길이만큼의 말풍선 (DOC_CSS st-key-pr_ask_)
+        st.button(q, key=f"pr_ask_{i}", width="content", on_click=_to_chatbot, args=(q, ids))   # 버튼 글 = 챗봇에 보낼 질문 그대로
 
 
 def _report(r: dict, label: str) -> None:
-    p = r["plan"]
-    st.markdown(f"##### {p['title'] or '(제목 없음)'}")
-    st.caption(f"{label} · AI 활용 영역: {', '.join(p['areas']) or '없음'}")
+    # 기획안 제목·첨부 파일·AI 활용 영역은 화면 맨 위(render)에서 그림
     if not r["ok"]:
         st.warning(r["message"] + " AI 를 어디에 어떻게 쓰려는지가 드러나게 써 주세요.")
         return
     st.markdown(DOC_CSS, unsafe_allow_html=True)
     _conclusion(r)
-    _ask_chatbot(r)
     by, gaps = _items(r), set(r.get("gaps") or [])
+    with st.container(key="pr_h_match"):   # 왼쪽 기획안 ↔ 오른쪽 매칭 사례. key: 소제목 크게 (DOC_CSS)
+        st.markdown("##### 🔍 매칭 결과")
     with st.container(key="pr_doc", gap=None):
         head_l, head_r = st.columns([3, 2], gap="large")
         head_l.markdown('<div class="pr-col-head">📄 기획안</div>', unsafe_allow_html=True)
-        head_r.markdown('<div class="pr-col-head">🔎 비슷한 사례</div>', unsafe_allow_html=True)
+        head_r.markdown('<div class="pr-col-head">🔎 매칭 사례</div>', unsafe_allow_html=True)
         if by.get(0):  # 특정 문단이 아니라 기획 전체와 관련된 사례는 문서 위에
             l0, r0 = st.columns([3, 2], gap="large")
             l0.markdown('<div class="pr-whole">기획 전체와 관련된 사례 →</div>', unsafe_allow_html=True)
@@ -305,7 +345,7 @@ def _report(r: dict, label: str) -> None:
                 left, right = st.columns([3, 2], gap="large")
                 if i in hidden:   # 사례 없는 문단이 길게 이어지는 곳: '중략'으로 접고 눌러서 펼침
                     run = [j for j in range(i, n + 1) if all(k in hidden for k in range(i, j + 1))]
-                    with left.expander(f"⋯ 중략 · 사례가 없는 문단 {len(run)}개 ⋯"):
+                    with left.expander("⋯ 중략 ⋯"):
                         st.markdown("".join(f'<div class="pr-para">{html.escape(r["paras"][j - 1])}</div>' for j in run),
                                     unsafe_allow_html=True)
                     continue
@@ -317,6 +357,7 @@ def _report(r: dict, label: str) -> None:
                 elif i in gaps:
                     right.markdown(GAP_CARD, unsafe_allow_html=True)
     st.caption("문서는 올린 파일에서 읽은 글자로 다시 그린 것이라 원본의 표·그림·글꼴은 보이지 않아요.")
+    _ask_chatbot(r)   # 맨 아래: 공시 사례를 챗봇에 물어보는 버튼
 
 
 # ---------- 기록 (파일 하나 = 기획안 하나, 챗봇 대화 기록과 같은 방식) ----------
@@ -381,14 +422,22 @@ def _sidebar() -> None:
 def _input() -> tuple[str, str] | None:
     """입력 칸 (결과가 없을 때만 보임) → (기획안 글, 표시 이름) 또는 None"""
     nonce = st.session_state.get("pr_nonce", 0)
-    up = st.file_uploader("기획안 파일 (txt · md · pdf · docx)", type=FILE_TYPES, key=f"pr_file_{nonce}")
-    text = st.text_area("또는 기획 내용을 붙여 넣으세요", key="pr_text", height=160,
+    # 칸 이름: 공시 챗봇 '이런 걸 물어볼 수 있어요'와 같은 굵은 소제목(#####). 위젯 자체 이름표는 숨김(화면 읽기용으로는 남음)
+    st.markdown("##### 파일 첨부")
+    up = st.file_uploader("파일 첨부", type=FILE_TYPES, key=f"pr_file_{nonce}", label_visibility="collapsed")
+    st.markdown('##### 직접 입력 <span class="pr-hint">(기획안 파일이 없는 경우)</span>', unsafe_allow_html=True)
+    text = st.text_area("직접 입력", key="pr_text", height=160, label_visibility="collapsed",
                         placeholder="예: [신사업 제안] AI 검색 최적화(GEO) 컨설팅 상품 출시 — 배경, 제안, 필요 역량…")
-    go, ex, _ = st.columns([1, 1.4, 3])
+    go, _ = st.columns([1, 4.4])
     run = go.button("검토 시작", key="pr_go", width="stretch", icon=":material/search:")
-    if ex.button("예시 기획안으로 해 보기", width="stretch"):
-        return EXAMPLE, "예시: GEO 컨설팅 상품 기획안"
     if not run:
+        return None
+    if up is not None and text.strip():   # 둘 다 넣었으면 어느 쪽을 검토할지 모르므로 시작하지 않음
+        # st.toast 는 화면 오른쪽 위에만 떠서, 같은 모양의 알림을 '검토 시작' 바로 아래에 직접 그림 (몇 초 뒤 사라짐, BTN_CSS .pr-toast)
+        # 누를 때마다 다시 뜨게: Streamlit 은 같은 자리의 요소를 다시 써서 애니메이션이 처음부터 돌지 않으므로 a·b 를 번갈아 씀
+        n = st.session_state["pr_toast_n"] = st.session_state.get("pr_toast_n", 0) + 1
+        st.markdown(f'<div class="pr-toast {"ab"[n % 2]}"><span class="ic">⚠</span>파일 첨부와 직접 입력 중 하나만 해 주세요.</div>',
+                    unsafe_allow_html=True)
         return None
     body, label = text.strip(), "붙여 넣은 글"
     if up is not None:
@@ -402,7 +451,7 @@ def _input() -> tuple[str, str] | None:
             return None
         label = f"📎 {up.name}"
     if len(body) < MIN_CHARS:
-        st.info("기획안 파일을 올리거나 기획 내용을 몇 줄 이상 붙여 넣어 주세요.")
+        st.info("파일을 첨부하거나 기획 내용을 몇 줄 이상 적어 주세요.")
         return None
     return body, label
 
@@ -414,11 +463,21 @@ def render() -> None:
     if res is not None and "paras" not in res[0]:
         st.session_state.pop("pr_result")   # 옛 버전 코드로 만든 결과 (문단 정보 없음) — 다시 검토해야 함
         res = None
-    head, clear = st.columns([5, 1], vertical_alignment="bottom")
-    head.title(TITLE)
+    head, clear = st.columns([5, 1], vertical_alignment="top")   # top: 제목이 두 줄이어도 버튼은 첫 줄 높이 (BTN_CSS .st-key-pr_del)
+    # 맨 위: 입력 화면은 '기획안 검토' + 설명, 결과 화면은 그 자리에 기획안 제목 + 첨부 파일 + AI 활용 영역 해시태그
+    plan = res[0].get("plan", {}) if res is not None else {}
+    head.title(TITLE if res is None else (plan.get("title") or "(제목 없음)"))
     if res is not None and st.session_state.get("pr_id"):
-        clear.button("이 기획안 지우기", width="stretch", on_click=_delete)
-    st.markdown(TAGLINE)
+        clear.button("이 기획안 지우기", width="stretch", on_click=_delete, key="pr_del")
+    with st.container(key="pr_tagline"):   # key: 제목과의 간격 (BTN_CSS)
+        if res is None:
+            st.markdown(TAGLINE)
+        else:
+            # 해시태그는 띄어쓰기 없이 (#AI에이전트), 영역 하나 = 필 하나
+            tags = "".join(f'<span class="pr-tag">#{html.escape(a.replace(" ", ""))}</span>' for a in plan.get("areas") or [])
+            tags = tags or '<span class="pr-meta">AI 활용 영역 없음</span>'
+            st.markdown(f'<div class="pr-tags">{tags}</div><div class="pr-meta">{html.escape(res[1])}</div>',
+                        unsafe_allow_html=True)
 
     if res is None:  # 결과가 나오면 입력 칸은 숨긴다 (다시 하려면 '＋ 새 기획안')
         got = _input()

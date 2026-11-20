@@ -364,8 +364,21 @@ section[data-testid="stSidebar"] [data-testid="stDateInputField"] [data-type="li
 /* 입력창: 1.67 은 글자 14px · 높이 58px → 1.51 처럼 16px 한 줄 알약 */
 [data-testid="stChatInput"] textarea { font-size: 1rem !important; }
 [data-testid="stChatInput"] > div { padding-top: .15rem !important; padding-bottom: .15rem !important; min-height: 0 !important; }
+/* 그래프 확대 막기: Streamlit 이 그래프에 붙이는 전체 화면 버튼(오른쪽 위 툴바) 숨김 — 확대·이동은 PLOT_CONFIG · lock() */
+[data-testid="stElementContainer"]:has([data-testid="stPlotlyChart"]) [data-testid="stElementToolbar"] { display: none !important; }
 </style>
 """
+
+# 그래프는 고정 (확대·이동·스크롤 확대·더블클릭 초기화 없음, 마우스를 올리면 값은 그대로 보임)
+PLOT_CONFIG = {"displayModeBar": False, "scrollZoom": False, "doubleClick": False, "showAxisDragHandles": False}
+
+
+def lock(fig):
+    """plotly 그래프를 끌어서 확대·이동하지 못하게 고정 (축 범위 고정 + 드래그 끔). fig 를 그대로 돌려줌"""
+    fig.update_xaxes(fixedrange=True)
+    fig.update_yaxes(fixedrange=True)
+    fig.update_layout(dragmode=False)
+    return fig
 
 
 def inject() -> None:

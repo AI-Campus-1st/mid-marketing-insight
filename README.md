@@ -8,7 +8,7 @@
 - **사용자:** 5개사 밖 중견 디지털 광고대행사 신사업기획팀장 (메인), 브랜드사 광고주 마케팅 담당자 (서브)
 - **핵심 질문:** AI 마케팅 이슈는 언제 급증했고 무엇으로 옮겨 갔나? 뉴스로 발표한 AI 는 정기공시에도 실렸나, 공시 속 AI 는 어느 단계(언급 · 계획 · 도입·적용 · 자체 개발·상용화)인가?
 
-> **최종 리포트는 [docs/report/report_AB.md](docs/report/report_AB.md)** (파트별 원고: [report_A.md](docs/report/report_A.md) · [report_B.md](docs/report/report_B.md)). 기획 상세는 [기획안](docs/archive/AI%20마케팅%20이슈%20×%20공시%20분석%20대시보드%20기획안.md), 설계 결정은 [decisions.md](docs/decisions.md) 참고
+> **최종 리포트는 [docs/report/report_AB.md](docs/report/report_AB.md)** — 보는 곳은 아래 [리포트](#리포트) 절. 기획 상세는 [기획안](docs/archive/AI%20마케팅%20이슈%20×%20공시%20분석%20대시보드%20기획안.md), 설계 결정은 [decisions.md](docs/decisions.md) 참고
 
 ## 화면
 
@@ -24,6 +24,18 @@
 - 사이드바 메뉴는 공시 챗봇 · 기획안 검토 · **리포트** 세 개이고, 리포트 안에서 맨 위 버튼으로 Q1·Q2·Q3 를 고릅니다.
 - 리포트(Q1·Q2·Q3) 맨 위 **리포트 요약**(뉴스 · 공시 · 결론)은 사이드바 필터에 맞춰 다시 계산됩니다 (`dashboard/conclusion.py`). 아래로 스크롤하면 한 번 접히고, 다시 열면 그대로 둡니다.
 - 필터 적용 범위: Q1·Q2·요약 '뉴스' = 기간 · 기업 · 뉴스 카테고리 / Q3 반영 판정·요약 '공시' = 기간(뉴스 발표일 기준) · 기업 / 공시 AI 단계·요약 '결론' = 기업만 (수집 기간 전체 정기공시)
+
+## 리포트
+
+| 무엇 | 어디서 보나 |
+|---|---|
+| **최종 리포트 (A·B 통합본)** | [docs/report/report_AB.md](docs/report/report_AB.md) — GitHub 에서 열면 표·그림이 함께 보입니다 (VS Code 는 마크다운 미리 보기) |
+| 파트별 원고 | [report_A.md](docs/report/report_A.md) (뉴스 · Q1 · Q2 · 기획안 검토) · [report_B.md](docs/report/report_B.md) (공시 · AI 단계 · Q3 · 공시 챗봇) — 통합본을 쓰기 위한 원고, 통합본보다 계산 과정·검수 표가 자세함 |
+| 그림 | [docs/report/img/](docs/report/img/) — 화면 캡처와 B 그래프 (`b_*.png` 는 `python docs/report/make_b_charts.py` 로 다시 그림) |
+| 대시보드 '리포트' 메뉴 | 문서가 아니라 분석 화면 — `streamlit run dashboard/app.py` → 사이드바 **리포트** → 맨 위에서 Q1 · Q2 · Q3 선택 (맨 위 '리포트 요약'은 필터에 맞춰 다시 계산) |
+| 설계 결정 기록 | [docs/decisions.md](docs/decisions.md) — 리포트의 데이터 · 분석 · 회고 장의 근거 |
+
+- 최신 리포트는 **`develop` 브랜치**에 있습니다. `main` 에는 마감 때 한 번에 합치므로 그 전까지는 예전 내용입니다.
 
 ## 폴더 구조
 

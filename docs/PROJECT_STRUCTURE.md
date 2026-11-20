@@ -54,6 +54,7 @@ mid-marketing-insight/
 │   ├── chunk.py               # [B·D3] 화이트리스트 섹션(II 전체·I-2 연혁·I-5 정관)만 청킹, AI 용어 집계 → disclosure_chunks
 │   ├── check_search_terms.py  # [B·D3] 이벤트 검색어를 공시 청크에 대 보고 후보 수·이벤트 전 출현·0건 점검
 │   ├── classify_chunks.py     # [B·D3] AI 언급 청크만 LLM 단계(L0~L3)·영역·성과 숫자 분류 (프롬프트 chunk_v6)
+│   ├── rebuild_chunk_table.py # [B·D7] 예전 DB 의 disclosure_chunks 를 schema.sql 정의대로 다시 만들기 (안 쓰는 ai_stage 제거 · ai_level CHECK, 분류 결과 유지)
 │   ├── level_review_sheet.py  # [B·D4] 단계 분류 검수 표본 시트(1차 50·2차 29) / LLM 일치율 집계 → review_samples, merge 로 한 파일
 │   ├── embeddings.py          # [B·D4] 공시 청크 임베딩 캐시 (text-embedding-3-small, 매칭 후보·RAG 공용)
 │   ├── match_candidates.py    # [B·D4] 이벤트 ↔ 공시 매칭 후보(키워드 전부 + 임베딩 top-5) → event_dart_mapping, 검증 시트 / 판정 반영(apply)

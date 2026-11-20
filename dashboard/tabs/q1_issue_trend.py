@@ -136,7 +136,7 @@ def render(df: pd.DataFrame, period) -> None:
     left, right = st.columns([5, 2], gap="medium")
     with left, st.container(border=True, key="card_q1_chart"):
         ui.section("월별 AI 언급 기사량", ui.ICON_CALENDAR)
-        st.plotly_chart(_chart(m, show_spikes), width="stretch", config={"displayModeBar": False})
+        st.plotly_chart(ui.lock(_chart(m, show_spikes)), width="stretch", config=ui.PLOT_CONFIG)
         st.caption("* AI 언급 기사 : 제목이나 본문에 AI 용어(AI·인공지능·생성형·LLM·GPT 등)가 나온 기사\n"
                    "* 일부 수집 : 날짜 제한으로 일부만 수집된 달 (2023년 10월은 19일부터, 2026년 10월은 19일까지)\n"
                    "* 급증 기준 : 직전 6개월 평균 × 1.5 초과")

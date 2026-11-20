@@ -97,8 +97,8 @@ def _trend_html(share: pd.DataFrame, n: pd.Series, height: int = 430) -> str:
         groups[iss].append(i)
     fig.update_layout(showlegend=False, height=height - 40, margin=dict(l=10, r=10, t=10, b=56),
                       font=dict(family=FONT))
-    plot = fig.to_html(full_html=False, include_plotlyjs="cdn", div_id="q2trend",
-                       config={"displayModeBar": False, "responsive": True}, default_width="100%")
+    plot = ui.lock(fig).to_html(full_html=False, include_plotlyjs="cdn", div_id="q2trend",
+                                config={**ui.PLOT_CONFIG, "responsive": True}, default_width="100%")
     chips = "".join(f'<span class="chip" data-i="{k}"><i style="background:{ic[iss]}"></i>{iss}</span>'
                     for k, iss in enumerate(TREND_ISSUES))
     return f"""
@@ -226,7 +226,7 @@ def render(df: pd.DataFrame, period) -> None:
     # 위아래로: 이슈 순위(분기 비중에 이어 '전체 기간에 무엇이 많았나') → 우려 기사(도입 전 주의할 점, 부록)
     with st.container(border=True, key="card_q2_rank"):
         ui.section("이슈 순위", ui.ICON_RANK)
-        st.plotly_chart(_topn_chart(rel), width="stretch", config={"displayModeBar": False})
+        st.plotly_chart(ui.lock(_topn_chart(rel)), width="stretch", config=ui.PLOT_CONFIG)
     _concerns(period)
 
     with st.container(key="q2_more"):   # 아래 접기 메뉴: Q1 과 같은 제목 글꼴 (style.py)

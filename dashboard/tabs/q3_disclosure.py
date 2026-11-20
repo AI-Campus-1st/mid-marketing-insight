@@ -168,7 +168,7 @@ def _timeline(r: pd.DataFrame) -> None:
         corp = st.radio("기업", sorted(r.corp_name.unique()), horizontal=True, key="q3_tl_corp", label_visibility="collapsed")
         d = r[r.corp_name == corp].sort_values("official_date").copy()
         d["label"] = d.event_name.str.slice(0, 26) + d.analysis_scope.map({"reference": " (참고용)"}).fillna("")
-        st.plotly_chart(_timeline_chart(d), width="stretch", config={"displayModeBar": False})
+        st.plotly_chart(ui.lock(_timeline_chart(d)), width="stretch", config=ui.PLOT_CONFIG)
         st.caption("* ○ 뉴스 발표일 → ● 그 이벤트가 처음 실린 정기보고서 접수일 (색은 판정)\n"
                    "* 공시에서 미확인 : 수집 기간 끝(2026년 10월)까지 정기보고서에서 확인되지 않음\n"
                    "* (참고용) : 2026년 7월 이후 발표돼 다음 보고서가 아직 없음")
@@ -193,7 +193,7 @@ def _levels(corps: list[str]) -> None:
                         hovertemplate="%{y} · " + LEVEL_NAME[lvl] + " %{x:.0%} (%{customdata}개 문단)<extra></extra>")
         fig = _hbar_layout(fig, len(order))
         fig.update_xaxes(tickformat=".0%", range=[0, 1], title=None, showgrid=False)
-        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})   # 기업별 L3 비중 표는 뺐다 — 마우스를 올리면 비중·문단 수
+        st.plotly_chart(ui.lock(fig), width="stretch", config=ui.PLOT_CONFIG)   # 기업별 L3 비중 표는 뺐다 — 마우스를 올리면 비중·문단 수
         st.caption("\n".join(f"* {LEVEL_NAME[f'L{k}']} : {desc}" for k, (_, desc) in LEVELS.items()))
 
 
@@ -248,7 +248,7 @@ def render(corps: list[str], period: tuple) -> None:
             if j.empty:
                 st.caption("판정 대상 이벤트가 없습니다.")
             else:
-                st.plotly_chart(_by_corp(j), width="stretch", config={"displayModeBar": False})
+                st.plotly_chart(ui.lock(_by_corp(j)), width="stretch", config=ui.PLOT_CONFIG)
                 st.caption("* 판정 대상 : 2026년 6월까지 발표돼 다음 정기보고서가 나온 이벤트 (막대 끝 숫자 = 기업별 합계)")
         with right, st.container(border=True, key="card_q3_points"):
             ui.section("눈여겨볼 점", ui.ICON_ALERT)

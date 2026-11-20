@@ -17,12 +17,12 @@ from dashboard import style as ui
 from dashboard.theme import LEVEL_NAME
 
 TITLE = "광고대행사 AI 공시 챗봇"
-TAGLINE = "광고대행사가 말한 AI, **공시에도 '했다'고 적혀 있을까?** 정기공시(사업·반기·분기보고서)에서 찾아 근거와 함께 답해 드려요."
-WELCOME = """**제일기획 · 이노션 · 플레이디 · 인크로스 · KT나스미디어** 5곳의 사업·반기·분기보고서(2023-10 ~ 2026-10)에서 찾아봐요.
+TAGLINE = "광고대행사가 말한 AI, **공시에도 '했다'고 적혀 있을까?** 정기공시(사업·반기·분기보고서)에서 찾아 근거와 함께 답해 드립니다."
+WELCOME = """**제일기획 · 이노션 · 플레이디 · 인크로스 · KT나스미디어** 5곳의 사업·반기·분기보고서(2023-10 ~ 2026-10)에서 찾아봅니다.
 
-- 답마다 **어느 보고서에 적혀 있는지** 출처와 DART 원문 링크를 붙여요.
-- 공시에 없는 내용은 지어내지 않고 **"공시에서 확인되지 않습니다"** 라고 답해요.
-- 질문에 **회사 이름**을 넣어 주세요. 질문마다 따로 답해요."""
+- 답마다 **어느 보고서에 적혀 있는지** 출처와 DART 원문 링크를 붙입니다.
+- 공시에 없는 내용은 지어내지 않고 **"공시에서 확인되지 않습니다"** 라고 답합니다.
+- 질문에 **회사 이름**을 넣어 주십시오. 질문마다 따로 답합니다."""
 # 질문 종류별 예시 (첫 화면 버튼)
 EXAMPLES = {"자체 솔루션": "제일기획의 AI 배너 자동화 솔루션 베리에이드 도입 내용을 알려주세요.",
             "연구개발·특허": "KT나스미디어가 출원하거나 등록한 AI 관련 특허는 무엇인가요?",
@@ -30,7 +30,7 @@ EXAMPLES = {"자체 솔루션": "제일기획의 AI 배너 자동화 솔루션 �
             "제휴·협력": "이노션의 AI 얼라이언스에는 몇 개 기업이 참여했나요?"}
 HIST_DIR = settings.DATA_DIR / "processed" / "chat_history"
 HIST_SHOW = 30  # 사이드바에 보여 줄 지난 대화 수
-REFUSE = "**공시에서 확인되지 않습니다.**\n\n질문한 내용이 정기공시에 적혀 있지 않거나, 분석 대상 5개사가 아니에요."
+REFUSE = "**공시에서 확인되지 않습니다.**\n\n질문한 내용이 정기공시에 적혀 있지 않거나, 분석 대상 5개사가 아닙니다."
 
 
 @st.cache_resource(show_spinner="공시 검색기를 준비하는 중…", max_entries=1)  # 최신 코드의 검색기 하나만 (B 리뷰 PR #29)
@@ -57,7 +57,7 @@ def _answer(q: str, chunk_ids: list[str] | None = None) -> dict:
     try:
         r = _qa().ask_with_chunks(q, chunk_ids) if chunk_ids else _qa().ask(q)
     except Exception as e:  # API 키 없음 등
-        return {"role": "assistant", "content": f"답변을 만들지 못했어요 ({type(e).__name__}). `.env` 의 OPENAI_API_KEY 를 확인해 주세요.",
+        return {"role": "assistant", "content": f"답변을 만들지 못했습니다 ({type(e).__name__}). `.env` 의 OPENAI_API_KEY 를 확인해 주십시오.",
                 "sources": []}
     if not r["answerable"]:
         return {"role": "assistant", "content": REFUSE, "sources": []}
@@ -123,7 +123,7 @@ def _sidebar() -> None:
         convs = _history()
         st.markdown("**지난 대화**")
         if not convs:
-            st.caption("아직 없어요. 질문하면 여기에 저장돼요.")
+            st.caption("아직 없습니다. 질문하면 여기에 저장됩니다.")
         cur = st.session_state.get("qa_id")
         tips = []   # 잘린 제목에 마우스를 대면 전체 제목 — 메뉴 설명과 같은 말풍선·정렬 (style.hover_tips)
         for c in convs[:HIST_SHOW]:
@@ -150,7 +150,7 @@ def render() -> None:
     if not msgs and not picked:  # 첫 화면: 소개 + 질문 종류별 예시
         with st.chat_message("assistant"):
             st.markdown(WELCOME)
-        st.markdown("##### 이런 걸 물어볼 수 있어요")
+        st.markdown("##### 이런 걸 물어볼 수 있습니다")
         for col, (kind, q) in zip(st.columns(2) * 2, EXAMPLES.items()):
             with col.container(border=True):
                 st.caption(kind)
@@ -159,7 +159,7 @@ def render() -> None:
     for m in msgs:
         _show(m)
 
-    q = st.chat_input("회사 이름을 넣어 물어보세요 (예: 인크로스 스텔라이즈는 언제 출시됐나요?)") or picked
+    q = st.chat_input("회사 이름을 넣어 물어보십시오 (예: 인크로스 스텔라이즈는 언제 출시됐나요?)") or picked
     if q:
         msgs.append({"role": "user", "content": q})
         _show(msgs[-1])

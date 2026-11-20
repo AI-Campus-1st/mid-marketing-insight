@@ -161,14 +161,14 @@ def _topn_chart(rel: pd.DataFrame):
 def _concerns(period) -> None:
     # #28 보강 5 (A·B 합의 PR #32): 새 화면 대신 이 목록을 광고주 관점 '도입 전 주의할 점'으로 (영역별 활용 사례는 기획안 검토 화면)
     ui.section("도입 전 주의할 점 — 우려 기사", ui.ICON_ALERT)
-    st.caption("AI 마케팅에서 실제로 논란·반발이 된 사례예요. 카드를 누르면 원문이 열려요.")
+    st.caption("AI 마케팅에서 실제로 논란·반발이 된 사례입니다. 카드를 누르면 원문이 열립니다.")
     df = dl.concern_articles()
     if df is None:
-        st.info("우려 기사 목록은 사람 검수 후 표시돼요 (`analysis/q2_concerns.py`).")
+        st.info("우려 기사 목록은 사람 검수 후 표시됩니다 (`analysis/q2_concerns.py`).")
         return
     df = df[(df["date"] >= period[0]) & (df["date"] <= period[1])].sort_values("published_date", ascending=False)
     if df.empty:
-        st.caption("선택한 기간에 우려 기사가 없어요.")
+        st.caption("선택한 기간에 우려 기사가 없습니다.")
         return
     # 같은 사건 기사는 하나로 묶어 대표 기사(가장 이른 것) + 건수
     df["group"] = df["event_group"].fillna("").where(df["event_group"].fillna("") != "", df["doc_id"])
@@ -187,10 +187,10 @@ def _concerns(period) -> None:
 
 
 def render(df: pd.DataFrame, period) -> None:
-    ui.page_title("Q2. AI 마케팅 화제 이슈의 변화", "광고·마케팅 관련 기사를 이슈별로 나눠 분기마다 어떤 이슈가 화제였는지 정리했어요.")
+    ui.page_title("Q2. AI 마케팅 화제 이슈의 변화", "광고·마케팅 관련 기사를 이슈별로 나눠 분기마다 어떤 이슈가 화제였는지 정리했습니다.")
     rel = df[df["is_relevant"] == 1]
     if rel.empty:
-        st.info("선택한 필터에 해당하는 광고·마케팅 관련 기사가 없어요.")
+        st.info("선택한 필터에 해당하는 광고·마케팅 관련 기사가 없습니다.")
         return
     share, n = _quarterly_share(rel)
     full = [q for q in share.index if q not in PARTIAL_Q and n[q] >= MIN_QUARTER_N]
@@ -201,7 +201,7 @@ def render(df: pd.DataFrame, period) -> None:
         rise = (late - early).sort_values(ascending=False)
         top = rise.index[0]
         ui.lead(f'광고·마케팅 관련 기사에서 <b>{ui.esc(top)}</b> 비중이 '
-                f'{early[top]:.0f}% → <b>{late[top]:.0f}%</b>로 가장 많이 늘었어요. '
+                f'{early[top]:.0f}% → <b>{late[top]:.0f}%</b>로 가장 많이 늘었습니다. '
                 f'<span style="display:block;font-weight:500;opacity:.6;font-size:.9rem">({_yq_range(full[0], full[2])} 평균 → {_yq_range(full[-3], full[-1])} 평균)</span>',   # 괄호는 다음 줄에 (중간에서 줄바뀜 방지)
                 big=True)
     neutral = (rel["sentiment"] == "neutral").mean()
@@ -211,15 +211,15 @@ def render(df: pd.DataFrame, period) -> None:
              ("AI 활용 우려 반응", f"{int((rel['sentiment'] == 'negative').sum())}건", "일자리 대체 · 과장·허위 홍보 · 보안·조작 위주")], key="q2")
     # 긍정(기대) 반응은 카드에서 뺀 이유 (decisions.md Day 5: 새 표본에서 LLM 기대 2건 모두 틀림 · 사람 기대 3건 모두 놓침)
     pos = int((rel["sentiment"] == "positive").sum())
-    st.caption(f"AI 활용 긍정 반응({pos:,}건, {pos / len(rel):.0%})은 사람이 검수한 표본에서 AI 판정이 맞은 적이 없어 믿기 어려워 카드에서 뺐어요.")
+    st.caption(f"AI 활용 긍정 반응({pos:,}건, {pos / len(rel):.0%})은 사람이 검수한 표본에서 AI 판정이 맞은 적이 없어 믿기 어려워 카드에서 뺐습니다.")
 
     with st.container(border=True, key="card_q2_trend"):
         ui.section("분기별 이슈 비중", ui.ICON_TREND)
-        st.caption("범례나 선에 마우스를 올리면 그 이슈가 보여요.")   # 제목 아래 · 범례 위
+        st.caption("범례나 선에 마우스를 올리면 그 이슈가 보입니다.")   # 제목 아래 · 범례 위
         import streamlit.components.v1 as components
         components.html(_trend_html(share, n), height=440)
         st.caption("* 관련 기사 : AI(LLM)가 광고·마케팅 산업 활동으로 분류한 기사\n"
-                   "* 이슈 비중 : 관련 기사 중 각 이슈가 붙은 기사 비율 (한 기사에 이슈가 여럿이라 합이 100%를 넘어요)\n"
+                   "* 이슈 비중 : 관련 기사 중 각 이슈가 붙은 기사 비율 (한 기사에 이슈가 여럿이라 합이 100%를 넘습니다)\n"
                    "* 일부 수집 (빈 점) : 날짜 제한으로 일부만 수집된 분기 (2023년 4분기는 10월 19일부터, 2026년 4분기는 10월 19일까지)")
 
     # 위아래로: 이슈 순위(분기 비중에 이어 '전체 기간에 무엇이 많았나') → 우려 기사(도입 전 주의할 점, 부록)

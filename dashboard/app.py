@@ -51,6 +51,7 @@ with st.sidebar:
     menu = st.radio("화면", MENU, label_visibility="collapsed", format_func=lambda p: f"{MENU_ICON[p]}  {p}",
                     key="page_sel")   # key: 기획안 검토의 '챗봇에 물어보기'가 화면을 챗봇으로 바꿀 수 있게 (#46)
     ui.menu_tips("page_sel", [MENU_TIP[p] for p in MENU])   # 마우스를 대면 메뉴 설명
+    ui.tip_positioner()   # 말풍선을 항목의 실제 위치에 (사이드바를 스크롤해도 어긋나지 않게)
     chat = menu != "리포트"   # 필터를 쓰지 않는 화면 (공시 챗봇 · 기획안 검토)
     if not chat:   # 필터는 리포트에서만
         for k, v in saved.items():   # 다른 화면에 다녀오면 지워진 위젯 값을 저장해 둔 값으로 되살림

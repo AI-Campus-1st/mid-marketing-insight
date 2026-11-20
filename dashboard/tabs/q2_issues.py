@@ -135,7 +135,7 @@ def _trend_html(share: pd.DataFrame, n: pd.Series, height: int = 430) -> str:
 </script>"""
 
 
-CONCERN_SHOW = 5   # 우려 기사: 처음에 보여 줄 카드 수 (나머지는 '더보기')
+CONCERN_SHOW = 4   # 우려 기사: 접혀 있을 때 넘기는 카드 수 (가장 많이 보일 때 4개 — 실제 보이는 개수는 화면 폭마다 CSS 가 정함)
 FORMAT_ISSUES = {"제휴·협력", "실적·투자·상장", "행사·시상"}   # 형식 이슈 (내용 이슈와 구분해 옅게)
 LIGHT_BAR = {"light": "#d6e2f3", "dark": "#2b3a52"}
 
@@ -179,9 +179,10 @@ def _concerns(period) -> None:
               "meta": f"{r.media} · {r.date}", "url": r.url} for r in g.itertuples()]
     # 처음엔 최근 5개만, 나머지는 '더보기'로 펼침 (다시 누르면 접힘)
     opened = st.session_state.get("q2_concerns_all", False)
-    ui.mini_cards(cards if opened else cards[:CONCERN_SHOW])
-    if len(cards) > CONCERN_SHOW:
-        st.button("접기" if opened else f"더보기 ({len(cards) - CONCERN_SHOW}건)", key="q2_concerns_more", width="stretch",   # 카드 줄 폭만큼 길게, 글자 가운데
+    # 처음 보이는 개수는 화면 폭(한 줄 칸 수)마다 CSS 가 정함 (style.mini_cards collapsed) — 그래서 버튼에는 전체 건수만
+    ui.mini_cards(cards if opened else cards[:CONCERN_SHOW], collapsed=not opened)
+    if len(cards) > 3:   # 가장 적게 보일 때(1칸 3개)보다 많으면
+        st.button("접기" if opened else f"더보기 (전체 {len(cards)}건)", key="q2_concerns_more", width="stretch",   # 카드 줄 폭만큼 길게, 글자 가운데
                   icon=":material/expand_less:" if opened else ":material/expand_more:",
                   on_click=lambda: st.session_state.update(q2_concerns_all=not opened))
 

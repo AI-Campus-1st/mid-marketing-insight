@@ -101,10 +101,20 @@ div[data-testid="stLayoutWrapper"]:has(> .st-key-card_q3_points) { flex: 1 1 aut
 .tl .now .t { color: #2a78d6; }
 .tl .d { font-size: .82rem; color: #5b6575; }
 .tl .tl-badge { display: inline-block; vertical-align: 2px; margin-left: .3rem; padding: .05rem .45rem; border-radius: 999px;
-  background: #fff3c4; color: #8a6100; font-size: .72rem; font-weight: 700; }   /* 급증 배수 (×2.3) 노랑 배지 */
+  background: #fdf0e1; color: #a35a00; font-size: .72rem; font-weight: 700; }   /* 급증 배수 (×2.3) 배지 = 기획안 검토 '유사 기술' 배지와 같은 주황 */
 
 /* 작은 카드 그리드 (레퍼런스 2) */
-.mc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: .75rem; }
+/* 작은 카드 그리드: 칸 수를 카드 칸 폭(컨테이너 쿼리)으로 정함 — 카드 최소 폭 약 210px 기준 1~4칸.
+   collapsed 면 칸 수마다 줄이 딱 떨어지는 개수만 보임 (4칸 4개 · 3칸 3개 · 2칸 4개 · 1칸 3개), 나머지는 '더보기' */
+.mc-wrap { container-type: inline-size; }
+.mc-grid { display: grid; grid-template-columns: 1fr; gap: .75rem; }
+.mc-grid.collapsed > .mc:nth-child(n+4) { display: none; }
+@container (min-width: 432px) { .mc-grid { grid-template-columns: repeat(2, 1fr); }
+  .mc-grid.collapsed > .mc:nth-child(n+4) { display: block; } .mc-grid.collapsed > .mc:nth-child(n+5) { display: none; } }
+@container (min-width: 654px) { .mc-grid { grid-template-columns: repeat(3, 1fr); }
+  .mc-grid.collapsed > .mc:nth-child(n+4) { display: none; } }
+@container (min-width: 876px) { .mc-grid { grid-template-columns: repeat(4, 1fr); }
+  .mc-grid.collapsed > .mc:nth-child(4) { display: block; } .mc-grid.collapsed > .mc:nth-child(n+5) { display: none; } }
 .mc { background: #f2f7fd; border: 1px solid #e1ecf9; border-radius: 14px;
       padding: .85rem .95rem; text-decoration: none !important; color: inherit !important; display: block; }
 .mc:hover { border-color: #94bcea; }
@@ -138,6 +148,9 @@ section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p { font-siz
 /* 접기 메뉴·표 */
 div[data-testid="stExpander"] details { border-radius: 14px; }
 div[data-testid="stExpander"] summary { font-weight: 600; }
+.st-key-tip_js, div[data-testid="stLayoutWrapper"]:has(> .st-key-tip_js) { display: none; }   /* 말풍선 위치 스크립트(tip_positioner)를 담은 빈 칸 — 자리 차지하지 않게 */
+/* Q3 표시용 빈 요소(app.py q3page-marker)가 칸 간격 16px 을 차지해 Q3 제목만 아래로 내려가던 것 → 자리 없앰 (:has 로 찾는 데는 지장 없음) */
+div[data-testid="stElementContainer"]:has(.q3page-marker) { display: none; }
 .st-key-q1_more div[data-testid="stExpander"] summary p, .st-key-q2_more div[data-testid="stExpander"] summary p,
 .st-key-q3_more div[data-testid="stExpander"] summary p { font-weight: 400; letter-spacing: -.01em; color: #1f2733; }   /* 리포트 Q1 아래 접기 메뉴 제목: 카드 제목과 같은 자간·색, 굵게 하지 않음 */
 .st-key-q2_more, .st-key-q3_more { margin-top: 1.5rem; }   /* 리포트 Q2: 우려 기사 카드와 아래 접기 메뉴 사이 띄움 */
@@ -333,8 +346,10 @@ def hover_tips(pairs: list[tuple[str, str]], shift: str = "-.25rem, 2.1rem") -> 
         return
     sels = [sel for sel, _ in pairs]
     rules = [", ".join(f"{x}::after" for x in sels) +
-             # position: fixed + 위치(top·left) 없음 → 항목 자리에 붙어 그려지되 사이드바 밖으로 넘어가도 잘리지 않음 (한 줄로 길게)
-             f' {{ position: fixed; width: max-content; white-space: nowrap; z-index: 1000; transform: translate({shift});'
+             # position: fixed → 사이드바 밖으로 넘어가도 잘리지 않음 (한 줄로 길게). 위치는 tip_positioner() 가 마우스를 댈 때
+             #   항목의 실제 화면 위치로 --tip-top·--tip-left 를 넣어 줌 (없으면 기본 자리 + shift — 사이드바를 스크롤하면 어긋나던 방식)
+             f' {{ position: fixed; top: var(--tip-top, auto); left: var(--tip-left, auto); width: max-content; white-space: nowrap;'
+             f' z-index: 1000; transform: var(--tip-tf, translate({shift}));'
              f' padding: .45rem .6rem; border-radius: 8px; background: {TIP_BG}; color: #1f2733; font-size: .78rem;'
              ' font-weight: 500; line-height: 1.4; border: 1px solid #e4e8ef; box-shadow: 0 4px 14px rgba(16, 24, 40, .10);'
              ' opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .15s ease .35s, visibility 0s linear .35s; }',
@@ -343,6 +358,33 @@ def hover_tips(pairs: list[tuple[str, str]], shift: str = "-.25rem, 2.1rem") -> 
         t = str(tip).replace("\\", "").replace('"', "'").replace("<", "").replace("\n", " ")
         rules.append(f'{sel}::after {{ content: "{t}"; }}')
     st.markdown("<style>" + "\n".join(rules) + "</style>", unsafe_allow_html=True)
+
+
+TIP_TARGETS = 'div.st-key-page_sel div[role="radiogroup"] > label, div[class*="st-key-hist_"]'   # 말풍선이 붙는 항목 (메뉴 · 지난 대화 · 지난 기획안)
+
+
+def tip_positioner() -> None:
+    """말풍선 위치 잡기 (사이드바에서 한 번): 항목에 마우스를 대면 그 항목의 실제 화면 위치(아래 4px, 왼쪽 +8px)를 CSS 변수로 넣는다.
+    position: fixed 말풍선은 위치를 주지 않으면 스크롤하기 전 자리에 그려져서, 사이드바를 내린 뒤엔 항목과 어긋났다.
+    Streamlit 1.51 은 화면에 스크립트를 바로 넣을 수 없어 보이지 않는 컴포넌트(같은 출처 iframe)에서 부모 문서에 한 번만 건다"""
+    import streamlit.components.v1 as components
+    js = """<script>
+(function () {
+  const d = window.parent.document;
+  if (d.__tipPositioner) return;
+  d.__tipPositioner = true;
+  d.addEventListener('mouseover', function (e) {
+    const el = e.target.closest && e.target.closest('TARGETS');
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty('--tip-top', (r.bottom + 4) + 'px');
+    el.style.setProperty('--tip-left', (r.left + 8) + 'px');
+    el.style.setProperty('--tip-tf', 'none');
+  }, true);
+})();
+</script>""".replace("TARGETS", TIP_TARGETS.replace("'", "\\'"))
+    with st.container(key="tip_js"):   # 보이지 않게 (CSS .st-key-tip_js)
+        components.html(js, height=0)
 
 
 def menu_tips(key: str, tips: list[str]) -> None:
@@ -408,11 +450,12 @@ def timeline(steps: list[tuple]) -> None:
     st.markdown(f'<ul class="tl">{"".join(lis)}</ul>', unsafe_allow_html=True)
 
 
-def mini_cards(cards: list[dict]) -> None:
-    """작은 카드 그리드: dict(tag, title, meta, url) — tag 가 없으면 윗줄 꼬리표 없이"""
+def mini_cards(cards: list[dict], collapsed: bool = False) -> None:
+    """작은 카드 그리드: dict(tag, title, meta, url) — tag 가 없으면 윗줄 꼬리표 없이.
+    collapsed: 화면 폭(한 줄 칸 수)에 맞춰 줄이 딱 떨어지는 개수만 보이고 나머지는 숨김 (CSS .mc-grid.collapsed — 4칸 4개 · 3칸 3개 · 2칸 4개 · 1칸 3개)"""
     items = "".join(
         f'<a class="mc" href="{esc(c.get("url") or "#")}" target="_blank">'
         + (f'<div class="mc-tag">{esc(c["tag"])}</div>' if c.get("tag") else "")
         + f'<div class="mc-title">{esc(c["title"])}</div>'
         f'<div class="mc-meta">{esc(c.get("meta", ""))}</div></a>' for c in cards)
-    st.markdown(f'<div class="mc-grid">{items}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="mc-wrap"><div class="mc-grid{" collapsed" if collapsed else ""}">{items}</div></div>', unsafe_allow_html=True)

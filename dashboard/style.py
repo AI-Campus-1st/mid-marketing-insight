@@ -47,6 +47,7 @@ div[class*="st-key-kpi_"] {
 .kpi-label { font-size: .82rem; color: #5b6575; margin-bottom: .15rem; }
 .kpi-value { font-size: 1.65rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.25; }
 .kpi-note  { font-size: .78rem; color: #8a93a3; margin-top: .15rem; }
+div[class*="st-key-kpi_"] [data-testid="stMarkdownContainer"] { margin-bottom: 0 !important; }   /* Streamlit 기본 -1rem 때문에 카드 아래 여백이 사라짐 → 위와 같게 */
 
 /* 섹션 제목 + 배지 */
 .sec { display: flex; align-items: center; gap: .55rem; margin: 1.6rem 0 .6rem; }
@@ -54,6 +55,16 @@ div[class*="st-key-kpi_"] {
             background: #e5effa; color: #2a78d6; font-size: 1rem; }
 .sec-title { font-size: 1.12rem; font-weight: 800; letter-spacing: -.01em; }
 .sec-sub { margin-left: auto; font-size: .8rem; color: #8a93a3; font-style: italic; }
+/* 리포트 Q1 카드(월별 기사량 · 급증 타임라인) 안 제목: 카드 위 여백이 커 보여서 줄임 */
+.st-key-card_q1_chart .sec, .st-key-card_q1_timeline .sec { margin-top: .6rem; }
+/* 급증 타임라인 내용(제목 제외)을 남은 칸의 위아래 가운데로 */
+.st-key-card_q1_timeline > div:has(.tl) { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; margin-top: -.5rem; }   /* -.5rem: 제목과의 칸 간격(1rem) 때문에 아래로 쏠리는 만큼 보정 → 위아래 여백 같게 */
+.st-key-card_q1_timeline .tl { margin: 0; }
+.st-key-card_q1_timeline .tl li:last-child { padding-bottom: 0; }   /* 마지막 항목 아래 빈칸을 빼야 실제 글자 기준으로 가운데 */
+.st-key-card_q1_timeline div:has(> .tl) { margin-bottom: 0 !important; }   /* Streamlit 기본 -1rem 이 가운데를 아래로 끌지 않게 */
+/* 급증 타임라인 카드를 옆 월별 기사량 카드와 같은 높이로 (내용은 그대로, 상자만 칸 높이까지 늘림) */
+div[data-testid="stLayoutWrapper"]:has(> .st-key-card_q1_timeline) { flex: 1 1 auto; }
+.st-key-card_q1_timeline { flex: 1 1 auto; }
 .pill { display: inline-block; padding: .12rem .55rem; border-radius: 999px; font-size: .72rem; font-weight: 700;
         letter-spacing: .02em; vertical-align: middle; }
 .pill-gray { background: #ebecef; color: #5b6575; }
@@ -66,6 +77,7 @@ div[class*="st-key-kpi_"] {
 .page-sub { color: #5b6575; margin-bottom: 1rem; }
 .lead { font-size: 1.12rem; font-weight: 700; line-height: 1.5; margin: .4rem 0 1rem; }
 .lead b { color: #2a78d6; }
+.lead.lead-lg { font-size: 1.45rem; letter-spacing: -.01em; word-break: keep-all; }   /* 페이지 제목(2.15rem)보다 작고 보통 결론(1.12rem)보다 크게. keep-all: 단어 중간에서 줄이 바뀌지 않게 */
 
 /* 세로 타임라인 (레퍼런스 로드맵) */
 .tl { list-style: none; padding: 0; margin: .3rem 0 0; }
@@ -80,6 +92,8 @@ div[class*="st-key-kpi_"] {
 .tl .t { font-weight: 800; }
 .tl .now .t { color: #2a78d6; }
 .tl .d { font-size: .82rem; color: #5b6575; }
+.tl .tl-badge { display: inline-block; vertical-align: 2px; margin-left: .3rem; padding: .05rem .45rem; border-radius: 999px;
+  background: #fff3c4; color: #8a6100; font-size: .72rem; font-weight: 700; }   /* 급증 배수 (×2.3) 노랑 배지 */
 
 /* 작은 카드 그리드 (레퍼런스 2) */
 .mc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: .75rem; }
@@ -116,6 +130,7 @@ section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p { font-siz
 /* 접기 메뉴·표 */
 div[data-testid="stExpander"] details { border-radius: 14px; }
 div[data-testid="stExpander"] summary { font-weight: 600; }
+.st-key-q1_more div[data-testid="stExpander"] summary p { font-weight: 400; letter-spacing: -.01em; color: #1f2733; }   /* 리포트 Q1 아래 접기 메뉴 제목: 카드 제목과 같은 자간·색, 굵게 하지 않음 */
 
 /* ── 사이드바: 화면 메뉴 (라디오 동그라미 숨기고 메뉴 항목처럼) ── */
 section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] > div:first-child { display: none; }
@@ -350,9 +365,16 @@ def page_title(title: str, sub: str = "") -> None:
                 unsafe_allow_html=True)
 
 
-def lead(html_text: str) -> None:
-    """한 줄 결론 (html_text 안의 <b> 는 파랑 강조). 호출하는 쪽에서 값은 esc() 로"""
-    st.markdown(f'<div class="lead">{html_text}</div>', unsafe_allow_html=True)
+def lead(html_text: str, big: bool = False) -> None:
+    """한 줄 결론 (html_text 안의 <b> 는 파랑 강조). 호출하는 쪽에서 값은 esc() 로. big: 페이지 제목보다 한 단계 작은 큰 글자 (Q1)"""
+    st.markdown(f'<div class="lead{" lead-lg" if big else ""}">{html_text}</div>', unsafe_allow_html=True)
+
+
+# 선 아이콘 (SVG, 글자색을 따름) — section() 의 icon 으로 넘긴다. 이모지 대신 파란 아이콘 상자에 맞는 모양
+_SVG = ('<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+        'stroke-linecap="round" stroke-linejoin="round" style="display:block">{}</svg>')
+ICON_CALENDAR = _SVG.format('<rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>')
+ICON_CLOCK = _SVG.format('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/>')
 
 
 def section(title: str, icon: str = "◆", badge: str | None = None, badge_kind: str = "gray", sub: str | None = None) -> None:
@@ -370,12 +392,15 @@ def kpis(items: list[tuple[str, str, str]], key: str) -> None:
                         + (f'<div class="kpi-note">{esc(note)}</div>' if note else ""), unsafe_allow_html=True)
 
 
-def timeline(steps: list[tuple[str, str, str]]) -> None:
-    """세로 단계: (상태 done/now/next, 제목, 설명)"""
+def timeline(steps: list[tuple]) -> None:
+    """세로 단계: (상태 done/now/next, 제목, 설명[, 배지]) — 설명은 글 하나 또는 줄 목록(줄마다 줄바꿈), 배지는 제목 옆 작은 노랑 배지"""
     mark = {"done": "✓", "now": "•", "next": ""}
-    lis = "".join(f'<li class="{s}"><span class="dot">{mark[s]}</span><div class="t">{esc(t)}</div><div class="d">{esc(d)}</div></li>'
-                  for s, t, d in steps)
-    st.markdown(f'<ul class="tl">{lis}</ul>', unsafe_allow_html=True)
+    lis = []
+    for s, t, d, *rest in steps:
+        badge = f' <span class="tl-badge">{esc(rest[0])}</span>' if rest and rest[0] else ""
+        desc = "<br>".join(esc(x) for x in ([d] if isinstance(d, str) else d) if x)
+        lis.append(f'<li class="{s}"><span class="dot">{mark[s]}</span><div class="t">{esc(t)}{badge}</div><div class="d">{desc}</div></li>')
+    st.markdown(f'<ul class="tl">{"".join(lis)}</ul>', unsafe_allow_html=True)
 
 
 def mini_cards(cards: list[dict]) -> None:

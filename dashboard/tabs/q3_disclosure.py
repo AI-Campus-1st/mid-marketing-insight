@@ -73,10 +73,8 @@ def _points(r: pd.DataFrame) -> None:
         total, kinds = j.event_type.value_counts(), miss.event_type.value_counts()
         kinds = sorted(kinds.items(), key=lambda kv: (-kv[1] / total[kv[0]], -kv[1]))   # 미확인 비율이 높은 유형부터
         txt = ", ".join(f"{EVENT_TYPE_KO.get(t, '기타')} {total[t]}개 중 {v}개" for t, v in kinds)
-        hard = [EVENT_TYPE_KO[t] for t in ("partnership", "adoption") if t in dict(kinds)]
-        # 해석은 필터 결과에 제휴·도입이 있을 때만, 단정하지 않고 (리포트 4-3: 분석 대상에서 관찰된 경향)
-        why = (f" {'·'.join(hard)}처럼 정기보고서에 따로 적을 항목이 없는 유형이 덜 실리는 것으로 보입니다." if hard else "")
-        pts.append(f"공시에서 미확인 <b>{len(miss)}개</b>: {txt}.{why} 공시에서 확인되지 않았다고 실행하지 않았다는 뜻은 아닙니다.")
+        # 숫자만 — '미확인 ≠ 실행 안 함'과 제휴·도입이 덜 실리는 이유는 아래 '판정 기준' 접기에 (HOW_TO_READ)
+        pts.append(f"공시에서 미확인 <b>{len(miss)}개</b>: {txt} (아래 '판정 기준' 참고).")
     late = j[j["판정"] == "늦게"]
     if len(late):
         pts.append(f"늦게 반영 <b>{len(late)}개</b>: " + ", ".join(ui.esc(e) for e in late.event_name) + ".")

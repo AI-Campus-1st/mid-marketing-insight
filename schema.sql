@@ -104,6 +104,8 @@ CREATE TABLE IF NOT EXISTS llm_results (
 --                 (광고주 상품명·정규표현식 오탐). 정의·경계 규칙은 config/ai_levels.py, docs/ai_level_guide.md
 --                 뉴스 이벤트의 ai_level_claimed 와 같은 자 → 말-실행 격차 = 주장 수준 − 공시 최고 수준
 --                 (Day 2 결정: 기획안의 ai_stage 3단계 declare/plan/execute 에서 변경)
+--                 Day 2 전에 만든 DB 는 이 정의로 바뀌지 않는다 (CREATE TABLE IF NOT EXISTS) — 안 쓰는 ai_stage 가 남고
+--                 ai_level 의 CHECK 가 없음. rag/rebuild_chunk_table.py --apply 로 이 정의대로 다시 만든다 (분류 결과 유지)
 --      ai_domain: creative = 제작 / operation = 운영 / analytics = 분석·타겟팅 / new_biz = 신사업·기타
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS disclosure_chunks (

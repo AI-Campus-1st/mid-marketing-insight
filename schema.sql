@@ -134,7 +134,9 @@ CREATE INDEX IF NOT EXISTS idx_chunks_ai   ON disclosure_chunks(ai_term_count);
 -- 6. ai_events: 확정 앵커 이벤트 (Day 2 확정 30개, 담당 A)
 --    data/processed/anchor_events.csv 와 같은 형식 (A·B 합의, Day 2). 적재: analysis/anchor_events.py
 --    analysis_scope = 'judge' 만 반영 판정·기업 비교에 쓰고, 'reference'(REFLECTION_CUTOFF 이후)는 타임라인 표시만.
---    공시 반영 결과(first_*·lag_days)는 공시 매칭 방식이 정해지면 다시 정리한다 (실행 설계서 4·6장).
+--    공시 반영 결과(첫 반영 공시·반영 시차·판정)는 이 표에 저장하지 않고 event_reflection 뷰가 계산한다 (Day 3 합의).
+--    예전 DB 에는 매칭 방식 확정 전 임시 칸 first_rcept_no·first_rcept_date·first_level·lag_days(값 없음)가 남아 있다 → 지우기 (Day 7):
+--      ALTER TABLE ai_events DROP COLUMN first_rcept_no;  (first_rcept_date · first_level · lag_days 도 같은 방식)
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS ai_events (
     event_id           TEXT PRIMARY KEY,      -- 'E001' … (이벤트 파일과 동일)
@@ -147,11 +149,6 @@ CREATE TABLE IF NOT EXISTS ai_events (
     analysis_scope     TEXT NOT NULL CHECK (analysis_scope IN ('judge', 'reference')),
     primary_source_url TEXT,                  -- 1차 출처 (언론사 원문 URL)
     search_terms       TEXT,                  -- 공시 매칭용 키워드 (JSON 배열, 예: '["스텔라이즈"]'), Day 3~4 에 채움
-    -- 공시 반영 결과 (매칭 방식 확정 전 임시 칸)
-    first_rcept_no     TEXT,                  -- 처음 반영된 공시 접수번호
-    first_rcept_date   TEXT,                  -- 처음 반영된 공시 접수일
-    first_level        INTEGER CHECK (first_level BETWEEN 0 AND 3),  -- 첫 반영 공시 청크의 단계
-    lag_days           INTEGER,               -- 보조 지표: 첫 반영 공시 접수일 - official_date (일)
     note               TEXT
 );
 

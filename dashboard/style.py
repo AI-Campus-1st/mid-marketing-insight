@@ -26,6 +26,9 @@ html, body, .stApp, .stApp p, .stApp li, .stApp label, .stApp h1, .stApp h2, .st
 }
 /* 본문 폭·여백 */
 .block-container { padding-top: 2.2rem; padding-bottom: 3rem; max-width: 1280px; }
+/* 버튼·메뉴 글자 16px — Streamlit 1.67 은 위젯 글자 기본이 14px 라 1.51(16px) 과 달라 보였음. 맨 앞에 두어 아래 개별 규칙이 이김 */
+button[data-testid="stBaseButton-secondary"] p, button[data-testid="stBaseButton-primary"] p,
+section[data-testid="stSidebar"] [data-testid="stRadio"] label p { font-size: 1rem; }
 
 /* 카드 (container key 가 card_ 로 시작, border=True): 둥글게 + 옅은 그림자
    Streamlit 1.51 은 테두리 container 가 별도 wrapper 없이 stVerticalBlock 자체라 key 클래스로 잡는다 */
@@ -156,7 +159,8 @@ section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p { font-siz
 /* 접기 메뉴·표 */
 div[data-testid="stExpander"] details { border-radius: 14px; }
 div[data-testid="stExpander"] summary { font-weight: 600; }
-.st-key-tip_js, div[data-testid="stLayoutWrapper"]:has(> .st-key-tip_js) { display: none; }   /* 말풍선 위치 스크립트(tip_positioner)를 담은 빈 칸 — 자리 차지하지 않게 */
+.st-key-tip_js, div[data-testid="stLayoutWrapper"]:has(> .st-key-tip_js),
+.st-key-acl_js, div[data-testid="stLayoutWrapper"]:has(> .st-key-acl_js) { display: none; }   /* 말풍선 위치 스크립트(tip_positioner)를 담은 빈 칸 — 자리 차지하지 않게 */
 /* Q3 표시용 빈 요소(app.py q3page-marker)가 칸 간격 16px 을 차지해 Q3 제목만 아래로 내려가던 것 → 자리 없앰 (:has 로 찾는 데는 지장 없음) */
 div[data-testid="stElementContainer"]:has(.q3page-marker) { display: none; }
 .st-key-q1_more div[data-testid="stExpander"] summary p, .st-key-q2_more div[data-testid="stExpander"] summary p,
@@ -208,11 +212,11 @@ div[class*="st-key-hist_"] button { border: none; background: transparent; justi
 div[class*="st-key-hist_"] button:hover { background: #f2f3f5; }
 div[class*="st-key-hist_"] button p { font-size: .85rem; line-height: 1.35; }
 div[class*="st-key-hist_"] button > div { justify-content: flex-start; text-align: left; }   /* 1.67: 짧은 제목이 가운데로 밀리던 것 → 왼쪽 맞춤 */
-/* 지난 대화 모두 지우기 (qa.py): 목록 아래 흐린 글씨 버튼 → 누르면 확인 창(팝오버). 확인 창은 사이드바 밖에 그려져 강조 버튼 색을 따로 파랑으로 */
-.st-key-qa_clear_all { margin-top: .4rem; }
-.st-key-qa_clear_all button { border: 1px dashed #d5dae2; background: transparent; }
-.st-key-qa_clear_all button p, .st-key-qa_clear_all button [data-testid="stIconMaterial"] { font-size: .82rem; color: #6b7686; }
-.st-key-qa_clear_all button:hover { border-color: #94bcea; background: #f2f7fd; }
+/* 지난 대화·지난 기획안 모두 지우기 (qa.py · plan_review.py): 목록 아래 흐린 글씨 버튼 → 누르면 확인 창(팝오버). 확인 창은 사이드바 밖에 그려져 강조 버튼 색을 따로 파랑으로 */
+.st-key-qa_clear_all, .st-key-pr_clear_all { margin-top: .4rem; }
+.st-key-qa_clear_all button, .st-key-pr_clear_all button { border: 1px dashed #d5dae2; background: transparent; }
+.st-key-qa_clear_all button p, .st-key-qa_clear_all button [data-testid="stIconMaterial"], .st-key-pr_clear_all button p, .st-key-pr_clear_all button [data-testid="stIconMaterial"] { font-size: .82rem; color: #6b7686; }
+.st-key-qa_clear_all button:hover, .st-key-pr_clear_all button:hover { border-color: #94bcea; background: #f2f7fd; }
 div[data-testid="stPopoverBody"] button[data-testid="stBaseButton-primary"] { background: #2a78d6 !important; border-color: #2a78d6 !important; }
 div[data-testid="stPopoverBody"] button[data-testid="stBaseButton-primary"] p { color: #ffffff !important; }
 div[data-testid="stPopoverBody"] [data-testid="stMarkdownContainer"] p { font-size: .88rem; }
@@ -242,6 +246,9 @@ div[data-testid="stPopoverBody"] [data-testid="stMarkdownContainer"] p { font-si
   background: #f4f8fd; border-color: #d9e7f7 !important; box-shadow: none;
 }
 .stMain:has(.chatpage-marker) div[data-testid="stVerticalBlock"]:has(> div[class*="st-key-ex_"]):hover { border-color: #94bcea !important; }
+/* 같은 줄 예시 카드는 높이를 같이: 한 카드만 줄바꿈돼도 옆 카드가 같이 늘어남 (카드를 칸 높이까지) */
+.stMain:has(.chatpage-marker) div[data-testid="stLayoutWrapper"]:has(> div[data-testid="stVerticalBlock"] > div[class*="st-key-ex_"]),
+.stMain:has(.chatpage-marker) div[data-testid="stVerticalBlock"]:has(> div[class*="st-key-ex_"]) { flex: 1 1 auto; }
 .stMain:has(.chatpage-marker) div[data-testid="stVerticalBlock"]:has(> div[class*="st-key-ex_"]) div[data-testid="stCaptionContainer"] p {
   color: #2a78d6; font-weight: 700; font-size: .78rem; opacity: 1;
 }
@@ -249,6 +256,7 @@ div[data-testid="stPopoverBody"] [data-testid="stMarkdownContainer"] p { font-si
   border: none; background: transparent; justify-content: flex-start; text-align: left; padding: .2rem 0; min-height: 0;
 }
 .stMain:has(.chatpage-marker) div[data-testid="stVerticalBlock"]:has(> div[class*="st-key-ex_"]) button p { font-weight: 700; font-size: .95rem; }
+.stMain:has(.chatpage-marker) div[data-testid="stVerticalBlock"]:has(> div[class*="st-key-ex_"]) button > div { justify-content: flex-start; text-align: left; }   /* 1.67: 글자가 가운데로 가던 것 → 왼쪽 */
 /* 입력창: 둥근 알약 + 그림자 */
 div[data-testid="stChatInput"] > div { border-radius: 999px !important; border: 1.5px solid #b4d0f1 !important;
   box-shadow: 0 4px 16px rgba(16, 24, 40, .06); }
@@ -340,6 +348,22 @@ div[data-baseweb="tooltip"] [data-testid="stTooltipContent"] { background: TIP_B
   border-radius: 8px; padding: .45rem .6rem; box-shadow: 0 4px 14px rgba(16, 24, 40, .10); }
 div[data-baseweb="tooltip"] [data-testid="stTooltipContent"], div[data-baseweb="tooltip"] [data-testid="stTooltipContent"] * {
   font-size: .78rem !important; font-weight: 500; line-height: 1.4; color: #1f2733; margin: 0; }
+/* ── Streamlit 1.67 이후에서도 1.51 과 같은 모양 (새로 설치하면 1.67 이 깔림 — B 화면과 달라 보이던 부분) ── */
+/* 사이드바 폭: 1.67 기본 300px → 1.51 과 같은 256px (펼쳐진 상태에만, 접기 동작은 그대로) */
+section[data-testid="stSidebar"][data-collapsed="false"] { width: 256px !important; min-width: 256px !important; max-width: 256px !important; }   /* 1.67 은 펼침을 data-collapsed 로 표시 (1.51 은 원래 256px) */
+/* 필터 체크박스: 1.67 은 상자 16px · 글자 14px → 1.51 과 같은 13px 상자 · 13.6px 글자 */
+section[data-testid="stSidebar"] [data-testid="stCheckbox"] p { font-size: .85rem; }
+section[data-testid="stSidebar"] [data-testid="stCheckbox"] label > div:first-of-type:has(svg) { width: 13px !important; height: 13px !important;
+  min-width: 13px; border-radius: 4px !important; margin-top: 4px; }
+section[data-testid="stSidebar"] [data-testid="stCheckbox"] label > div:first-of-type:has(svg) svg { width: 11px; height: 11px; }
+/* 기간 입력칸: 1.67 은 글자 14px · 높이 40px → 1.51 과 같은 13.6px */
+section[data-testid="stSidebar"] [data-testid="stDateInputField"], section[data-testid="stSidebar"] [data-testid="stDateInputField"] * { font-size: .85rem !important; }
+section[data-testid="stSidebar"] [data-testid="stDateInputField"] { min-height: 0 !important; padding-top: .3rem !important; padding-bottom: .3rem !important; }
+section[data-testid="stSidebar"] [data-testid="stDateInputField"] [role="spinbutton"],
+section[data-testid="stSidebar"] [data-testid="stDateInputField"] [data-type="literal"] { padding: 0 !important; margin: 0 !important; }   /* 날짜 칸 사이 여백 → '2026/10/19' 끝이 잘리지 않게 */
+/* 입력창: 1.67 은 글자 14px · 높이 58px → 1.51 처럼 16px 한 줄 알약 */
+[data-testid="stChatInput"] textarea { font-size: 1rem !important; }
+[data-testid="stChatInput"] > div { padding-top: .15rem !important; padding-bottom: .15rem !important; min-height: 0 !important; }
 </style>
 """
 
@@ -398,19 +422,75 @@ def tip_positioner() -> None:
     js = """<script>
 (function () {
   const d = window.parent.document;
-  if (d.__tipPositioner) return;
-  d.__tipPositioner = true;
-  d.addEventListener('mouseover', function (e) {
+  // 칸이 새로 만들어지면(1.67) 예전 칸의 함수는 멈추므로, 예전 것을 떼고 이번 것을 건다
+  if (d.__tipPositioner) d.removeEventListener('mouseover', d.__tipPositioner, true);
+  d.__tipPositioner = function (e) {
     const el = e.target.closest && e.target.closest('TARGETS');
     if (!el) return;
     const r = el.getBoundingClientRect();
     el.style.setProperty('--tip-top', (r.bottom + 4) + 'px');
     el.style.setProperty('--tip-left', (r.left + 8) + 'px');
     el.style.setProperty('--tip-tf', 'none');
-  }, true);
+  };
+  d.addEventListener('mouseover', d.__tipPositioner, true);
 })();
 </script>""".replace("TARGETS", TIP_TARGETS.replace("'", "\\'"))
     with st.container(key="tip_js"):   # 보이지 않게 (CSS .st-key-tip_js)
+        components.html(js, height=0)
+
+
+def summary_autoclose(key: str = "hl_conclusion") -> None:
+    """리포트 요약(접기 메뉴, container key) 자동 접기: 처음엔 펼침 → 아래로 스크롤해 카드 절반이 화면 위로 지나가면 한 번 접음.
+    사용자가 직접 다시 열면(진짜 클릭) 그 뒤로는 스크롤해도 접지 않음. 접을 때 보던 위치가 튀지 않게 아래 내용의 화면 위치를 유지.
+    접기는 제목 줄 클릭으로 해서 Streamlit 이 아는 열림 상태와 어긋나지 않음. tip_positioner 와 같은 방식(보이지 않는 컴포넌트)"""
+    import streamlit.components.v1 as components
+    js = """<script>
+(function () {
+  const d = window.parent.document;
+  // 칸이 새로 만들어지면(1.67) 예전 칸의 함수는 멈추므로, 예전 것을 떼고 이번 것을 건다
+  if (d.__summaryAutoclose) {
+    d.removeEventListener('scroll', d.__summaryAutoclose.scroll, true);
+    d.removeEventListener('click', d.__summaryAutoclose.click, true);
+  }
+  const SEL = 'div.st-key-KEY details';
+  function anchorOf(det) {            // 접혀도 그대로인 기준: 요약 카드 아래의 '보이는' 첫 요소 (숨긴 스크립트 칸은 건너뜀)
+    let el = det.closest('div.st-key-KEY');
+    while (el) {
+      let n = el.nextElementSibling;
+      while (n && n.getBoundingClientRect().height === 0) n = n.nextElementSibling;
+      if (n) return n;
+      el = el.parentElement;
+    }
+    return null;
+  }
+  function onScroll(e) {
+    const sc = e.target === d ? d.scrollingElement : e.target;
+    if (!sc || !sc.getBoundingClientRect) return;
+    const det = d.querySelector(SEL);
+    if (!det || !det.open || det.dataset.userOpened === '1' || det.dataset.autoClosing === '1' || !sc.contains(det)) return;
+    const r = det.getBoundingClientRect(), top = sc.getBoundingClientRect().top;
+    if (r.top + r.height / 2 > top) return;          // 카드 절반이 화면 위로 지나가기 전
+    const sum = det.querySelector('summary'), anchor = anchorOf(det);
+    if (!sum) return;
+    const before = anchor ? anchor.getBoundingClientRect().top : null;
+    det.dataset.autoClosing = '1';
+    sum.click();
+    const t0 = performance.now();
+    (function keep() {                                // 접히는 동안 아래 내용이 위로 튀지 않게
+      if (anchor && before !== null) sc.scrollTop += anchor.getBoundingClientRect().top - before;
+      if (performance.now() - t0 < 600) requestAnimationFrame(keep); else det.dataset.autoClosing = '';
+    })();
+  }
+  function onClick(e) {                               // 사용자가 직접 연 뒤로는 자동으로 접지 않음
+    const sum = e.target.closest && e.target.closest(SEL + ' > summary');
+    if (sum && e.isTrusted && !sum.parentElement.open) sum.parentElement.dataset.userOpened = '1';
+  }
+  d.__summaryAutoclose = {scroll: onScroll, click: onClick};
+  d.addEventListener('scroll', onScroll, true);
+  d.addEventListener('click', onClick, true);
+})();
+</script>""".replace("KEY", key)
+    with st.container(key="acl_js"):   # 보이지 않게 (CSS .st-key-acl_js)
         components.html(js, height=0)
 
 

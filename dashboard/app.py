@@ -122,6 +122,7 @@ def conclusion(news) -> None:
             st.expander(f"리포트 요약 :gray[{cc.scope_text(period, corps, categories, CATEGORIES)}]", expanded=True,
                         icon=":material/star:"):
         st.markdown(body, unsafe_allow_html=True)
+    ui.summary_autoclose("hl_conclusion")   # 아래로 스크롤하면 한 번 접고, 사용자가 다시 열면 그대로 둠
 
 
 # 기업·카테고리로 거른 전체 기간 뉴스 — 결론 카드와 Q1·Q2 가 같이 쓴다 (뉴스 결과가 없는 DB 면 None)

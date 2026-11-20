@@ -166,6 +166,10 @@ BTN_CSS = """<style>
 [data-testid="stFileUploaderDropzoneInstructions"] > div > span:last-child::after { content: "파일 1개당 200MB까지 · TXT, MD, PDF, DOCX"; font-size: .875rem; }   /* 칸 이름(파일 첨부)과 같은 14px */
 [data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"] { font-size: 0 !important; }
 [data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"]::after { content: "파일 선택"; font-size: 1rem; }   /* 옆 버튼들(검토 시작·예시)과 같은 16px */
+/* Streamlit 1.67 업로드 칸: 버튼이 왼쪽 · 'Upload' 글자와 아이콘 · 안내 한 줄뿐 → 1.51 처럼 안내 두 줄 왼쪽, '파일 선택' 버튼 오른쪽 */
+[data-testid="stFileUploaderDropzone"]:has(> span + [data-testid="stFileUploaderDropzoneInstructions"]) { flex-direction: row-reverse; justify-content: space-between; }
+[data-testid="stFileUploaderDropzone"] button p, [data-testid="stFileUploaderDropzone"] button [data-testid="stIconMaterial"] { display: none; }
+[data-testid="stFileUploaderDropzoneInstructions"] > div > span:only-child::before { content: "파일을 여기로 끌어다 놓으십시오"; display: block; font-size: 1rem; color: #1f2733; }
 </style>"""
 
 
@@ -404,6 +408,14 @@ def _delete() -> None:
     _new()
 
 
+def _delete_all() -> None:
+    """지난 기획안 모두 지우기 (사이드바 버튼, 공시 챗봇 '지난 대화 모두 지우기'와 같은 방식) — 저장된 기획안 파일을 전부 지우고 새 기획안으로"""
+    if HIST_DIR.exists():
+        for f in HIST_DIR.glob("*.json"):
+            f.unlink(missing_ok=True)
+    _new()
+
+
 def _sidebar() -> None:
     with st.sidebar:
         st.button("＋ 새 기획안", width="stretch", type="primary", on_click=_new)
@@ -421,6 +433,11 @@ def _sidebar() -> None:
             if title != c["title"]:   # 제목이 잘렸을 때만 전체 제목 말풍선
                 tips.append((f"div.st-key-hist_pr_{now}{c['id']}", c["title"]))
         ui.hover_tips(tips, shift=".5rem, 4px")
+        if items:   # 지난 기획안 목록 아래: 한 번에 지우기 — 되돌릴 수 없어 누르면 확인 창(팝오버)에서 한 번 더 누름
+            with st.container(key="pr_clear_all"), \
+                    st.popover("지난 기획안 모두 지우기", icon=":material/delete:", width="stretch"):
+                st.markdown(f"지난 기획안 **{len(items)}개**를 모두 지웁니다. 지운 기획안은 되돌릴 수 없습니다.")
+                st.button("모두 지우기", type="primary", width="stretch", on_click=_delete_all, key="pr_clear_all_go")
 
 
 def _input() -> tuple[str, str] | None:

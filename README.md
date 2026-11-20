@@ -89,7 +89,6 @@ mkdir -p data/raw/news data/processed   # data/ 는 저장소에 없어 처음�
 11. **대시보드 실행:** `streamlit run dashboard/app.py` → http://localhost:8501
     - 한 DB 에 뉴스 결과(`llm_results`·`news_company`, `data/processed/news_preprocessed.csv`)와 공시 결과(`disclosure_chunks`·`event_dart_mapping`)가 모두 있어야 모든 화면이 나옵니다. 없는 쪽 화면은 안내 문구만 나와요
     - 공시 챗봇과 기획안 검토는 `.env` 의 `OPENAI_API_KEY` 가 있어야 답합니다 (챗봇 질문 1개당 질문 임베딩 + LLM 1회, 기획안 1개당 검색어 임베딩 + LLM 2회). 키가 없으면 두 화면만 안내 문구가 나오고 Q1·Q2·Q3 는 그대로 동작해요
-    - B 화면(공시 챗봇 · Q3)만 미리 보기: `streamlit run dashboard/preview_b.py --server.port 8502`
 
 ## 역할
 

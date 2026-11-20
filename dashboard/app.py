@@ -47,7 +47,7 @@ saved = st.session_state.setdefault("_filters", dict(FILTER_DEFAULTS))
 
 
 with st.sidebar:
-    ui.brand()   # 로고 'AA 팩트체커' · 설명 (style.py, preview_b.py 와 같은 모양)
+    ui.brand()   # 로고 'AA 팩트체커' · 설명 (style.py)
     menu = st.radio("화면", MENU, label_visibility="collapsed", format_func=lambda p: f"{MENU_ICON[p]}  {p}",
                     key="page_sel")   # key: 기획안 검토의 '챗봇에 물어보기'가 화면을 챗봇으로 바꿀 수 있게 (#46)
     ui.menu_tips("page_sel", [MENU_TIP[p] for p in MENU])   # 마우스를 대면 메뉴 설명

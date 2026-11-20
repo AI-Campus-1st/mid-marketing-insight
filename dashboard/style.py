@@ -378,7 +378,7 @@ BRAND_DESC = "공시와 뉴스를 대조해 주요 광고사 5곳의 AI 적용·
 
 
 def brand(desc: str = BRAND_DESC) -> None:
-    """사이드바 맨 위 로고·이름·설명 — app.py 와 B 미리보기(preview_b.py)가 같은 모양을 쓰도록 한 곳에"""
+    """사이드바 맨 위 로고·이름·설명 (app.py)"""
     st.markdown(f'<div class="sb-brand"><span class="logo">AA</span><span class="name">{esc(BRAND)}'
                 f'<span class="sub">{esc(BRAND_SUB)}</span></span></div><div class="sb-desc">{esc(desc)}</div>',
                 unsafe_allow_html=True)

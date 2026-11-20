@@ -73,7 +73,6 @@ mid-marketing-insight/
 │   ├── data_loader.py         # [공동·D6] DB 조회 함수 (st.cache_data). B: reflection(), chunk_levels() / A: news(), concern_articles(), filter_news()
 │   ├── theme.py               # [B·D6] 차트 색(판정·AI 단계, 라이트·다크 검증)·공통 스타일
 │   ├── style.py               # [공동·D6] 화면 공통 CSS·카드형 부품(KPI·섹션 제목·배지·타임라인·작은 카드), 레퍼런스: docs/design/references
-│   ├── preview_b.py           # [B·D6] app.py 전에 Q3·공시 Q&A 탭만 띄워 보는 미리보기
 │   └── tabs/
 │       ├── q1_issue_trend.py  # [A·D6] Q1 월별 기사량 + 급증 시점(기준선은 전체 기간으로 계산) — render(df, period)
 │       ├── q2_issues.py       # [A·D6] Q2 이슈별 분기 비중 추이·이슈 순위·우려 기사 목록(사람 검수), 감성은 한 줄 — render(df, period)

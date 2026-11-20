@@ -108,6 +108,10 @@ section[data-testid="stSidebar"] div[role="radiogroup"] > label:has(input:checke
 .sb-brand .name { display: flex; flex-direction: column; line-height: 1.2; }
 .sb-brand .sub { font-size: .78rem; font-weight: 600; color: #6b7686; letter-spacing: .01em; }
 .sb-desc { font-size: .82rem; line-height: 1.45; color: #6b7686; margin: .9rem 0 1.1rem; }   /* 이름 밑 설명: 행간 좁게, 이름과 띄움 */
+.sb-desc.sb-foot { margin: 0; }   /* 맨 아래 데이터 설명: 맨 위 설명과 같은 글자, 여백만 없앰 */
+/* 사이드바의 작은 회색 설명(st.caption — 필터 '기업'·'뉴스 카테고리' 밑 설명 등): 맨 위 설명(sb-desc)과 같은 글자 크기·행간. 색은 Streamlit 기본 그대로 */
+section[data-testid="stSidebar"] [data-testid="stCaptionContainer"],
+section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p { font-size: .82rem; line-height: 1.45; font-weight: 400; }
 
 /* 접기 메뉴·표 */
 div[data-testid="stExpander"] details { border-radius: 14px; }
@@ -275,17 +279,24 @@ div[class*="st-key-hl_"] div[data-testid="stExpanderDetails"] { padding-top: 0; 
 div[class*="st-key-hist_cur_"] button, div[class*="st-key-hist_pr_cur_"] button {
   border: 1.5px solid #2a78d6 !important; border-radius: 10px !important; background: transparent !important;
   box-shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 3px 10px rgba(42, 120, 214, .14) !important; }   /* 테두리만 + 옅은 그림자, 채우지 않음 */
+/* 마우스를 대면 나오는 말풍선(버튼 help — 지난 대화·지난 기획안 제목 등): 메뉴 설명(menu_tips)과 같은 색·글꼴·여백·그림자 */
+div[data-baseweb="tooltip"] { box-shadow: none !important; background: transparent !important; }
+div[data-baseweb="tooltip"] > div { background: transparent !important; }
+div[data-baseweb="tooltip"] [data-testid="stTooltipContent"] { background: TIP_BG; color: #1f2733; border: 1px solid #e4e8ef;
+  border-radius: 8px; padding: .45rem .6rem; box-shadow: 0 4px 14px rgba(16, 24, 40, .10); }
+div[data-baseweb="tooltip"] [data-testid="stTooltipContent"], div[data-baseweb="tooltip"] [data-testid="stTooltipContent"] * {
+  font-size: .78rem !important; font-weight: 500; line-height: 1.4; color: #1f2733; margin: 0; }
 </style>
 """
 
 
 def inject() -> None:
-    st.markdown(CSS.replace("PRETENDARD_URL", PRETENDARD_CSS).replace("FONT_STACK", FONT), unsafe_allow_html=True)
+    st.markdown(CSS.replace("PRETENDARD_URL", PRETENDARD_CSS).replace("FONT_STACK", FONT).replace("TIP_BG", TIP_BG), unsafe_allow_html=True)
 
 
 BRAND = "AA 팩트체커"
 BRAND_SUB = "Ad & AI Fact-Checker"
-BRAND_DESC = "뉴스에 나온 AI 이슈와 5개사의 AI 사업이 정기공시(사업·반기·분기보고서)에서 얼마나 확인되는지 봐요."
+BRAND_DESC = "공시와 뉴스를 대조해 주요 광고사 5곳의 AI 적용·활용 단계를 확인할 수 있어요."
 
 
 def brand(desc: str = BRAND_DESC) -> None:
@@ -293,6 +304,36 @@ def brand(desc: str = BRAND_DESC) -> None:
     st.markdown(f'<div class="sb-brand"><span class="logo">AA</span><span class="name">{esc(BRAND)}'
                 f'<span class="sub">{esc(BRAND_SUB)}</span></span></div><div class="sb-desc">{esc(desc)}</div>',
                 unsafe_allow_html=True)
+
+
+TIP_BG = "#fafbfd"   # 말풍선 배경 (옅은 흰색) — 메뉴 설명(menu_tips)과 지난 대화·지난 기획안(hover_tips)·버튼 help 같은 색. CSS 의 stTooltipContent 규칙과 맞춤
+
+
+def hover_tips(pairs: list[tuple[str, str]], shift: str = "-.25rem, 2.1rem") -> None:
+    """마우스를 대면 그 항목 바로 아래, 왼쪽 맞춰 설명 말풍선 — pairs = [(CSS 선택자, 설명 글)]. shift = 말풍선이 그려지는 기본 자리에서 옮길 거리(가로, 세로)
+    — 기본 자리는 항목이 flex(메뉴 라벨)면 항목 안 왼쪽 위, block(지난 대화 칸)이면 항목 바로 아래 왼쪽. 화면에서는 둘 다 항목 왼쪽 +8px 에 맞춤
+    사이드바 메뉴(menu_tips)·지난 대화·지난 기획안이 같은 모양·같은 정렬로 (Streamlit 버튼 help 말풍선은 위치를 Streamlit 이 정해서 쓰지 않음)
+    CSS ::after 로 그린다 — 글은 CSS 문자열이라 따옴표·역슬래시·꺾쇠·줄바꿈을 막는다"""
+    if not pairs:
+        return
+    sels = [sel for sel, _ in pairs]
+    rules = [", ".join(f"{x}::after" for x in sels) +
+             # position: fixed + 위치(top·left) 없음 → 항목 자리에 붙어 그려지되 사이드바 밖으로 넘어가도 잘리지 않음 (한 줄로 길게)
+             f' {{ position: fixed; width: max-content; white-space: nowrap; z-index: 1000; transform: translate({shift});'
+             f' padding: .45rem .6rem; border-radius: 8px; background: {TIP_BG}; color: #1f2733; font-size: .78rem;'
+             ' font-weight: 500; line-height: 1.4; border: 1px solid #e4e8ef; box-shadow: 0 4px 14px rgba(16, 24, 40, .10);'
+             ' opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .15s ease .35s, visibility 0s linear .35s; }',
+             ", ".join(f"{x}:hover::after" for x in sels) + " { opacity: 1; visibility: visible; }"]
+    for sel, tip in pairs:
+        t = str(tip).replace("\\", "").replace('"', "'").replace("<", "").replace("\n", " ")
+        rules.append(f'{sel}::after {{ content: "{t}"; }}')
+    st.markdown("<style>" + "\n".join(rules) + "</style>", unsafe_allow_html=True)
+
+
+def menu_tips(key: str, tips: list[str]) -> None:
+    """사이드바 메뉴(st.radio, key=key)의 각 항목 설명 말풍선. tips 는 메뉴 순서대로 (st.radio 는 항목별 도움말이 없음)"""
+    base = f'div.st-key-{key} div[role="radiogroup"] > label'
+    hover_tips([(f"{base}:nth-child({i})", t) for i, t in enumerate(tips, 1)])
 
 
 def esc(s) -> str:

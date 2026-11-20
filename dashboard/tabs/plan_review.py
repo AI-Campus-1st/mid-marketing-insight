@@ -20,6 +20,7 @@ from datetime import datetime
 import streamlit as st
 
 from config import settings
+from dashboard import style as ui
 
 TITLE = "기획안 검토"
 TAGLINE = ("AI 신사업 계획이나 마케팅 기획안을 올리면, **같은 일을 이미 한 곳이 있는지** 정기공시(사업·반기·분기보고서)와 뉴스에서 찾아 드려요. "
@@ -366,11 +367,15 @@ def _sidebar() -> None:
         if not items:
             st.caption("아직 없어요. 검토하면 여기에 저장돼요.")
         cur = st.session_state.get("pr_id")
+        tips = []   # 잘린 제목에 마우스를 대면 전체 제목 — 메뉴 설명과 같은 말풍선·정렬 (style.hover_tips)
         for c in items[:HIST_SHOW]:
             title = c["title"] if len(c["title"]) <= 24 else c["title"][:24] + "…"
             now = "cur_" if c["id"] == cur else ""   # 지금 보고 있는 기획안: key 에 cur_ → 둥근 파란 테두리 (style.py)
             st.button(f"{title}  \n{c['updated']}", key=f"hist_pr_{now}{c['id']}", width="stretch",
-                      on_click=_open, args=(c,), help=c["title"])
+                      on_click=_open, args=(c,))
+            if title != c["title"]:   # 제목이 잘렸을 때만 전체 제목 말풍선
+                tips.append((f"div.st-key-hist_pr_{now}{c['id']}", c["title"]))
+        ui.hover_tips(tips, shift=".5rem, 4px")
 
 
 def _input() -> tuple[str, str] | None:

@@ -13,6 +13,7 @@ import streamlit as st
 
 from config import settings
 
+from dashboard import style as ui
 from dashboard.theme import LEVEL_NAME
 
 TITLE = "광고대행사 AI 공시 챗봇"
@@ -124,11 +125,15 @@ def _sidebar() -> None:
         if not convs:
             st.caption("아직 없어요. 질문하면 여기에 저장돼요.")
         cur = st.session_state.get("qa_id")
+        tips = []   # 잘린 제목에 마우스를 대면 전체 제목 — 메뉴 설명과 같은 말풍선·정렬 (style.hover_tips)
         for c in convs[:HIST_SHOW]:
             title = c["title"] if len(c["title"]) <= 24 else c["title"][:24] + "…"
             now = "cur_" if c["id"] == cur else ""   # 지금 보고 있는 대화: key 에 cur_ → 둥근 파란 테두리 (style.py)
             st.button(f"{title}  \n{c['updated']}", key=f"hist_{now}{c['id']}", width="stretch",
-                      on_click=_open, args=(c,), help=c["title"])
+                      on_click=_open, args=(c,))
+            if title != c["title"]:   # 제목이 잘렸을 때만 전체 제목 말풍선
+                tips.append((f"div.st-key-hist_{now}{c['id']}", c["title"]))
+        ui.hover_tips(tips, shift=".5rem, 4px")
 
 
 def render() -> None:

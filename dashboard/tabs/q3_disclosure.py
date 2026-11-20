@@ -253,14 +253,14 @@ def render(corps: list[str], period: tuple) -> None:
         with right, st.container(border=True, key="card_q3_points"):
             ui.section("눈여겨볼 점", ui.ICON_ALERT)
             _points(r)
+        # 아래 접기 메뉴는 '요약' 탭에만 (타임라인·공시 AI 단계 탭에서는 뺌): Q1·Q2 와 같은 제목 글꼴 (style.py)
+        with st.container(key="q3_more"):
+            with st.expander("판정 기준"):
+                st.markdown(HOW_TO_READ)
+            with st.expander("분류 정확도"):
+                st.markdown(ACCURACY)
     with t2:
         _timeline(r)   # 타임라인에서 본 이벤트를 바로 아래 표에서 공시·기사 원문 링크로 확인
         _table(r)
     with t3:
         _levels(corps)
-
-    with st.container(key="q3_more"):   # 아래 접기 메뉴: Q1·Q2 와 같은 제목 글꼴 (style.py)
-        with st.expander("판정 기준"):
-            st.markdown(HOW_TO_READ)
-        with st.expander("분류 정확도"):
-            st.markdown(ACCURACY)

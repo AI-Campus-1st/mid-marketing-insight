@@ -93,18 +93,20 @@ def disclosure_rows(corps: list[str], period: tuple) -> list[tuple[str, str]]:
 
     share, rank = f["l3_share"], f["l3_rank"]
     picked = [c for c in f["corps"] if c in share]
-    # 형식: '~를 기준으로 비교했을 때, ~다.' (A 요청 — 기준과 결과를 한 문장으로)
-    base = "대행사의 AI 경쟁력을 <b>정기공시로 확인되는 자체 개발·상용화</b>를 기준으로 비교했을 때"
+    # 형식: '~로 비교하면, ~입니다.' (A 요청 — 기준과 결과를 한 문장으로)
+    # L3 비중은 공시에 적힌 AI 서술의 차이이지 기술력·성과 순위가 아니므로 'AI 경쟁력' 표현을 쓰지 않고 마지막에 한 줄 덧붙인다 (리포트 검토 의견)
+    base = "정기공시의 AI 서술을 <b>자체 개발·상용화(L3) 비중</b>으로 비교하면"
+    note = " 공시에 적힌 AI 서술의 차이이며, 실제 AI 기술력이나 사업 성과 순위는 아닙니다."
     if not picked:
         judgement = f"{base}, 선택한 기업에는 비교할 공시 속 AI 문단이 없습니다."
     elif len(picked) == 1:
         c = picked[0]
-        judgement = (f"{base}, {c}의 공시 속 AI 문단 중 '자체 개발·상용화' 비중은 <b>{share[c]:.0%}</b>"
-                     f"(5개사 중 {rank[c]}위)입니다.")
+        judgement = (f"{base}, {c}의 비중은 <b>{share[c]:.0%}</b>"
+                     f"(5개사 중 {rank[c]}위)입니다.{note}")
     else:
         top, low = max(picked, key=share.get), min(picked, key=share.get)
-        judgement = (f"{base}, 선택한 기업 중 '자체 개발·상용화' 비중이 가장 높은 곳은 <b>{top}({share[top]:.0%})</b>, "
-                     f"가장 낮은 곳은 {low}({share[low]:.0%})입니다.")
+        judgement = (f"{base}, 선택한 기업 중 가장 높은 곳은 <b>{top}({share[top]:.0%})</b>, "
+                     f"가장 낮은 곳은 {low}({share[low]:.0%})입니다.{note}")
     return [("공시", execution), ("결론", judgement)]
 
 

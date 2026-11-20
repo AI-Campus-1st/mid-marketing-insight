@@ -56,7 +56,8 @@ div[class*="st-key-kpi_"] [data-testid="stMarkdownContainer"] { margin-bottom: 0
 .sec-title { font-size: 1.12rem; font-weight: 800; letter-spacing: -.01em; }
 .sec-sub { margin-left: auto; font-size: .8rem; color: #8a93a3; font-style: italic; }
 /* 리포트 Q1 카드(월별 기사량 · 급증 타임라인) 안 제목: 카드 위 여백이 커 보여서 줄임 */
-.st-key-card_q1_chart .sec, .st-key-card_q1_timeline .sec, .st-key-card_q2_trend .sec, .st-key-card_q2_rank .sec { margin-top: .6rem; }
+.st-key-card_q1_chart .sec, .st-key-card_q1_timeline .sec, .st-key-card_q2_trend .sec, .st-key-card_q2_rank .sec,
+div[class*="st-key-card_q3_"] .sec { margin-top: .6rem; }
 /* 급증 타임라인 내용(제목 제외)을 남은 칸의 위아래 가운데로 */
 .st-key-card_q1_timeline > div:has(.tl) { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; margin-top: -.5rem; }   /* -.5rem: 제목과의 칸 간격(1rem) 때문에 아래로 쏠리는 만큼 보정 → 위아래 여백 같게 */
 .st-key-card_q1_timeline .tl { margin: 0; }
@@ -65,6 +66,13 @@ div[class*="st-key-kpi_"] [data-testid="stMarkdownContainer"] { margin-bottom: 0
 /* 급증 타임라인 카드를 옆 월별 기사량 카드와 같은 높이로 (내용은 그대로, 상자만 칸 높이까지 늘림) */
 div[data-testid="stLayoutWrapper"]:has(> .st-key-card_q1_timeline) { flex: 1 1 auto; }
 .st-key-card_q1_timeline { flex: 1 1 auto; }
+/* 리포트 Q3: '눈여겨볼 점' 카드도 옆 '기업별 반영 결과' 카드와 같은 높이 · 이벤트 타임라인 카드와 이벤트 표 카드 사이 띄움 */
+div[data-testid="stLayoutWrapper"]:has(> .st-key-card_q3_points) { flex: 1 1 auto; }
+.st-key-card_q3_points { flex: 1 1 auto; }
+.st-key-card_q3_table { margin-top: 1rem; }
+.q3-points { margin: 0; padding-left: 1.1rem; }
+.q3-points li { font-size: .9rem; line-height: 1.55; color: #3d4757; margin-bottom: .7rem; }
+.q3-points li b { color: #2a78d6; }
 .pill { display: inline-block; padding: .12rem .55rem; border-radius: 999px; font-size: .72rem; font-weight: 700;
         letter-spacing: .02em; vertical-align: middle; }
 .pill-gray { background: #ebecef; color: #5b6575; }
@@ -130,8 +138,9 @@ section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p { font-siz
 /* 접기 메뉴·표 */
 div[data-testid="stExpander"] details { border-radius: 14px; }
 div[data-testid="stExpander"] summary { font-weight: 600; }
-.st-key-q1_more div[data-testid="stExpander"] summary p, .st-key-q2_more div[data-testid="stExpander"] summary p { font-weight: 400; letter-spacing: -.01em; color: #1f2733; }   /* 리포트 Q1 아래 접기 메뉴 제목: 카드 제목과 같은 자간·색, 굵게 하지 않음 */
-.st-key-q2_more { margin-top: 1.5rem; }   /* 리포트 Q2: 우려 기사 카드와 아래 접기 메뉴 사이 띄움 */
+.st-key-q1_more div[data-testid="stExpander"] summary p, .st-key-q2_more div[data-testid="stExpander"] summary p,
+.st-key-q3_more div[data-testid="stExpander"] summary p { font-weight: 400; letter-spacing: -.01em; color: #1f2733; }   /* 리포트 Q1 아래 접기 메뉴 제목: 카드 제목과 같은 자간·색, 굵게 하지 않음 */
+.st-key-q2_more, .st-key-q3_more { margin-top: 1.5rem; }   /* 리포트 Q2: 우려 기사 카드와 아래 접기 메뉴 사이 띄움 */
 .st-key-q2_concerns_more { margin-top: .6rem; }   /* 우려 기사 '더보기·접기' 버튼: 카드와 띄움 */
 /* 버튼 글자: 위 설명 줄(st.caption)과 같은 스타일 — 14px · 보통 굵기 · 60% 흐린 본문색 */
 .st-key-q2_concerns_more button p { font-size: .875rem !important; font-weight: 400; color: rgba(31, 39, 51, .6) !important; }
@@ -217,21 +226,6 @@ section[data-testid="stSidebar"] button[data-testid="stBaseButton-primary"] {
 }
 section[data-testid="stSidebar"] button[data-testid="stBaseButton-primary"]:hover { background: #d9e7f8 !important; }
 section[data-testid="stSidebar"] button[data-testid="stBaseButton-primary"] p { color: #2a78d6 !important; font-weight: 700; }
-
-/* ── Q3 화면 (app.py 가 넣는 .q3page-marker): 다른 화면과 같은 글자 체계 ── */
-.stMain:has(.q3page-marker) h2 { font-size: 2.15rem !important; font-weight: 800 !important; letter-spacing: -.02em; padding: .2rem 0 .3rem; }
-.stMain:has(.q3page-marker) h4 { font-size: 1.12rem !important; font-weight: 700 !important; line-height: 1.5; margin: .5rem 0 .9rem; padding: 0; }
-.stMain:has(.q3page-marker) h4 strong { color: #2a78d6; }
-.stMain:has(.q3page-marker) h5 { font-size: 1.12rem !important; font-weight: 800 !important; display: flex; align-items: center;
-  gap: .55rem; margin: 1.4rem 0 .5rem; padding: 0; }
-.stMain:has(.q3page-marker) h5::before { content: "▤"; width: 30px; height: 30px; border-radius: 9px; display: inline-flex;
-  align-items: center; justify-content: center; background: #e5effa; color: #2a78d6; font-size: 1rem; flex: none; }
-/* st.metric → KPI 카드 (Q1·Q2 의 kpis() 와 같은 모양) */
-.stMain:has(.q3page-marker) div[data-testid="stMetric"] {
-  background: #f7f8f9; border: 1px solid #ebecef; border-radius: 14px; padding: .9rem 1.1rem;
-}
-.stMain:has(.q3page-marker) div[data-testid="stMetricLabel"] p { font-size: .82rem; color: #5b6575; }
-.stMain:has(.q3page-marker) div[data-testid="stMetricValue"] { font-size: 1.65rem; font-weight: 800; letter-spacing: -.02em; }
 
 /* ── 상호작용 요소는 모두 파랑 (테마 primaryColor 와 같은 값 — 테마를 새로고침 전에도 빨강이 보이지 않게) ── */
 button[role="tab"][aria-selected="true"] p { color: #2a78d6 !important; font-weight: 700; }
@@ -382,6 +376,9 @@ ICON_CALENDAR = _SVG.format('<rect x="3" y="4.5" width="18" height="16.5" rx="2.
 ICON_CLOCK = _SVG.format('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/>')
 ICON_TREND = _SVG.format('<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>')                        # 꺾은선 차트
 ICON_RANK = _SVG.format('<circle cx="12" cy="15" r="6"/><path d="M8.5 10.2 6 2.5h4l2 5 2-5h4l-2.5 7.7"/><path d="M12 12.5v5"/>')   # 메달 (순위)
+ICON_BARS = _SVG.format('<path d="M4 6h9M4 12h14M4 18h6"/>')                                         # 가로 막대 (기업별 결과)
+ICON_LAYERS = _SVG.format('<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>')                   # 겹친 층 (단계)
+ICON_TABLE = _SVG.format('<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M9 9.5V20"/>')   # 표
 ICON_ALERT = _SVG.format('<path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.3"/>')            # 주의
 
 

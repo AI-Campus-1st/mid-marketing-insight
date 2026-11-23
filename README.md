@@ -27,46 +27,41 @@
 
 ### 전체 화면 캡처
 
-필터는 모두 기본값(전체 기간 · 5개사 · 전체 카테고리)이고, 화면 안의 접기 · 더보기는 모두 펼치고 표는 모든 행이 보이게 찍었습니다. 이름을 누르면 펼쳐집니다. 파일은 [docs/report/img/screens/](docs/report/img/screens/)에 있습니다.
+필터는 모두 기본값(전체 기간 · 5개사 · 전체 카테고리)입니다. 이름을 누르면 펼쳐집니다. 파일은 [docs/report/img/](docs/report/img/)의 `AA_*.png` 입니다.
 
 <details><summary>공시 챗봇 (첫 화면)</summary>
 
-![공시 챗봇](docs/report/img/screens/chat.png)
+![공시 챗봇](docs/report/img/AA_chatboot.png)
 </details>
 
 <details><summary>기획안 검토 — 입력</summary>
 
-![기획안 검토 입력](docs/report/img/screens/plan.png)
-</details>
-
-<details><summary>기획안 검토 — 결과 (지난 기획안 열기)</summary>
-
-![기획안 검토 결과](docs/report/img/screens/plan_result.png)
+![기획안 검토 입력](docs/report/img/AA_note.png)
 </details>
 
 <details><summary>리포트 › Q1 기사량·급증</summary>
 
-![Q1 기사량·급증](docs/report/img/screens/q1.png)
+![Q1 기사량·급증](docs/report/img/AA_Q1.png)
 </details>
 
 <details><summary>리포트 › Q2 화제 이슈</summary>
 
-![Q2 화제 이슈](docs/report/img/screens/q2.png)
+![Q2 화제 이슈](docs/report/img/AA_Q2.png)
 </details>
 
 <details><summary>리포트 › Q3 공시 반영 — 요약</summary>
 
-![Q3 요약](docs/report/img/screens/q3.png)
+![Q3 요약](docs/report/img/AA_Q3_1.png)
 </details>
 
 <details><summary>리포트 › Q3 공시 반영 — 이벤트 타임라인</summary>
 
-![Q3 이벤트 타임라인](docs/report/img/screens/q3_timeline.png)
+![Q3 이벤트 타임라인](docs/report/img/AA_Q3_2.png)
 </details>
 
 <details><summary>리포트 › Q3 공시 반영 — 공시 AI 단계</summary>
 
-![Q3 공시 AI 단계](docs/report/img/screens/q3_levels.png)
+![Q3 공시 AI 단계](docs/report/img/AA_Q3_3.png)
 </details>
 
 ## 리포트

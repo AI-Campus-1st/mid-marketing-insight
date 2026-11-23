@@ -29,39 +29,39 @@
 
 필터는 모두 기본값(전체 기간 · 5개사 · 전체 카테고리)입니다. 이름을 누르면 펼쳐집니다. 파일은 [docs/report/img/screens/](docs/report/img/screens/)에 있습니다.
 
-<details><summary>공시 챗봇 (첫 화면)</summary>
+<details><summary>공시 챗봇 — 답변과 출처</summary>
 
-![공시 챗봇](docs/report/img/screens/screen_chatbot.png)
+![공시 챗봇 답변](docs/report/img/screens/chatbot.png)
 </details>
 
-<details><summary>기획안 검토 — 입력</summary>
+<details><summary>기획안 검토 — 결과 (GEO 컨설팅 기획안)</summary>
 
-![기획안 검토 입력](docs/report/img/screens/screen_plan_input.png)
+![기획안 검토 결과](docs/report/img/screens/plan_review.png)
 </details>
 
 <details><summary>리포트 › Q1 기사량·급증</summary>
 
-![Q1 기사량·급증](docs/report/img/screens/screen_q1.png)
+![Q1 기사량·급증](docs/report/img/screens/q1_monthly.png)
 </details>
 
 <details><summary>리포트 › Q2 화제 이슈</summary>
 
-![Q2 화제 이슈](docs/report/img/screens/screen_q2.png)
+![Q2 화제 이슈](docs/report/img/screens/q2_trend.png)
 </details>
 
 <details><summary>리포트 › Q3 공시 반영 — 요약</summary>
 
-![Q3 요약](docs/report/img/screens/screen_q3_summary.png)
+![Q3 요약](docs/report/img/screens/q3_summary.png)
 </details>
 
-<details><summary>리포트 › Q3 공시 반영 — 이벤트 타임라인</summary>
+<details><summary>리포트 › Q3 공시 반영 — 이벤트 타임라인 (플레이디)</summary>
 
-![Q3 이벤트 타임라인](docs/report/img/screens/screen_q3_timeline.png)
+![Q3 이벤트 타임라인](docs/report/img/screens/q3_timeline_playd.png)
 </details>
 
 <details><summary>리포트 › Q3 공시 반영 — 공시 AI 단계</summary>
 
-![Q3 공시 AI 단계](docs/report/img/screens/screen_q3_levels.png)
+![Q3 공시 AI 단계](docs/report/img/screens/q3_levels.png)
 </details>
 
 ## 리포트

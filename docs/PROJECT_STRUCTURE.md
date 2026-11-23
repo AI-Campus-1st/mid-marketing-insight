@@ -118,7 +118,7 @@ mid-marketing-insight/
         ├── report_B.md        # [B·D7] 리포트 B 파트 원고: 공시 데이터·단계 분류·반영 판정·공시 Q&A·B 화면·한계·회고
         ├── report_AB.md       # [공동·D7] 최종 리포트: A·B 를 가이드 리포트 구성(목적·데이터·EDA·AI 분석·공시 Q&A·대시보드·회고)으로 합침
         ├── make_b_charts.py   # [B·D7] report_B.md 그래프 3개(단계 분포 · 반영 판정 · 검색 성능)를 DB 에서 그려 img/report_b/ 에 저장
-        └── img/               # [공동·D7] 리포트 이미지: screens/ 화면 캡처 10장(README · report_AB) + report_B 그래프 3장(report_b/b_*.png)
+        └── img/               # [공동·D7] 리포트 이미지: screens/ 화면 캡처 7장(README · report_AB) + report_B 그래프 3장(report_b/b_*.png)
 ```
 
 ## 2. 데이터 흐름

@@ -25,17 +25,56 @@
 - 리포트(Q1·Q2·Q3) 맨 위 **리포트 요약**(뉴스 · 공시 · 결론)은 사이드바 필터에 맞춰 다시 계산됩니다 (`dashboard/conclusion.py`). 아래로 스크롤하면 한 번 접히고, 다시 열면 그대로 둡니다.
 - 필터 적용 범위: Q1·Q2·요약 '뉴스' = 기간 · 기업 · 뉴스 카테고리 / Q3 반영 판정·요약 '공시' = 기간(뉴스 발표일 기준) · 기업 / 공시 AI 단계·요약 '결론' = 기업만 (수집 기간 전체 정기공시)
 
+### 전체 화면 캡처
+
+필터는 모두 기본값(전체 기간 · 5개사 · 전체 카테고리)입니다. 이름을 누르면 펼쳐집니다. 파일은 [docs/report/img/screens/](docs/report/img/screens/)에 있습니다.
+
+<details><summary>공시 챗봇 — 답변과 출처</summary>
+
+![공시 챗봇 답변](docs/report/img/screens/chatbot.png)
+</details>
+
+<details><summary>기획안 검토 — 결과 (GEO 컨설팅 기획안)</summary>
+
+![기획안 검토 결과](docs/report/img/screens/plan_review.png)
+</details>
+
+<details><summary>리포트 › Q1 기사량·급증</summary>
+
+![Q1 기사량·급증](docs/report/img/screens/q1_monthly.png)
+</details>
+
+<details><summary>리포트 › Q2 화제 이슈</summary>
+
+![Q2 화제 이슈](docs/report/img/screens/q2_trend.png)
+</details>
+
+<details><summary>리포트 › Q3 공시 반영 — 요약</summary>
+
+![Q3 요약](docs/report/img/screens/q3_summary.png)
+</details>
+
+<details><summary>리포트 › Q3 공시 반영 — 이벤트 타임라인 (플레이디)</summary>
+
+![Q3 이벤트 타임라인](docs/report/img/screens/q3_timeline_playd.png)
+</details>
+
+<details><summary>리포트 › Q3 공시 반영 — 공시 AI 단계</summary>
+
+![Q3 공시 AI 단계](docs/report/img/screens/q3_levels.png)
+</details>
+
 ## 리포트
 
 | 무엇 | 어디서 보나 |
 |---|---|
 | **최종 리포트 (A·B 통합본)** | [docs/report/report_AB.md](docs/report/report_AB.md) — GitHub 에서 열면 표·그림이 함께 보입니다 (VS Code 는 마크다운 미리 보기) |
 | 파트별 원고 | [report_A.md](docs/report/report_A.md) (뉴스 · Q1 · Q2 · 기획안 검토) · [report_B.md](docs/report/report_B.md) (공시 · AI 단계 · Q3 · 공시 챗봇) — 통합본을 쓰기 위한 원고, 통합본보다 계산 과정·검수 표가 자세함 |
-| 그림 | [docs/report/img/](docs/report/img/) — 화면 캡처와 B 그래프 (`b_*.png` 는 `python docs/report/make_b_charts.py` 로 다시 그림) |
+| 그림 | [docs/report/img/screens/](docs/report/img/screens/) — 화면 캡처 · [docs/report/img/report_b/](docs/report/img/report_b/) — report_B 그래프 (`python docs/report/make_b_charts.py` 로 다시 그림) |
 | 대시보드 '리포트' 메뉴 | 문서가 아니라 분석 화면 — `streamlit run dashboard/app.py` → 사이드바 **리포트** → 맨 위에서 Q1 · Q2 · Q3 선택 (맨 위 '리포트 요약'은 필터에 맞춰 다시 계산) |
 | 설계 결정 기록 | [docs/decisions.md](docs/decisions.md) — 리포트의 데이터 · 분석 · 회고 장의 근거 |
 
-- 최신 리포트는 **`develop` 브랜치**에 있습니다. `main` 에는 마감 때 한 번에 합치므로 그 전까지는 예전 내용입니다.
+- 작업은 **`develop` 브랜치**에서 하고 `main` 에 한 번에 합칩니다. 2026-11-23 에 `main` 에 합쳤습니다 (#80).
 
 ## 폴더 구조
 
@@ -52,7 +91,7 @@
 │   ├── raw/          # 제공 뉴스, 보강 기사, DART 응답 원본
 │   ├── processed/    # DB, 정제 뉴스 CSV, 검수 엑셀(review/), 챗봇·기획안 기록
 │   └── vectordb/     # 임베딩 캐시 (공시 청크·관련 뉴스)
-├── docs/             # 설계 결정 기록, AI 단계 기준(ai_level_guide), 처음 기획안·설계서(archive/), 파일 구조도, 리포트(report/: 최종 리포트 report_AB · 파트 원고 A·B · 이미지 img/)
+├── docs/             # 설계 결정 기록, AI 단계 기준(ai_level_guide), 처음 기획안·설계서(archive/), 파일 구조도, 리포트(report/: 최종 리포트 report_AB · 파트 원고 A·B · 이미지 img/: screens/ 화면 캡처 · report_b/ B 그래프)
 ├── schema.sql        # 뉴스·공시 통합 스키마 + 반영 판정 뷰(event_reflection)
 └── .env.example      # 환경변수 예시 (실제 키는 .env 에만)
 ```
@@ -97,7 +136,7 @@ mkdir -p data/raw/news data/processed   # data/ 는 저장소에 없어 처음�
 9. **검색 파일(임베딩 캐시) 미리 만들기 (B):** `python rag/build_index.py` → `data/vectordb/` (공시 청크 + 관련 뉴스, 이미 있으면 바뀐 것만)
    - 공시 청크·관련 뉴스의 임베딩을 미리 만들어 두므로 대시보드가 켜질 때 문서 임베딩을 다시 만들지 않습니다. 단, 챗봇 질문과 기획안 검색어는 그때마다 임베딩합니다
 10. **(선택) 공시 챗봇 평가 (B):** `python rag/eval_retrieval.py` (검색) · `python rag/eval_qa.py` (개선에 쓴 질문 15개) · `python rag/eval_qa.py --holdout` (처음 보는 질문 15개)
-    - 리포트 B 그래프 다시 그리기: `python docs/report/make_b_charts.py` → `docs/report/img/b_*.png`
+    - 리포트 B 그래프 다시 그리기: `python docs/report/make_b_charts.py` → `docs/report/img/report_b/b_*.png`
 11. **대시보드 실행:** `streamlit run dashboard/app.py` → http://localhost:8501
     - 한 DB 에 뉴스 결과(`llm_results`·`news_company`, `data/processed/news_preprocessed.csv`)와 공시 결과(`disclosure_chunks`·`event_dart_mapping`)가 모두 있어야 모든 화면이 나옵니다. 없는 쪽 화면은 안내 문구만 나와요
     - 공시 챗봇과 기획안 검토는 `.env` 의 `OPENAI_API_KEY` 가 있어야 답합니다 (챗봇 질문 1개당 질문 임베딩 + LLM 1회, 기획안 1개당 검색어 임베딩 + LLM 2회). 키가 없으면 두 화면만 안내 문구가 나오고 Q1·Q2·Q3 는 그대로 동작해요

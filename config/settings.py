@@ -21,14 +21,27 @@ RAW_DART_DIR = RAW_DIR / "dart"                 # DART 응답 원본
 
 DB_PATH = DATA_DIR / "processed" / "project.db"
 VECTORDB_DIR = DATA_DIR / "vectordb"
+EMBED_MODEL = "text-embedding-3-small"          # 공시 청크 임베딩 (매칭 후보·RAG 공용, decisions.md Day 4)
 COMPANIES_CSV = CONFIG_DIR / "companies.csv"    # 분석 대상 5개사 (dart_corp_code.py 가 생성)
 
 # ── 수집 기간 (제공 뉴스와 동일, 공시도 같은 기간) ─────────
 PERIOD_START = "2023-10-19"
 PERIOD_END = "2026-10-19"
 
+# 공시 반영 판정 기준일: 마지막으로 확인 가능한 보고서가 2026 반기보고서(3분기 보고서는 수집 범위 밖)
+# 이 날짜 이후 이벤트는 '참고용'(타임라인 표시만, 반영 판정·기업 비교 집계 제외)
+REFLECTION_CUTOFF = "2026-06-30"
+
 # ── 분석 공통 ────────────────────────────────────────
-AI_TERM_PATTERN = r"AI|인공지능|생성형|LLM|GPT"
+# AI 용어 정규표현식 (Day 3 확정, A·B 합의 — decisions.md)
+# - AI·LLM 과 AI 복합어는 앞뒤가 영문자가 아닐 때만 인정 → KAIST·KAI·HYUNDAI·THAILAND 같은 영문 단어 속 글자 오탐 제거
+# - AI 복합어(GenAI, OpenAI, AICC 등)는 목록으로 살림 → 경계 규칙 때문에 진짜 AI 용어를 버리지 않도록
+# - GPT 는 경계 없음 (ChatGPT 포함). 그룹은 비캡처(?:) → pandas str.contains 경고 없음
+AI_COMPOUND_TERMS = ["AI", "LLM", "sLLM", "GenAI", "OpenAI", "xAI", "AIoT", "AIGC", "AICC", "AIDC", "CAIO"]
+AI_TERM_PATTERN = (
+    r"(?<![A-Za-z])(?:" + "|".join(AI_COMPOUND_TERMS) + r")(?![A-Za-z])"
+    r"|GPT|인공지능|생성형"
+)
 
 # ── 외부 요청 규칙 ────────────────────────────────────
 USER_AGENT = "Mozilla/5.0 (compatible; mid-marketing-insight/0.1; portfolio research)"

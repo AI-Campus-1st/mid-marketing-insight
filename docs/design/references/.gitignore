@@ -1,0 +1,4 @@
+# 레퍼런스 이미지·PDF 는 저장소에 올리지 않는다 (README.md 만)
+*
+!.gitignore
+!README.md

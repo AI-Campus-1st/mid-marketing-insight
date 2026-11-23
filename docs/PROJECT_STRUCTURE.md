@@ -18,59 +18,75 @@ mid-marketing-insight/
 ├── config/
 │   ├── settings.py            # [공동·D1] 경로, 수집 기간, DB 위치, AI 용어 정규표현식, 요청 규칙
 │   ├── companies.csv          # [B·D1] 대상 5개사 (corp_code, stock_code, parent_group, segment, is_control)
-│   └── anchor_queries.csv     # [A·D1] 앵커 이벤트 보강 검색어 (기업, 검색어, 목적)
+│   ├── event_search_terms.csv # [B·D3] 이벤트별 공시 매칭 검색어 (search_terms), rag/check_search_terms.py 로 점검
+│   ├── anchor_queries.csv     # [A·D1] 앵커 이벤트 보강 검색어 (기업, 검색어, 목적)
+│   └── ai_levels.py           # [공동·D2] AI 단계 L0~L3 정의·경계 규칙 (뉴스·공시 공통, 프롬프트에 그대로 사용)
 │
 ├── collect/                   # ── 수집·적재 계층 ──
 │   ├── load_news.py           # [A·D2] 제공 뉴스 CSV → documents (news_origin='provided'), 중복 표시
 │   ├── supplement_search.py   # [A·D2] 네이버 검색 API → 보강 후보 기사 목록 (원본 JSON 저장)
 │   ├── supplement_fetch.py    # [A·D2] robots.txt 확인 → 언론사 원문에서 전문 추출
-│   ├── newsroom_collect.py    # [A·D2] 기업 뉴스룸 4곳 보도자료 수집 (회사 "주장"의 1차 출처, 공식 발표일)
 │   ├── load_news_supplement.py# [A·D2~4] 보강 기사 CSV → documents (news_origin='supplement')
 │   ├── dart_corp_code.py      # [B·D1] corpCode.xml 내려받기 → 5개사 corp_code 확인
 │   ├── dart_collect.py        # [B·D2] 공시 목록(list.json) 수집, 원본 저장 → companies·documents(메타데이터) 적재, 재실행 가능
 │   └── dart_document.py       # [B·D2] 정기공시 원문 내려받기 → 텍스트 추출(data/processed/dart_text/) → documents.body
 │
 ├── analysis/                  # ── 분석 계층 ──
-│   ├── preprocess.py          # [A·D3] 정규표현식 정제, 무관 기사 1차 규칙 필터, news_company 매칭
+│   ├── preprocess.py          # [A·D3] 정규표현식 정제, AI 용어·기업 태깅, news_company 매칭 (무관 기사 필터 예정)
+│   ├── preprocess_review.py   # [A·D3] 정제·태깅·중복 사람 검수 엑셀 생성 / 판정 집계(--score)
+│   ├── trend.py               # [A·D3] 월별 기사량·급증 판정 함수 (eda.ipynb·Q1 화면 공용)
 │   ├── eda.ipynb              # [A·D3] 기사량 추이, 급증 시점, 기업별 언급
 │   ├── disclosure_eda.ipynb   # [B·D3] 공시 건수 추이, 유형 분포, AI 언급 집계
 │   ├── classify_news.py       # [A·D4] LLM 관련도·AI 관련·감성·이슈 키워드 → llm_results
-│   ├── event_review_sheet.py  # [A·D3] 제공·네이버·뉴스룸·웹 기사를 사건 묶음으로 → 검토 시트 (규칙 기반, AI 미사용)
+│   ├── llm_review.py          # [A·D4] 뉴스 LLM 분류 사람 검수 엑셀(LLM 값 분리) / 정확도 집계 → review_samples
+│   ├── q2_concerns.py         # [A·D5] Q2 우려 기사 사람 검수 엑셀 → 판정 O 만 q2_concern_articles.csv (화면용)
+│   ├── event_review_sheet.py  # [A·D3] 제공·네이버·웹 기사를 사건 묶음으로 → 검토 시트 (규칙 기반, AI 미사용)
 │   ├── event_classify.py      # [A·D3] 검토 시트 LLM 1차 판정 (네이버 외 출처 본문만 입력)
-│   ├── anchor_events.py       # [A·D4] 확정 이벤트 → ai_events (event_*, search_terms)
+│   ├── anchor_events.py       # [A·D2] 확정 이벤트 28개(anchor_events.csv) → ai_events (+ companies)
 │   ├── prompts/
 │   │   ├── news_classify_v1.txt     # [A·D4] 뉴스 분류 프롬프트 (버전별 보관)
-│   │   └── ai_stage_domain_v1.txt   # [B·D4] 공시 단계·영역 분류 프롬프트
+│   │   └── ai_level_domain_v1.txt   # [B·D4] 공시 단계(L0~L3, config/ai_levels.py)·영역 분류 프롬프트
 │   ├── review.py              # [공동·D4] 표본 추출, 검수 결과 → review_samples, 정확도 계산
 │   ├── lag.py                 # [공동·D5] 첫 공시 반영 → ai_events.first_*, lag_days
 │   └── metrics.py             # [공동·D5] AI 언급 밀도, AI 실행률, 평균 반영 시차
 │
 ├── rag/                       # ── 공시 검색·질의응답 계층 ──
 │   ├── chunk.py               # [B·D3] 화이트리스트 섹션(II 전체·I-2 연혁·I-5 정관)만 청킹, AI 용어 집계 → disclosure_chunks
-│   ├── classify_chunks.py     # [B·D4] AI 언급 청크만 LLM 단계·영역 분류
-│   ├── build_index.py         # [B·D5] 임베딩 → Chroma (메타데이터: chunk_id·공시명·제출일·링크)
-│   ├── qa_chain.py            # [B·D5] LangChain 질의응답, 출처 표시, 근거 없으면 거절
-│   └── test_questions.csv     # [B·D5] 테스트 질문과 기대 결과
+│   ├── check_search_terms.py  # [B·D3] 이벤트 검색어를 공시 청크에 대 보고 후보 수·이벤트 전 출현·0건 점검
+│   ├── classify_chunks.py     # [B·D3] AI 언급 청크만 LLM 단계(L0~L3)·영역·성과 숫자 분류 (프롬프트 chunk_v6)
+│   ├── rebuild_chunk_table.py # [B·D7] 예전 DB 의 disclosure_chunks 를 schema.sql 정의대로 다시 만들기 (안 쓰는 ai_stage 제거 · ai_level CHECK, 분류 결과 유지)
+│   ├── level_review_sheet.py  # [B·D4] 단계 분류 검수 표본 시트(1차 50·2차 29) / LLM 일치율 집계 → review_samples, merge 로 한 파일
+│   ├── embeddings.py          # [B·D4] 공시 청크 임베딩 캐시 (text-embedding-3-small, 매칭 후보·RAG 공용)
+│   ├── match_candidates.py    # [B·D4] 이벤트 ↔ 공시 매칭 후보(키워드 전부 + 임베딩 top-5) → event_dart_mapping, 검증 시트 / 판정 반영(apply)
+│   ├── retriever.py           # [B·D5] 하이브리드 검색(임베딩 + BM25 + 두 단어 구 가산점) + 기업 필터
+│   ├── qa_chain.py            # [B·D5] 공시 Q&A: 근거로만 답하고 없으면 거절, 출처(공시명·접수일·DART 링크·AI 단계)
+│   ├── news_retriever.py      # [A·D7] 제공 뉴스(관련 2,492건) 하이브리드 검색 — 기획안 검토의 뉴스 사례
+│   ├── plan_review.py         # [A·D7] 기획안 검토: 기획안 → 공시·뉴스 비슷한 AI 사례(같은 영역 / 인접 영역)
+│   ├── eval_retrieval.py      # [B·D5] 테스트 질문으로 검색 정확도·거절 기준 평가
+│   ├── eval_qa.py             # [B·D5] 테스트 질문으로 답변·거절 끝까지 평가 → review/qa_eval.csv
+│   ├── build_index.py         # [B·D7] 검색 파일(임베딩 캐시) 미리 만들기: 공시 청크·관련 뉴스 → data/vectordb/*.npz (대시보드가 켜질 때 API 안 부르게)
+│   ├── test_questions.csv     # [B·D5] 테스트 질문과 기대 결과 (검색·프롬프트 개선에 쓴 15개)
+│   └── test_questions_holdout.csv  # [B·D7] 처음 보는 질문 15개 — 일반화 확인용, 한 번만 실행 (eval_qa.py --holdout)
 │
 ├── dashboard/                 # ── 화면 계층 (저장된 결과만 조회) ──
-│   ├── app.py                 # [공동·D6] 진입점: 상단 결론 카드, 공통 필터(기간·기업·카테고리)
-│   ├── data_loader.py         # [공동·D6] DB 조회 함수 (st.cache_data)
+│   ├── app.py                 # [공동·D6] 진입점: 상단 결론 카드(초안), 사이드바 공통 필터(기간·기업·카테고리) → Q1·Q2·Q3, 공시 챗봇 (A 작성)
+│   ├── data_loader.py         # [공동·D6] DB 조회 함수 (st.cache_data). B: reflection(), chunk_levels() / A: news(), concern_articles(), filter_news()
+│   ├── theme.py               # [B·D6] 차트 색(판정·AI 단계, 라이트·다크 검증)·공통 스타일
+│   ├── style.py               # [공동·D6] 화면 공통 CSS·카드형 부품(KPI·섹션 제목·배지·타임라인·작은 카드), 레퍼런스: docs/design/references
 │   └── tabs/
-│       ├── q1_issue_trend.py  # [A·D6] Q1 월별 기사량 + 급증 시점
-│       ├── q2_sentiment.py    # [A·D6] Q2 기대 vs 우려 비율, 이슈 키워드 Top N
-│       ├── q3_disclosure.py   # [B·D6] Q3 단계 분포, 앵커 이벤트 타임라인, 산점도, 기업별 AI 실체 카드
-│       └── qa.py              # [B·D6] 공시 Q&A 화면
+│       ├── q1_issue_trend.py  # [A·D6] Q1 월별 기사량 + 급증 시점(기준선은 전체 기간으로 계산) — render(df, period)
+│       ├── q2_issues.py       # [A·D6] Q2 이슈별 분기 비중 추이·이슈 순위·우려 기사 목록(사람 검수), 감성은 한 줄 — render(df, period)
+│       ├── q3_disclosure.py   # [B·D6] Q3 반영 판정 요약·기업별 반영 결과·AI 단계 분포(L3 비중)·이벤트 타임라인·이벤트 표 — render(corps, period)
+│       ├── plan_review.py     # [A·D7] 기획안 검토 화면 (rag/plan_review) — render()
+│       └── qa.py              # [B·D6] 공시 Q&A 화면 (rag/qa_chain) — render()
 │
 ├── data/                      # (저장소 제외)
 │   ├── raw/
 │   │   ├── news/              # 제공 뉴스 CSV 원본
-│   │   ├── news_supplement/   # 앵커 이벤트 보강 기사 (네이버 원본은 약관상 2026-12-04 무렵까지 정리)
-│   │   │   ├── naver/         # 검색 API 원본 JSON(raw/), 후보 목록(candidates.csv)
-│   │   │   ├── html/          # 언론사 원문 HTML (재실행 시 재사용)
-│   │   │   ├── review/        # 이벤트 검토 시트(event_review_sheet.csv), 묶음 구성(cluster_members.csv)
-│   │   │   ├── supplement_news.csv   # 전문 추출 결과 (제공 뉴스와 같은 컬럼 + 기업명, fetch_status)
+│   │   ├── news_supplement/   # 앵커 이벤트 보강 기사
 │   │   │   └── anchor_supplement.csv # 수동 확인한 앵커 기사 7건 (수집 코드 검증용 정답지)
-│   │   ├── newsroom/          # 기업 뉴스룸 보도자료 (newsroom_news.csv, html/)
+│   │   │   ※ 네이버 검색 원본(naver/, html/, review/, supplement_news.csv)은 약관에 따라 2026-11-16 삭제.
+│   │   │     수집 스크립트를 다시 돌리면 같은 위치에 생기고, 확정 후 다시 정리한다 (decisions.md)
 │   │   └── dart/              # DART API 응답 원본
 │   │       ├── corpCode.zip       # 전체 기업 고유번호 (dart_corp_code.py)
 │   │       ├── list/              # 공시 목록 원본 JSON (기업·유형·페이지별)
@@ -78,16 +94,31 @@ mid-marketing-insight/
 │   │       └── document/          # 정기공시 원문 ZIP ({rcept_no}.zip)
 │   ├── processed/
 │   │   ├── project.db         # SQLite DB
-│   │   ├── llm_cache/         # LLM 응답 캐시 (프롬프트 버전별)
+│   │   ├── llm_cache/         # LLM 응답 캐시 (프롬프트·입력 버전별)
 │   │   ├── dart_text/         # 정기공시 원문 텍스트 ({rcept_no}.txt, 목차 제목은 '## ' 줄)
-│   │   └── anchor_events_confirmed.csv  # 확정 앵커 이벤트 (네이버 데이터 미포함)
-│   └── vectordb/              # Chroma 파일
+│   │   ├── disclosure_counts_quarterly.csv  # 기업별·분기별 공시 건수 (disclosure_eda → A 탭 1 차트)
+│   │   ├── anchor_events.csv            # ★ 고유 앵커 이벤트 28개 (E001~E028, B 에게 넘기는 목록)
+│   │   ├── anchor_events_confirmed.csv  # 확정 판정 95행 + event_id (어느 행이 어느 이벤트로 묶였는지)
+│   │   ├── review_logs/       # 판정 기록(제목·URL 제외), LLM 판정 AI 2차 검토 표본
+│   │   └── review/            # [B] 공시 사람 검수 엑셀 (DB 반영 원본)
+│   │       ├── ai_level_review_B.xlsx  # 단계 분류 검수 A·B 합의 판정: 1차 50개(v6)·2차 29개(v7), 시트 '1차·2차 안내/판정/LLM 정답' → review_samples
+│   │       └── event_match_B.xlsx      # 이벤트-공시 매칭 검증 204행 (+ 이벤트 요약, Claude 참고 초안) → event_dart_mapping
+│   └── vectordb/              # 임베딩 캐시: 공시 청크 chunk_emb_{모델}.npz (매칭·RAG 공용), 관련 뉴스 news_emb_{모델}.npz (기획안 검토)
 │
 └── docs/
-    ├── AI 마케팅 이슈 × 공시 분석 대시보드 기획안.md
     ├── decisions.md           # [공동·매일] 설계 결정 기록
+    ├── ai_level_guide.md      # [공동·D2] AI 단계 L0~L3 설명·예시·검수 방법 + 부록 A: 확인 지점 ① 사업보고서 AI 문장 점검 (B)
     ├── PROJECT_STRUCTURE.md   # [공동] 이 문서
+    ├── archive/               # [공동] 처음 계획 기록 (코드 주석의 '기획안'·'실행 설계서'가 가리키는 문서)
+    │   ├── AI 마케팅 이슈 × 공시 분석 대시보드 기획안.md
+    │   └── 실행 설계서 - 뉴스 보강·이벤트 매칭.md  # [A·D2] 수집·이벤트·매칭 설계와 상의 안건
+    ├── design/references/     # [공동·D6] 대시보드 디자인 레퍼런스 (이미지는 저장소 제외, README 의 목록만)
     └── report/                # [공동·D7] 리포트, 발표 자료
+        ├── report_A.md        # [A·D7] 리포트 A 파트 원고: 분석 목적·뉴스 데이터·앵커 이벤트·Q1 급증·Q2 뉴스 LLM·기획안 검토·대시보드·한계·회고
+        ├── report_B.md        # [B·D7] 리포트 B 파트 원고: 공시 데이터·단계 분류·반영 판정·공시 Q&A·B 화면·한계·회고
+        ├── report_AB.md       # [공동·D7] 최종 리포트: A·B 를 가이드 리포트 구성(목적·데이터·EDA·AI 분석·공시 Q&A·대시보드·회고)으로 합침
+        ├── make_b_charts.py   # [B·D7] report_B.md 그래프 3개(단계 분포 · 반영 판정 · 검색 성능)를 DB 에서 그려 img/ 에 저장
+        └── img/               # [공동·D7] 리포트 이미지: report_AB 화면 캡처 7장 + report_B 그래프 3장(b_*.png)
 ```
 
 ## 2. 데이터 흐름
@@ -98,7 +129,6 @@ flowchart LR
         N[제공 뉴스 CSV] --> LN[load_news.py]
         NAPI[네이버 검색 API] --> SS[supplement_search.py] --> SF[supplement_fetch.py<br/>언론사 원문]
         SF --> LS[load_news_supplement.py]
-        NR[기업 뉴스룸] --> NC[newsroom_collect.py]
         DART[DART OpenAPI] --> DC[dart_collect.py<br/>dart_document.py]
     end
 
@@ -111,7 +141,7 @@ flowchart LR
         DB --> PP[preprocess.py] --> CL[classify_news.py]
         CL --> LR[(llm_results)]
         PP --> RS[event_review_sheet.py<br/>사건 묶음]
-        NC --> RS
+
         SF --> RS
         RS --> EC[event_classify.py<br/>LLM: 네이버 외] --> HR{{사람 판정<br/>네이버만 있는 묶음}}
         HR --> AE[anchor_events.py]
@@ -119,7 +149,7 @@ flowchart LR
 
     subgraph 공시분석["rag/ (B)"]
         DB --> CH[chunk.py] --> CC[classify_chunks.py] --> DCH[(disclosure_chunks)]
-        CH --> BI[build_index.py] --> VDB[(Chroma)]
+        CH --> BI[build_index.py] --> VDB[(임베딩 캐시 npz)]
         VDB --> QA[qa_chain.py]
     end
 
@@ -143,13 +173,13 @@ flowchart LR
 | `analysis/`, `rag/` | LLM 분류, 지표 계산, 임베딩을 **미리** 만들어 저장 | 화면 표시 |
 | `dashboard/` | 저장된 결과를 조회해 보여줌 | DART 호출, LLM 분류 |
 
-- 대시보드에서 예외로 실행되는 것은 `qa.py`의 RAG 답변 생성 하나뿐이다. 질문이 들어와야 답할 수 있기 때문이다.
+- 대시보드에서 예외로 실행되는 것은 `qa.py`의 RAG 답변 생성과 `plan_review.py`의 기획안 사례 찾기뿐이다. 질문·기획안이 들어와야 답할 수 있기 때문이다.
 - Q1·Q2 집계는 `news_origin = 'provided'`만 사용한다. 보강 기사는 앵커 이벤트 근거로만 쓴다.
 
 ## 4. 담당별 파일 요약
 
 | 담당 | 주요 파일 |
 |---|---|
-| A (뉴스·이슈 분석) | `anchor_queries.csv`, `load_news.py`, `supplement_search.py`, `supplement_fetch.py`, `newsroom_collect.py`, `load_news_supplement.py`, `preprocess.py`, `eda.ipynb`, `event_review_sheet.py`, `event_classify.py`, `classify_news.py`, `anchor_events.py`, `q1_issue_trend.py`, `q2_sentiment.py` |
-| B (공시·RAG) | `companies.csv`, `dart_corp_code.py`, `dart_collect.py`, `dart_document.py`, `disclosure_eda.ipynb`, `chunk.py`, `classify_chunks.py`, `build_index.py`, `qa_chain.py`, `q3_disclosure.py`, `qa.py` |
+| A (뉴스·이슈 분석) | `anchor_queries.csv`, `load_news.py`, `supplement_search.py`, `supplement_fetch.py`, `load_news_supplement.py`, `preprocess.py`, `eda.ipynb`, `event_review_sheet.py`, `event_classify.py`, `classify_news.py`, `anchor_events.py`, `q1_issue_trend.py`, `q2_issues.py`, `news_retriever.py`, `plan_review.py` (rag·화면) |
+| B (공시·RAG) | `companies.csv`, `dart_corp_code.py`, `dart_collect.py`, `dart_document.py`, `disclosure_eda.ipynb`, `chunk.py`, `classify_chunks.py`, `level_review_sheet.py`, `embeddings.py`, `match_candidates.py`, `retriever.py`, `qa_chain.py`, `eval_qa.py`, `q3_disclosure.py`, `qa.py` |
 | 공동 | `schema.sql`, `settings.py`, `review.py`, `lag.py`, `metrics.py`, `app.py`, `data_loader.py`, `decisions.md` |

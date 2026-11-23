@@ -1,0 +1,352 @@
+"""
+[B·D4] 공시 청크 AI 단계 검수 — 표본 50개 A·B 독립 판정 (docs/ai_level_guide.md 검수 방법)
+
+하는 일
+    make  : LLM 이 분류한 청크에서 기업당 10개씩 50개를 뽑아 A·B 각자 판정할 엑셀을 만든다.
+            - 시트: '안내'(판정 기준 = config/ai_levels.py + 공시 판정 보충) / '판정'(판정 칸 드롭다운, 긴 글은 셀 안 줄바꿈)
+            - 프롬프트를 고칠 때 본 시험 20개(--exclude-pilot 캐시)는 빼서 과적합 여부를 확인한다.
+            - 기업마다 LLM 단계(무관·L0~L3)가 고르게 섞이도록 단계별로 먼저 하나씩 뽑고 나머지를 무작위로 채운다 (층화 표본).
+              LLM 이 AI 문장을 하나도 못 찾은 청크('무관(항목 없음)')는 전부 넣는다.
+            - 층화 표본이라 드문 단계가 많이 들어간다 → score 는 표본 정확도와 함께
+              전체 459개의 LLM 단계 비중으로 가중한 정확도를 같이 낸다 (리포트에는 가중값 + '층화 표본' 표기).
+            - 판정 시트에는 LLM 결과를 넣지 않는다 (서로의 판정·LLM 값을 보지 않고 판정). 정답 대조용 key 파일은 따로.
+    score : 채운 시트를 읽어 LLM 과의 일치율을 출력하고 review_samples 에 저장한다.
+            A·B 시트가 둘 다 있으면 A·B 일치율도 낸다. B 시트 하나뿐이면 A·B 가 상의해 채운 '합의 판정'으로 보고
+            reviewer = 'AB' 로 저장한다 (Day 4: 독립 판정 2부 대신 합의 판정 1부, decisions.md).
+
+판정 입력 ('판정' 칸 드롭다운): 0 / 1 / 2 / 3 / 무관 (빈칸은 아직 판정 안 함 → 집계 제외)
+
+실행
+    python rag/level_review_sheet.py make
+    python rag/level_review_sheet.py score
+    python rag/level_review_sheet.py make2 / score2   # 2차 검수 (프롬프트 v7 확인용 새 표본 30개)
+    python rag/level_review_sheet.py merge            # 검수가 끝난 뒤 1차·2차 파일을 ai_level_review_B.xlsx 하나로 (시트 '1차 …'·'2차 …')
+출력: data/processed/review/ai_level_review_{A,B}.xlsx (판정용), ai_level_review_key.csv (LLM 정답, 판정자에게 보내지 않음)
+      판정이 끝나면 LLM 정답을 판정 시트의 숨김 시트 'LLM 정답'으로 옮기고 CSV 는 지운다 (score 는 둘 다 읽음)
+"""
+import argparse
+import json
+import re
+import sqlite3
+import sys
+from pathlib import Path
+
+import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from config import settings  # noqa: E402
+from config.ai_levels import BOUNDARY_RULES, DISCLOSURE_RULES, LEVELS  # noqa: E402
+
+OUT = settings.DATA_DIR / "processed" / "review"
+PILOT_CACHE = settings.DATA_DIR / "processed" / "llm_cache" / "chunk_classify_chunk_v1.jsonl"  # 시험 20개
+PER_CORP = 10
+SEED = 42
+REVIEWERS = ("A", "B")
+AI_RE = re.compile(settings.AI_TERM_PATTERN)
+CHOICES = ["0", "1", "2", "3", "무관"]
+# 판정 시트 칸 (데이터 칸 → 엑셀 머리글)
+COLS = {"sample_no": "번호", "corp_name": "기업", "report_name": "보고서", "report_date": "접수일",
+        "section": "섹션", "ai_parts": "AI 나오는 부분", "text": "청크 전문", "human_level": "판정", "note": "메모",
+        "chunk_id": "chunk_id"}
+WIDTHS = {"번호": 6, "기업": 12, "보고서": 18, "접수일": 11, "섹션": 22, "AI 나오는 부분": 60, "청크 전문": 80,
+          "판정": 8, "메모": 30, "chunk_id": 22}
+# 공시 판정 보충 (rag/classify_chunks.py 프롬프트와 같은 기준, decisions.md)
+SUPPLEMENT = [
+    "청크 안에 AI 문장이 여러 개면 '대상 기업 자신의 AI' 중 가장 높은 단계로 판정한다 (연혁·표는 항목마다 따로 본다).",
+    "3 은 조건 하나만 맞아도 3: 자체 개발, AI 서비스·기능 출시, 전담 조직, 특허 (숫자가 없어도).",
+    "2 와 3 은 'AI 가 들어간 결과물이 누구의 제품인가'로 가른다. 외부 모델(ChatGPT 등)을 써도 자사 제품·서비스로 출시·제공하면 3, "
+    "외부 완성 솔루션을 쓰기만 하거나 다른 회사(모회사 포함) AI 서비스를 운영 대행하면 2.",
+    "'당사의 ○○ 솔루션'처럼 회사(또는 연결 자회사)가 이름 붙인 솔루션은 자체 솔루션이다.",
+    "시장·업계 전망은 0. 무관은 광고주 상품·캠페인·수상작 이름 속 AI / 영문 단어 속 글자 / AI 가 실제로 없음, 세 경우뿐.",
+    "주어가 회사가 아닌 업계 동향은 '도입·활용·적용'이라는 말이 있어도 0 ('생성형 AI 기술이 광고 최적화 분야에 본격 도입').",
+    "자사 광고 플랫폼·솔루션에 AI(머신러닝 포함)를 접목해 운영·제공하면 협력사 기술을 썼어도 3. 특허 출원·등록은 진행 중이어도 3.",
+    "T deal 같은 다른 회사 AI 서비스 운영 대행은 2, 문장의 중심이 '공동 개발한'이면 3. '○○에 생성형 AI 기술 도입'(업무 개선)은 2.",
+    "구체 서비스·기능 없이 방향만('역량 확보 중', '고도화 추진', 'MOU 를 맺고 추진') 말하면 1.",
+    "청크에 적힌 내용만 본다 (다른 공시·뉴스에서 아는 사실은 반영하지 않는다).",
+]
+R2_FILE = "ai_level_review_r2_B.xlsx"   # 2차 검수 (프롬프트 v7 확인용 새 표본, A·B 합의 판정)
+# 검수가 끝난 뒤 merge 로 1차·2차를 한 파일(ai_level_review_B.xlsx)에 합친다 → 시트 이름이 차수별로 바뀜
+MERGED = "ai_level_review_B.xlsx"
+ROUND_SHEETS = {1: ("1차 안내", "1차 판정", "1차 LLM 정답"), 2: ("2차 안내", "2차 판정", "2차 LLM 정답")}
+R2_PER_CORP = 6
+
+
+def guide_rows() -> list[list[str]]:
+    rows = [["공시 청크 AI 단계 검수", ""],
+            ["하는 법", "'판정' 시트의 '판정' 칸(노란색)에서 0·1·2·3·무관 중 하나를 고른다. 애매하면 '메모'에 이유를 적는다. "
+                     "'AI 나오는 부분'은 AI 용어 앞뒤만 모은 것이고, 전체 문맥은 '청크 전문'에서 본다."],
+            ["주의", "상대 판정이나 LLM 결과를 보지 않고 혼자 판정한다 (일치율을 재기 위해). 이 시트에는 LLM 결과가 없다."],
+            ["", ""], ["[단계]", ""]]
+    rows += [[f"{k} {name}", desc] for k, (name, desc) in LEVELS.items()]
+    rows += [["무관", "회사의 AI 가 아니다 (아래 공시 추가 규칙 참고)"], ["", ""], ["[경계 규칙]", ""]]
+    rows += [["", r] for r in BOUNDARY_RULES]
+    rows += [["", ""], ["[공시 추가 규칙]", ""]] + [["", r] for r in DISCLOSURE_RULES]
+    rows += [["", ""], ["[공시 판정 보충]", ""]] + [["", r] for r in SUPPLEMENT]
+    return rows
+
+
+def write_sheet(path: Path, sheet: pd.DataFrame) -> None:
+    from openpyxl import load_workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.worksheet.datavalidation import DataValidation
+
+    with pd.ExcelWriter(path, engine="openpyxl") as xw:
+        pd.DataFrame(guide_rows()).to_excel(xw, sheet_name="안내", index=False, header=False)
+        sheet.rename(columns=COLS).to_excel(xw, sheet_name="판정", index=False)
+    wb = load_workbook(path)
+    g = wb["안내"]
+    g.column_dimensions["A"].width, g.column_dimensions["B"].width = 20, 120
+    g["A1"].font = Font(bold=True, size=13)
+    for row in g.iter_rows():
+        for c in row:
+            c.alignment = Alignment(wrap_text=True, vertical="top")
+            if str(c.value or "").startswith("["):
+                c.font = Font(bold=True)
+    ws = wb["판정"]
+    ws.freeze_panes = "C2"
+    head, judge = PatternFill("solid", fgColor="DDE5F0"), PatternFill("solid", fgColor="FFF2CC")
+    dv = DataValidation(type="list", formula1='"' + ",".join(CHOICES) + '"', allow_blank=True)
+    ws.add_data_validation(dv)
+    for cell in ws[1]:
+        cell.font, cell.fill = Font(bold=True), head
+        ws.column_dimensions[cell.column_letter].width = WIDTHS.get(cell.value, 12)
+        if cell.value == "판정":
+            cell.fill = judge
+            dv.add(f"{cell.column_letter}2:{cell.column_letter}{ws.max_row}")
+            for c in ws[cell.column_letter][1:]:
+                c.fill = judge
+    for row in ws.iter_rows(min_row=2):
+        for c in row:
+            c.alignment = Alignment(wrap_text=True, vertical="top")
+    wb.save(path)
+
+
+def read_sheet(path: Path, sheet: str = "판정") -> pd.DataFrame:
+    """판정 시트 읽기. 합친 파일이면 sheet(예: '1차 판정'), 합치기 전 파일이면 '판정'"""
+    names = pd.ExcelFile(path).sheet_names
+    d = pd.read_excel(path, sheet_name=sheet if sheet in names else "판정", dtype=str)
+    return d.rename(columns={v: k for k, v in COLS.items()})
+
+
+def label(x) -> str:
+    """DB·시트 값을 '0'~'3' 또는 '무관' 으로 통일 (빈칸은 '')"""
+    if x is None or (isinstance(x, float) and pd.isna(x)):
+        return ""
+    s = str(x).strip().replace("L", "").replace(".0", "")
+    if s in ("무관", "null", "None", "-", "없음"):
+        return "무관"
+    return s if s in ("0", "1", "2", "3") else ""
+
+
+def ai_parts(text: str, width: int = 60) -> str:
+    """AI 용어 앞뒤 width 자씩 잘라 ' / ' 로 잇는다 (겹치는 구간은 합침)"""
+    spans = []
+    for m in AI_RE.finditer(text):
+        a, b = max(0, m.start() - width), min(len(text), m.end() + width)
+        if spans and a <= spans[-1][1]:
+            spans[-1][1] = b
+        else:
+            spans.append([a, b])
+    return " / ".join(text[a:b].replace("\n", " ") for a, b in spans)
+
+
+def make() -> None:
+    con = sqlite3.connect(settings.DB_PATH)
+    df = pd.read_sql(
+        """SELECT k.chunk_id, c.corp_name, d.title AS report_name, k.report_date, k.section, k.text,
+                  k.ai_level, k.ai_domain, k.reason, k.prompt_version
+           FROM disclosure_chunks k
+           JOIN companies c ON c.corp_code = k.corp_code
+           JOIN documents d ON d.doc_id = k.doc_id
+           WHERE k.model IS NOT NULL""", con)
+    if PILOT_CACHE.exists():
+        pilot = {json.loads(line)["key"].split(":")[0] for line in PILOT_CACHE.read_text(encoding="utf-8").splitlines()}
+        df = df[~df.chunk_id.isin(pilot)]
+    df["llm_level"] = df.ai_level.map(lambda x: "무관" if pd.isna(x) else str(int(x)))
+
+    picks = []
+    for corp, g in df.groupby("corp_name"):
+        g = g.sample(frac=1, random_state=SEED)
+        no_mention = g[g.reason.str.startswith("무관(항목 없음)", na=False)]  # LLM 이 AI 문장을 못 찾은 청크는 모두 넣음
+        first = pd.concat([no_mention, g.drop(no_mention.index).groupby("llm_level").head(1)])  # 단계마다 하나씩 먼저
+        rest = g.drop(first.index)
+        picks.append(pd.concat([first, rest]).head(PER_CORP))
+    s = pd.concat(picks).sample(frac=1, random_state=SEED).reset_index(drop=True)  # 기업·단계 순서를 섞음
+    s.insert(0, "sample_no", range(1, len(s) + 1))
+
+    OUT.mkdir(parents=True, exist_ok=True)
+    s["ai_parts"] = s.text.map(ai_parts)  # AI 용어가 나오는 부분만 (판정 보조, LLM 결과 아님)
+    sheet = s[["sample_no", "corp_name", "report_name", "report_date", "section", "ai_parts", "text"]].assign(
+        human_level="", note="", chunk_id=s.chunk_id)  # chunk_id 는 맨 오른쪽 (채점용)
+    for r in REVIEWERS:
+        path = OUT / f"ai_level_review_{r}.xlsx"
+        if path.exists():
+            sys.exit(f"{path} 가 이미 있습니다. 판정 내용을 지우지 않도록 멈춥니다 (다시 만들려면 파일을 옮기고 실행).")
+        write_sheet(path, sheet)
+    s[["sample_no", "chunk_id", "corp_name", "llm_level", "ai_domain", "reason", "prompt_version"]].to_csv(
+        OUT / "ai_level_review_key.csv", index=False, encoding="utf-8-sig")
+    print(f"표본 {len(s)}개 (시험 20개 제외) → {OUT}")
+    print(pd.crosstab(s.corp_name, s.llm_level).to_string())
+
+
+KEY_SHEET = "LLM 정답"
+
+
+def make_round2() -> None:
+    """2차 검수: 프롬프트를 고칠 때 본 표본(시험 20개 + 1차 50개)을 빼고 기업당 R2_PER_CORP 개 새 표본.
+    시트는 하나(A·B 합의 판정), LLM 정답은 같은 파일의 숨김 시트로."""
+    from openpyxl import load_workbook
+    path = OUT / R2_FILE
+    if path.exists():
+        sys.exit(f"{path} 가 이미 있습니다 (판정 보호).")
+    con = sqlite3.connect(settings.DB_PATH)
+    df = pd.read_sql(
+        """SELECT k.chunk_id, c.corp_name, d.title AS report_name, k.report_date, k.section, k.text,
+                  k.ai_level, k.ai_domain, k.reason, k.prompt_version
+           FROM disclosure_chunks k JOIN companies c ON c.corp_code = k.corp_code JOIN documents d ON d.doc_id = k.doc_id
+           WHERE k.model IS NOT NULL""", con)
+    used = set(read_sheet(OUT / MERGED, ROUND_SHEETS[1][1]).chunk_id)
+    if PILOT_CACHE.exists():
+        used |= {json.loads(line)["key"].split(":")[0] for line in PILOT_CACHE.read_text(encoding="utf-8").splitlines()}
+    df = df[~df.chunk_id.isin(used)]
+    df["llm_level"] = df.ai_level.map(lambda x: "무관" if pd.isna(x) else str(int(x)))
+    picks = []
+    for corp, g in df.groupby("corp_name"):
+        g = g.sample(frac=1, random_state=SEED + 1)
+        first = g.groupby("llm_level").head(1)
+        picks.append(pd.concat([first, g.drop(first.index)]).head(R2_PER_CORP))
+    s = pd.concat(picks).sample(frac=1, random_state=SEED + 1).reset_index(drop=True)
+    s.insert(0, "sample_no", range(1, len(s) + 1))
+    s["ai_parts"] = s.text.map(ai_parts)
+    write_sheet(path, s[["sample_no", "corp_name", "report_name", "report_date", "section", "ai_parts", "text"]].assign(
+        human_level="", note="", chunk_id=s.chunk_id))
+    wb = load_workbook(path)
+    ws = wb.create_sheet(KEY_SHEET)
+    key = s[["sample_no", "chunk_id", "corp_name", "llm_level", "ai_domain", "reason", "prompt_version"]]
+    ws.append(list(key.columns))
+    for row in key.itertuples(index=False):
+        ws.append(["" if pd.isna(v) else v for v in row])
+    ws.sheet_state = "hidden"
+    wb.save(path)
+    print(f"2차 표본 {len(s)}개 (시험 20개·1차 50개 제외) → {path}")
+    print(pd.crosstab(s.corp_name, s.llm_level).to_string())
+
+
+def load_key(files: dict | None = None, key_sheet: str = KEY_SHEET) -> pd.DataFrame:
+    """LLM 정답: 판정 파일 안의 정답 시트(합친 파일은 'n차 LLM 정답')가 있으면 그것, 없으면 CSV"""
+    for f in (files or {r: OUT / f"ai_level_review_{r}.xlsx" for r in REVIEWERS}).values():
+        if f.exists():
+            xl = pd.ExcelFile(f)
+            for name in (key_sheet, KEY_SHEET):
+                if name in xl.sheet_names:
+                    return pd.read_excel(xl, sheet_name=name, dtype=str)
+    return pd.read_csv(OUT / "ai_level_review_key.csv", dtype=str)
+
+
+def score(round_no: int = 1) -> None:
+    _, judge_sheet, key_sheet = ROUND_SHEETS[round_no]
+    if (OUT / MERGED).exists() and judge_sheet in pd.ExcelFile(OUT / MERGED).sheet_names:  # 1차·2차를 합친 뒤
+        files = {"B": OUT / MERGED}
+    else:
+        files = {r: OUT / f"ai_level_review_{r}.xlsx" for r in REVIEWERS} if round_no == 1 else {"B": OUT / R2_FILE}
+    key = load_key(files, key_sheet)
+    key["llm"] = key.llm_level.map(label)
+    sheets = {}
+    for r, f in files.items():
+        if f.exists():
+            d = read_sheet(f, judge_sheet)
+            sheets[r] = d.set_index("chunk_id").human_level.map(label)
+    if not sheets:
+        sys.exit("판정 시트가 없습니다")
+
+    m = key.set_index("chunk_id")
+    for r, v in sheets.items():
+        m[r] = v
+    con = sqlite3.connect(settings.DB_PATH)
+    con.execute(f"DELETE FROM review_samples WHERE target = 'ai_level' AND chunk_id IN ({','.join('?' * len(m))})",
+                list(m.index))
+    consensus = list(sheets) == ["B"]  # B 시트 하나 = A·B 합의 판정
+    for r in sheets:
+        who = "AB" if consensus else r
+        done = m[m[r] != ""]
+        acc = (done[r] == done.llm).mean() if len(done) else float("nan")
+        print(f"{'A·B 합의' if consensus else r}: 판정 {len(done)}/{len(m)}, LLM 과 일치 {acc:.0%}")
+        notes = read_sheet(files[r], judge_sheet).set_index("chunk_id").note
+        con.executemany(
+            """INSERT INTO review_samples (chunk_id, target, prompt_version, llm_label, human_label, is_correct, reviewer, note)
+               VALUES (?, 'ai_level', ?, ?, ?, ?, ?, ?)""",
+            [(cid, x.prompt_version, x.llm, x[r], int(x[r] == x.llm), who,
+              None if pd.isna(notes.get(cid)) else notes.get(cid)) for cid, x in done.iterrows()])
+    con.commit()
+
+    # 층화 표본 보정: LLM 단계별 정확도 × 전체 분류 결과에서 그 단계의 비중
+    # 비중은 '채점한 프롬프트 버전'의 분류 결과로 — DB 는 최신 버전만 들고 있으므로, 표본 버전이 다르면 그 버전의 캐시에서 계산
+    # (1차 v6 표본을 v7 DB 분포로 가중하면 81% 로 부풀었음 → v6 분포로 다시 계산, A 리뷰 PR #23)
+    version = key.prompt_version.mode().iloc[0]
+    db = pd.read_sql("SELECT ai_level, prompt_version FROM disclosure_chunks WHERE model IS NOT NULL", con)
+    if (db.prompt_version == version).all():
+        levels = db.ai_level.map(lambda x: "무관" if pd.isna(x) else str(int(x)))
+    else:
+        cache = settings.DATA_DIR / "processed" / "llm_cache" / f"chunk_classify_{version}.jsonl"
+        from rag.classify_chunks import clean   # 분류 때와 같은 규칙 (AI 용어 없는 인용 버림, 문자열 단계도 읽음 — A 리뷰 PR #23)
+        levels = pd.Series([clean(json.loads(line))["ai_level"] for line in cache.read_text(encoding="utf-8").splitlines()])
+        levels = levels.map(lambda x: "무관" if x is None or pd.isna(x) else str(int(x)))
+        print(f"(가중 비중: {version} 분류 결과 {len(levels)}개 — 캐시 {cache.name})")
+    full = levels.value_counts(normalize=True)
+    for r in sheets:
+        done = m[m[r] != ""]
+        by_level = (done[r] == done.llm).groupby(done.llm).mean()
+        w = full.reindex(by_level.index).fillna(0)
+        if w.sum():
+            print(f"{'A·B 합의' if consensus else r}: 전체 단계 비중으로 가중한 LLM 정확도 {(by_level * w).sum() / w.sum():.1%} "
+                  f"(단계별 {by_level.round(2).to_dict()})")
+
+    if all(r in sheets for r in REVIEWERS):
+        both = m[(m.A != "") & (m.B != "")]
+        print(f"A·B 일치 {(both.A == both.B).mean():.0%} ({len(both)}개 중 {(both.A == both.B).sum()}개)")
+        agreed = both[both.A == both.B]
+        print(f"A·B 가 같게 본 {len(agreed)}개 기준 LLM 정확도 {(agreed.A == agreed.llm).mean():.0%}")
+        diff = both[(both.A != both.B) | (both.A != both.llm)]
+        if len(diff):
+            print("\n[어긋난 표본] (회고·규칙 보완용)")
+            print(diff[["sample_no", "corp_name", "llm", "A", "B"]].to_string())
+    print("\n저장: review_samples (target = 'ai_level')")
+
+
+def merge_rounds() -> None:
+    """1차(ai_level_review_B.xlsx)와 2차(R2_FILE) 판정 파일을 한 파일로: 시트 이름 앞에 '1차·2차'를 붙이고 LLM 정답 시트도 보이게.
+    서식(글꼴·색·줄바꿈·열 너비·드롭다운·틀 고정)까지 옮긴다. 2차 파일은 지우지 않는다(확인 후 직접 정리)."""
+    from copy import copy
+    from openpyxl import load_workbook
+    base_path, r2_path = OUT / MERGED, OUT / R2_FILE
+    base = load_workbook(base_path)
+    if ROUND_SHEETS[1][1] in base.sheetnames:
+        sys.exit(f"{MERGED} 은 이미 합친 파일입니다.")
+    for old, new in zip(("안내", "판정", KEY_SHEET), ROUND_SHEETS[1]):
+        if old in base.sheetnames:
+            base[old].title = new
+    r2 = load_workbook(r2_path)
+    for old, new in zip(("안내", "판정", KEY_SHEET), ROUND_SHEETS[2]):
+        src, dst = r2[old], base.create_sheet(new)
+        for row in src.iter_rows():
+            for c in row:
+                d = dst.cell(row=c.row, column=c.column, value=c.value)
+                if c.has_style:
+                    d.font, d.fill, d.alignment, d.border = copy(c.font), copy(c.fill), copy(c.alignment), copy(c.border)
+                    d.number_format = c.number_format
+        for k, dim in src.column_dimensions.items():
+            dst.column_dimensions[k].width = dim.width
+        dst.freeze_panes = src.freeze_panes
+        for dv in src.data_validations.dataValidation:
+            dst.add_data_validation(copy(dv))
+    for name in (ROUND_SHEETS[1][2], ROUND_SHEETS[2][2]):
+        base[name].sheet_state = "visible"   # 검수가 끝났으니 정답 시트를 숨기지 않음
+    base.save(base_path)
+    print(f"→ {base_path.name}: {base.sheetnames}")
+
+
+if __name__ == "__main__":
+    p = argparse.ArgumentParser(description="공시 청크 AI 단계 검수 표본")
+    p.add_argument("action", choices=["make", "score", "make2", "score2", "merge"])
+    a = p.parse_args().action
+    {"make": make, "score": score, "make2": make_round2, "score2": lambda: score(2), "merge": merge_rounds}[a]()

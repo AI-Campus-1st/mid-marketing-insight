@@ -2,7 +2,7 @@
 [B·D7] report_B.md 그래프 3개 만들기 — ①·② 는 DB 에서 바로 읽고, ③ 은 rag/eval_retrieval.py 결과를 옮겨 적음
 (③ 은 질문 임베딩에 API 가 필요해 그래프마다 다시 돌리지 않음. 2026-11-20 다시 돌려 같은 값 확인: 4/10(3) · 7/10(5) · 10/10(10))
 
-    python docs/report/make_b_charts.py  → docs/report/img/b_levels.png · b_verdicts.png · b_retrieval.png
+    python docs/report/make_b_charts.py  → docs/report/img/report_b/b_levels.png · b_verdicts.png · b_retrieval.png
 
 색: 대시보드와 같은 팔레트 (dashboard/theme.py, 색약 검증 도구로 라이트 테마 PASS) — 판정 = 파랑·주황·청록·회색, 단계 = 파랑 진하기
 검색 성능 표(상위 5개 안 · 1위)는 rag/eval_retrieval.py 결과 (report_B.md 5-2 표와 같은 값)
@@ -22,7 +22,7 @@ sys.path.insert(0, str(ROOT))
 from config import settings  # noqa: E402
 from dashboard.theme import LEVEL_NAME, LEVEL_ORDER, PALETTE, VERDICT_LABEL, verdict_ko  # noqa: E402
 
-OUT = ROOT / "docs" / "report" / "img"
+OUT = ROOT / "docs" / "report" / "img" / "report_b"
 C = PALETTE["light"]
 plt.rcParams.update({"font.family": "Apple SD Gothic Neo", "font.size": 11, "axes.unicode_minus": False,
                      "axes.edgecolor": C["grid"], "axes.labelcolor": C["text2"], "xtick.color": C["text2"],

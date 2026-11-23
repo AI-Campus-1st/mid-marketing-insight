@@ -25,6 +25,50 @@
 - 리포트(Q1·Q2·Q3) 맨 위 **리포트 요약**(뉴스 · 공시 · 결론)은 사이드바 필터에 맞춰 다시 계산됩니다 (`dashboard/conclusion.py`). 아래로 스크롤하면 한 번 접히고, 다시 열면 그대로 둡니다.
 - 필터 적용 범위: Q1·Q2·요약 '뉴스' = 기간 · 기업 · 뉴스 카테고리 / Q3 반영 판정·요약 '공시' = 기간(뉴스 발표일 기준) · 기업 / 공시 AI 단계·요약 '결론' = 기업만 (수집 기간 전체 정기공시)
 
+### 전체 화면 캡처
+
+필터는 모두 기본값(전체 기간 · 5개사 · 전체 카테고리)이고, 화면 안의 접기 · 더보기는 모두 펼치고 표는 모든 행이 보이게 찍었습니다. 이름을 누르면 펼쳐집니다. 파일은 [docs/report/img/screens/](docs/report/img/screens/)에 있습니다.
+
+<details><summary>공시 챗봇 (첫 화면)</summary>
+
+![공시 챗봇](docs/report/img/screens/chat.png)
+</details>
+
+<details><summary>기획안 검토 — 입력</summary>
+
+![기획안 검토 입력](docs/report/img/screens/plan.png)
+</details>
+
+<details><summary>기획안 검토 — 결과 (지난 기획안 열기)</summary>
+
+![기획안 검토 결과](docs/report/img/screens/plan_result.png)
+</details>
+
+<details><summary>리포트 › Q1 기사량·급증</summary>
+
+![Q1 기사량·급증](docs/report/img/screens/q1.png)
+</details>
+
+<details><summary>리포트 › Q2 화제 이슈</summary>
+
+![Q2 화제 이슈](docs/report/img/screens/q2.png)
+</details>
+
+<details><summary>리포트 › Q3 공시 반영 — 요약</summary>
+
+![Q3 요약](docs/report/img/screens/q3.png)
+</details>
+
+<details><summary>리포트 › Q3 공시 반영 — 이벤트 타임라인</summary>
+
+![Q3 이벤트 타임라인](docs/report/img/screens/q3_timeline.png)
+</details>
+
+<details><summary>리포트 › Q3 공시 반영 — 공시 AI 단계</summary>
+
+![Q3 공시 AI 단계](docs/report/img/screens/q3_levels.png)
+</details>
+
 ## 리포트
 
 | 무엇 | 어디서 보나 |
@@ -35,7 +79,7 @@
 | 대시보드 '리포트' 메뉴 | 문서가 아니라 분석 화면 — `streamlit run dashboard/app.py` → 사이드바 **리포트** → 맨 위에서 Q1 · Q2 · Q3 선택 (맨 위 '리포트 요약'은 필터에 맞춰 다시 계산) |
 | 설계 결정 기록 | [docs/decisions.md](docs/decisions.md) — 리포트의 데이터 · 분석 · 회고 장의 근거 |
 
-- 최신 리포트는 **`develop` 브랜치**에 있습니다. `main` 에는 마감 때 한 번에 합치므로 그 전까지는 예전 내용입니다.
+- 작업은 **`develop` 브랜치**에서 하고 `main` 에 한 번에 합칩니다. 2026-11-23 에 `main` 에 합쳤습니다 (#80).
 
 ## 폴더 구조
 
